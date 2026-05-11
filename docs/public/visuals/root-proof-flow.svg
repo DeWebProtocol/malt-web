@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 520" role="img" aria-labelledby="title desc">
+  <title id="title">Root-centric MALT read flow</title>
+  <desc id="desc">A reader supplies a trusted root and query to an untrusted gateway, which materializes ArcSets and returns a result plus ProofList for local verification.</desc>
+  <rect width="960" height="520" fill="#ffffff"/>
+  <rect x="56" y="68" width="848" height="384" rx="18" fill="#f8fafc" stroke="#d7dee4" stroke-width="2"/>
+  <text x="84" y="116" fill="#172026" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">Root-relative read, local verification</text>
+  <text x="84" y="150" fill="#43515a" font-family="Inter, Arial, sans-serif" font-size="16">The gateway accelerates retrieval, but correctness is checked against the caller-supplied root.</text>
+
+  <rect x="84" y="214" width="188" height="120" rx="12" fill="#ecfeff" stroke="#0f766e" stroke-width="2"/>
+  <text x="114" y="252" fill="#0f3f3b" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">Reader</text>
+  <text x="114" y="282" fill="#24524e" font-family="Inter, Arial, sans-serif" font-size="14">trusted root</text>
+  <text x="114" y="306" fill="#24524e" font-family="Inter, Arial, sans-serif" font-size="14">query</text>
+
+  <rect x="386" y="190" width="188" height="168" rx="12" fill="#fff7ed" stroke="#ea580c" stroke-width="2"/>
+  <text x="416" y="230" fill="#7c2d12" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">Gateway</text>
+  <text x="416" y="260" fill="#7c2d12" font-family="Inter, Arial, sans-serif" font-size="14">materializes ArcSets</text>
+  <text x="416" y="284" fill="#7c2d12" font-family="Inter, Arial, sans-serif" font-size="14">assembles ProofList</text>
+  <text x="416" y="320" fill="#9a3412" font-family="Inter, Arial, sans-serif" font-size="13">not a head oracle</text>
+
+  <rect x="688" y="214" width="188" height="120" rx="12" fill="#f0fdf4" stroke="#4d7c0f" stroke-width="2"/>
+  <text x="718" y="252" fill="#365314" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">Verifier</text>
+  <text x="718" y="282" fill="#3f6212" font-family="Inter, Arial, sans-serif" font-size="14">root + query</text>
+  <text x="718" y="306" fill="#3f6212" font-family="Inter, Arial, sans-serif" font-size="14">result + ProofList</text>
+
+  <path d="M282 274h92" stroke="#334155" stroke-width="3" stroke-linecap="round"/>
+  <path d="m366 264 16 10-16 10" fill="none" stroke="#334155" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="292" y="250" fill="#43515a" font-family="Inter, Arial, sans-serif" font-size="13">Read(root, query)</text>
+
+  <path d="M584 274h92" stroke="#334155" stroke-width="3" stroke-linecap="round"/>
+  <path d="m668 264 16 10-16 10" fill="none" stroke="#334155" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="586" y="250" fill="#43515a" font-family="Inter, Arial, sans-serif" font-size="13">result + ProofList</text>
+
+  <rect x="214" y="386" width="532" height="40" rx="20" fill="#e2e8f0"/>
+  <text x="248" y="412" fill="#334155" font-family="Inter, Arial, sans-serif" font-size="14">Payload remains ordinary CAS data; structure is authenticated separately.</text>
+</svg>
