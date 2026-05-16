@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vitepress dev docs --host 127.0.0.1",
     "build": "vitepress build docs",
-    "preview": "vitepress preview docs --host 127.0.0.1"
+    "preview": "vitepress preview docs --host 127.0.0.1",
+    "check:content": "node scripts/check-content.mjs",
+    "test": "npm run check:content"
   },
   "devDependencies": {
     "vitepress": "^1.6.4"
