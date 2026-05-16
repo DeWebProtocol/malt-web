@@ -3,6 +3,9 @@
 The MALT gateway is a root-relative materializer and prover. It is a
 performance-critical component, not a correctness authority.
 
+For concrete prototype routes, see [Root-Centric HTTP API](/docs/api). For
+verifier-facing evidence, see [ProofLists](/docs/prooflists).
+
 ## Roles
 
 <div class="malt-flow">
@@ -42,7 +45,8 @@ The gateway does:
 The current prototype exposes root-centric HTTP reads such as:
 
 ```text
-GET /{root}/{path}
+GET|HEAD /{root}/{path...}
+GET /resolve/{root}[/{path...}]
 ```
 
 Successful file, directory, and range reads can carry verifier-facing proof
@@ -56,3 +60,7 @@ Vary: X-Malt-Proof
 
 Clients that only need bytes can opt out of default proof generation with
 `?proof=false` or `X-Malt-Proof: omit`.
+
+Root-scoped writes and root creation are documented in the
+[HTTP API](/docs/api). The gateway still does not own authoritative heads or
+freshness policy.

@@ -4,6 +4,11 @@ A public MALT service can be useful before MALT becomes a full product. The
 important rule is to keep service conveniences separate from MALT core
 correctness.
 
+The current static documentation is split between the
+[research narrative](/narrative/problem) and [technical docs](/docs/runtime).
+This page describes what should stay outside MALT core if a managed service is
+added later.
+
 ## Recommended First Service
 
 Start with a hosted gateway for explicit-root reads:
@@ -22,6 +27,8 @@ This service can provide:
 
 It should not claim to provide global freshness or latest-head discovery unless
 an application publication layer is added.
+
+For the current root-centric API surface, see [Root-Centric HTTP API](/docs/api).
 
 ## Future Product Surface
 

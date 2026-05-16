@@ -1,11 +1,18 @@
 # MALT Design Overview
 
-MALT is an authenticated mutable structure layer over immutable
-content-addressed storage.
+MALT is an authenticated graph semantic layer over immutable content-addressed
+storage.
 
 Payload remains ordinary CAS content identified by CIDs. MALT defines how the
-mutable structure above those payload CIDs is expressed, persisted,
+evolving structure above those payload CIDs is expressed, persisted,
 authenticated, read, written, and verified.
+
+The website has two main lanes:
+
+- [Research Narrative](/narrative/problem): problem framing, abstraction,
+  system design, and evaluation story.
+- [Technical Docs](/docs/runtime): current prototype status, HTTP API,
+  ProofLists, UnixFS layout, and benchmark protocol.
 
 ## Core Claim
 
@@ -74,3 +81,11 @@ MALT core does not choose the latest root, publish authoritative heads,
 guarantee freshness, arbitrate multi-writer conflicts, provide global
 availability, or define tenant and quota policy. Those are application or
 deployment concerns built around MALT.
+
+## Where to Go Next
+
+- [Problem: Structure Embedded in Identity](/narrative/problem)
+- [MALT Abstraction](/narrative/abstraction)
+- [Root-Centric HTTP API](/docs/api)
+- [ProofLists](/docs/prooflists)
+- [MALT UnixFS Layout](/docs/unixfs-layout)

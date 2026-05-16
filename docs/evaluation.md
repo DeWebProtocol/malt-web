@@ -1,4 +1,12 @@
-# Evaluation Plan
+# Evaluation
+
+MALT evaluation has two public documentation layers:
+
+- [Evaluation Story](/narrative/evaluation-story): research framing for read
+  latency, write amplification, cost breakdown, sensitivity studies, and
+  semantic reachability.
+- [Benchmark Protocol](/docs/evaluation): current `malt-eval` command shape,
+  systems, operations, metrics, and artifact caveats.
 
 The main quantitative evaluation focuses on read latency and write
 amplification. Cost breakdown explains the results; it is not a separate main
@@ -62,3 +70,6 @@ fetch encrypted parent -> decrypt -> parse child link -> fetch encrypted child
 The encrypted setting tests the deployment assumption that embedded Merkle-DAG
 links can create sequential reveal dependencies when the storage service cannot
 inspect plaintext structure.
+
+See [Benchmark Protocol](/docs/evaluation) for the current implemented
+`malt-eval read` and `malt-eval write` entrypoints.

@@ -3,6 +3,9 @@
 ArcTable and commitment backends support the semantic layer, but they do not
 replace it.
 
+For the full design narrative, see [System Design](/narrative/system-design).
+For current package roles, see [Runtime and Prototype Status](/docs/runtime).
+
 ## ArcTable
 
 ArcTable provides root-recoverable arcset persistence and materialization:

@@ -22,17 +22,39 @@ export default defineConfig({
   themeConfig: {
     logo: '/visuals/malt-mark.svg',
     nav: [
-      { text: 'Design', link: '/overview' },
-      { text: 'Concepts', link: '/concepts/roots' },
+      { text: 'Overview', link: '/overview' },
+      { text: 'Narrative', link: '/narrative/problem' },
+      { text: 'Docs', link: '/docs/runtime' },
       { text: 'Gateway', link: '/gateway' },
-      { text: 'Service', link: '/service' },
-      { text: 'Evaluation', link: '/evaluation' }
+      { text: 'Service', link: '/service' }
     ],
     sidebar: [
       {
-        text: 'Design',
+        text: 'Overview',
+        items: [{ text: 'MALT Design Overview', link: '/overview' }]
+      },
+      {
+        text: 'Research Narrative',
         items: [
-          { text: 'Overview', link: '/overview' },
+          { text: 'Problem', link: '/narrative/problem' },
+          { text: 'Abstraction', link: '/narrative/abstraction' },
+          { text: 'System Design', link: '/narrative/system-design' },
+          { text: 'Evaluation Story', link: '/narrative/evaluation-story' }
+        ]
+      },
+      {
+        text: 'Technical Docs',
+        items: [
+          { text: 'Runtime and Prototype', link: '/docs/runtime' },
+          { text: 'HTTP API', link: '/docs/api' },
+          { text: 'ProofLists', link: '/docs/prooflists' },
+          { text: 'UnixFS Layout', link: '/docs/unixfs-layout' },
+          { text: 'Benchmark Protocol', link: '/docs/evaluation' }
+        ]
+      },
+      {
+        text: 'Concepts',
+        items: [
           { text: 'Roots and Proofs', link: '/concepts/roots' },
           { text: 'List and Map Semantics', link: '/concepts/list-map' },
           { text: 'ArcTable and Commitments', link: '/concepts/arctable' }
@@ -46,8 +68,12 @@ export default defineConfig({
         ]
       },
       {
-        text: 'Research',
-        items: [{ text: 'Evaluation Plan', link: '/evaluation' }]
+        text: 'Evaluation',
+        items: [
+          { text: 'Evaluation Bridge', link: '/evaluation' },
+          { text: 'Evaluation Story', link: '/narrative/evaluation-story' },
+          { text: 'Benchmark Protocol', link: '/docs/evaluation' }
+        ]
       }
     ],
     socialLinks: [

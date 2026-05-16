@@ -3,6 +3,10 @@
 MALT is root-centric. A root is the verifier-facing handle for one committed
 semantic structure snapshot.
 
+For the fuller system model, see [Gateway Model](/gateway). For current
+transport details, see [Root-Centric HTTP API](/docs/api) and
+[ProofLists](/docs/prooflists).
+
 ## Root-Centric Read
 
 ```text

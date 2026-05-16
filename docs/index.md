@@ -3,23 +3,23 @@ layout: home
 
 hero:
   name: MALT
-  text: Authenticated mutable structure over immutable CAS
-  tagline: MALT separates payload identity from structure semantics so evolving graphs can be read, updated, and verified without encoding every relation as an embedded Merkle-DAG edge.
+  text: Authenticated graph semantics over immutable CAS
+  tagline: MALT separates payload identity from list/map structure semantics so evolving graphs can be read, updated, and verified without encoding every relation as an embedded Merkle-DAG edge.
   actions:
     - theme: brand
-      text: Read the design
-      link: /overview
+      text: Research narrative
+      link: /narrative/problem
     - theme: alt
-      text: Gateway model
-      link: /gateway
+      text: Technical docs
+      link: /docs/runtime
 
 features:
-  - title: Root-centric correctness
-    details: Readers verify result plus ProofList against an explicit trusted root. The gateway does not publish heads or decide freshness.
-  - title: List and map semantics
-    details: List models indexed or ranged child references. Map models authenticated keyed relations and exact binding proofs.
-  - title: CAS payload boundary
-    details: Payload stays ordinary content-addressed data. MALT commits and proves the mutable structure above it.
+  - title: Research narrative
+    details: Problem framing, abstraction, system design, and evaluation story aligned with the current paper memory.
+  - title: Technical docs
+    details: Runtime status, root-centric HTTP routes, ProofList transport, UnixFS layout, and benchmark protocol.
+  - title: Root-centric verification
+    details: Readers verify result plus ProofList against an explicit trusted root. Gateways do not publish heads or decide freshness.
 ---
 
 <script setup>
@@ -47,16 +47,16 @@ import { withBase } from 'vitepress'
   </div>
   <div class="malt-strips">
     <div class="malt-strip">
-      <strong>Writer</strong>
-      <span>Converts source data into semantic mutations, computes a new root, and publishes that root through application policy.</span>
+      <strong>Research narrative</strong>
+      <span>Follow the problem, abstraction, system design, and evaluation story for MALT as a systems research project.</span>
     </div>
     <div class="malt-strip">
-      <strong>Gateway</strong>
-      <span>Materializes ArcSets and assembles ProofLists for explicit roots. It is a performance component, not a trust root.</span>
+      <strong>Technical docs</strong>
+      <span>Read the current prototype surface: CLI, HTTP API, ProofLists, UnixFS layout, and benchmark protocol.</span>
     </div>
     <div class="malt-strip">
-      <strong>Reader</strong>
-      <span>Obtains a trusted root, queries any gateway, and verifies root + query + result + ProofList locally.</span>
+      <strong>Gateway model</strong>
+      <span>Understand the root-centric gateway contract: materialize explicit roots and return result + ProofList.</span>
     </div>
   </div>
 </section>

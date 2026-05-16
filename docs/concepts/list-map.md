@@ -3,6 +3,9 @@
 MALT exposes authenticated structure through semantic abstractions, not through
 runtime graph objects.
 
+For the research framing, see [MALT Abstraction](/narrative/abstraction). For
+the current UnixFS application layout, see [MALT UnixFS Layout](/docs/unixfs-layout).
+
 ## List
 
 `list` describes complex graph nodes with ordered, indexed, or ranged child
