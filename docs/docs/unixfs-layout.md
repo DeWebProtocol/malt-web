@@ -22,32 +22,37 @@ In pure MALT structure UnixFS:
 Payload and chunks remain ordinary CAS data. MALT authenticates the structure
 that binds paths, payloads, and chunk lists together.
 
-## Flat Layout
+## Current MALT Layout Flags
 
-`flat` is the default MALT UnixFS layout.
+`flat` and `hierarchical` are the current user-facing MALT UnixFS layout names.
+`flat` is the default.
 
-In flat layout, full path bindings are kept in one root map and ordinary
-directory manifests list names. This maximizes update locality and deliberately
-gives up per-directory authentication boundaries for ordinary directories.
+In the current `malt add` implementation, both names use the same staged hybrid
+materialization path:
 
-Flat layout is useful for evaluating how far MALT can push authenticated file
-and directory behavior without parent-reference propagation.
+- ordinary directories are materialized as authenticated map roots
+- directory/root maps also keep descendant full-path bindings
+- path lookup can use longest-prefix reads that skip intermediate maps
+- directory manifests list names as CAS payloads
 
-## Hierarchical Layout
+This current behavior is not a pure separation between `flat` root-map
+materialization and `hierarchical` per-directory materialization. That split is
+a design and evaluation dimension to stabilize separately.
 
-`hierarchical` materializes directories as authenticated map roots and lets
-path lookup cross root boundaries.
+## Intended Layout Split
 
-This preserves per-layer authentication boundaries, but it reintroduces more
-parent-reference propagation than flat layout. It is useful when directory
-boundaries are semantically important.
+The intended terminology remains:
+
+- `flat`: full-path root-map materialization for update locality and shallow
+  lookup
+- `hierarchical`: directory/root-boundary materialization for explicit
+  per-directory authentication boundaries
 
 ## Symlink Directory Boundary
 
-Even under flat MALT UnixFS, a symlink whose target is a directory is
-materialized as an authenticated map boundary. This lets symlinked directory
-mounts become explicit authenticated subroots without changing the default flat
-behavior for ordinary directories.
+A symlink whose target is a directory is materialized as an authenticated map
+boundary in the current staged path. This lets symlinked directory mounts become
+explicit authenticated subroots.
 
 ## Merkle-DAG UnixFS Terminology
 

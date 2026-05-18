@@ -16,7 +16,7 @@ The core read shape is:
 
 ```text
 Read(root, path/query) -> destination + proof/evidence
-Read(root, range query) -> selected bytes + range-covering proof/evidence
+Read(root, range query) -> selected bytes + composed range evidence
 ```
 
 Metrics should include:

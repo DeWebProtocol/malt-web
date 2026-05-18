@@ -14,6 +14,10 @@ Current readbench systems:
 - `merkledag`: IPLD UnixFS with basic directory materialization
 - `hamt`: IPLD UnixFS with HAMT directory materialization
 
+`maltflat` is the current benchmark system identifier for the MALT UnixFS path.
+It does not mean the current implementation has a behaviorally separate pure
+flat materialization from `layout=hierarchical`.
+
 The read command selects systems with:
 
 ```text
@@ -24,6 +28,19 @@ The compact system list is `maltflat,merkledag,hamt`.
 
 HAMT is a directory/map-relation baseline. It is not the large-file content
 layout baseline.
+
+## Framework Runner
+
+Current framework entrypoint:
+
+```text
+malt-eval run --plan <plan.json> [--out <dir>] [--run-id <id>]
+```
+
+The run directory contains raw suite JSONL envelopes, `manifest.json`, logs,
+and generated summary CSVs. `malt-eval schema` lists or prints embedded schemas
+for run plans, run manifests, write traces, read queries, CAS cost-model
+records, proof overhead, storage overhead, and common envelope fields.
 
 ## Read Latency
 
@@ -47,7 +64,7 @@ Current operations:
   target plus `ProofList` evidence for MALT, or comparable traversal evidence
   for IPLD baselines
 - `content_range`: reads a range from the deterministic large file and returns
-  bytes plus range-covering `ProofList` evidence for MALT, or comparable
+  bytes plus composed list-index `ProofList` evidence for MALT, or comparable
   traversal evidence for IPLD baselines
 
 Required read metrics include:
@@ -68,6 +85,12 @@ blocks needed for verifier-side reconstruction.
 Current entrypoint:
 
 ```text
+malt-eval run --plan <plan.json>
+```
+
+Focused helper entrypoint:
+
+```text
 malt-eval write \
   --repo-path <repo> | --repo-url <url> \
   --repo-ref <ref> \
@@ -81,6 +104,9 @@ malt-eval write \
 Each JSONL record corresponds to one system after one source commit. The source
 commit supplies live files, live payload bytes, file and directory counts, path
 depths, and file mutations.
+
+The current write-trace schema is checked in as
+`cmd/eval/schemas/write-trace-result.schema.json`.
 
 Required write metrics include:
 
@@ -106,5 +132,6 @@ record machine profile, OS, CPU, memory, Go version, CAS latency configuration,
 warmup policy, run count, and statistical aggregation policy.
 
 Before using results in a paper claim, the project still needs refreshed
-three-system artifacts, write schema coverage, reproducible runner metadata,
-and aggregate report generation.
+three-system artifacts, framework run outputs, repeated measurements,
+workload-lock metadata, backend/config labels, and statistical aggregation on
+top of the generated summary CSVs.

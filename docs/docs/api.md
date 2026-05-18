@@ -33,6 +33,22 @@ POST /{root}/_mutate
 /{root}/_mutate` is the root-scoped semantic mutation path. Both use the
 gateway materialization boundary instead of exposing mutable public heads.
 
+## Auxiliary Routes
+
+The daemon also exposes runtime support endpoints:
+
+```text
+GET /health
+GET /metrics
+POST /metrics:reset
+POST /verify
+```
+
+`/metrics` and `/metrics:reset` support local evaluation counter collection.
+`/verify` is the daemon-side verification helper used by clients that want to
+delegate compatibility verification checks, while the core correctness model
+still assumes clients can verify locally against the selected root.
+
 ## Proof Transport
 
 Proof-bearing content reads use response headers:

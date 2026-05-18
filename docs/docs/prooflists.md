@@ -22,7 +22,7 @@ include:
 - exact binding proofs
 - terminal `@payload` proofs
 - list index proofs
-- list range-covering proofs
+- composed list-index evidence for range reads
 - blob binding evidence as needed by the layout
 
 The gateway is not trusted for correctness. If it returns an inconsistent

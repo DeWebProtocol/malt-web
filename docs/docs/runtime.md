@@ -25,6 +25,10 @@ helpers are not part of the public command surface.
 
 Evaluation commands live under the separate `malt-eval` binary:
 
+- `malt-eval run`: execute a JSON evaluation plan and write a structured run
+  directory
+- `malt-eval schema`: list or print embedded evaluator JSON schemas
+- `malt-eval summarize`: regenerate figure CSVs from framework raw envelopes
 - `malt-eval read`: run root-relative read benchmarks across MALT and IPLD
   baselines
 - `malt-eval write`: replay source-domain mutation traces for write
@@ -32,8 +36,11 @@ Evaluation commands live under the separate `malt-eval` binary:
 - `malt-eval metrics`: inspect or collect evaluation metrics
 
 The current read runner can emit records for `maltflat`, `merkledag`, and
-`hamt` over the same deterministic fixture. Write replay exists as an initial
-entrypoint and still needs paper-result artifact gates before claims are made.
+`hamt` over the same deterministic fixture. The framework runner writes raw
+JSONL envelopes, `manifest.json`, and generated summary CSVs. Write replay now
+has checked-in result schema coverage; paper claims still require refreshed
+artifacts, repeated runs, workload-lock metadata, and explicit backend/config
+labels.
 
 ## Package Roles
 

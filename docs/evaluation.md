@@ -20,6 +20,10 @@ Primary systems:
 - `IPLD UnixFS`: implicit Merkle-DAG baseline
 - `IPLD UnixFS + HAMT`: strong large-directory authenticated-map baseline
 
+`MALT-flat` is the benchmark label for the current MALT UnixFS path. It should
+not be read as a claim that the current implementation already separates pure
+flat and pure hierarchical MALT materialization.
+
 HAMT is a directory or map-relation baseline. It is not the large-file content
 layout baseline.
 
@@ -58,7 +62,7 @@ Read(root, path/query) -> destination + proof/evidence
 Range or partial read:
 
 ```text
-Read(root, range query) -> selected bytes + range-covering proof/evidence
+Read(root, range query) -> selected bytes + composed range evidence
 ```
 
 Encrypted private-CAS read:
@@ -72,4 +76,4 @@ links can create sequential reveal dependencies when the storage service cannot
 inspect plaintext structure.
 
 See [Benchmark Protocol](/docs/evaluation) for the current implemented
-`malt-eval read` and `malt-eval write` entrypoints.
+`malt-eval run`, `malt-eval read`, and `malt-eval write` entrypoints.
