@@ -62,8 +62,12 @@ Read(root, path/query) -> destination + proof/evidence
 Range or partial read:
 
 ```text
-Read(root, range query) -> selected bytes + composed range evidence
+Read(root, byte range) -> selected bytes + path/payload proof + index proofs
 ```
+
+The target verifier model also includes explicit file-layout metadata proof for
+mapping byte ranges to list indexes; that metadata step is still a ProofList
+schema item in the current prototype.
 
 Encrypted private-CAS read:
 

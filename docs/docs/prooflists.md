@@ -25,6 +25,11 @@ include:
 - composed list-index evidence for range reads
 - blob binding evidence as needed by the layout
 
+The target verifier model for byte ranges also includes explicit file-layout
+metadata proof, such as `@size` and `@chunksize`. The current prototype stores
+and internally verifies that metadata, but the public ProofList schema still
+needs explicit metadata steps and response-body range binding.
+
 The gateway is not trusted for correctness. If it returns an inconsistent
 result, stale materialization, or a forged transcript, verification fails.
 

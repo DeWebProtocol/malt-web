@@ -146,8 +146,7 @@ Pages:
 Use these terms consistently:
 
 - MALT is an authenticated graph semantic layer over immutable CAS payloads.
-- `list` describes complex graph nodes with ordered/indexed/ranged child
-  references.
+- `list` describes complex graph nodes with ordered/indexed child references.
 - `map` describes authenticated keyed/path-like relations among graph nodes.
 - ArcTable is root-recoverable arcset persistence/materialization and is not a
   trust root.

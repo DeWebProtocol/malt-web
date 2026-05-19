@@ -43,18 +43,21 @@ ArcEntry {
 }
 ```
 
-Entries are sorted by canonical coordinate bytes. Duplicate coordinates are
-rejected. Coordinates are encoded by the semantic layer, not by ArcTable.
+Entries are sorted by canonical coordinate bytes. A well-formed ArcSet has at
+most one target per coordinate. Conflicting bindings for the same coordinate are
+invalid inputs; equivalent duplicate input may be rejected or collapsed before
+canonicalization. Coordinates are encoded by the semantic layer, not by
+ArcTable.
 
 ## List Semantic
 
-`list` describes complex graph nodes with ordered, indexed, or ranged child
-references.
+`list` describes complex graph nodes with ordered or indexed child references.
 
-Native reads:
+Read semantics:
 
-- index query
-- range query
+- first-class index query
+- logical range read over index intervals, represented in the current prototype
+  by path/`@payload` proof plus per-index list proofs
 - length-aware proof
 
 Native writes:
@@ -64,8 +67,12 @@ Native writes:
 - truncate
 
 List does not define path-resolution semantics. A file layout can translate
-byte ranges into list range reads, but the list semantic itself is about
-ordered child references.
+byte ranges into chunk index intervals. The target verifier model combines
+file-layout metadata proof with the relevant per-index list proofs; the current
+prototype already emits path/`@payload` proof plus list-index proofs, while
+explicit `@size`/`@chunksize` metadata proof remains a ProofList-schema TODO.
+The current prototype does not expose a first-class cryptographic range-proof
+API.
 
 ## Map Semantic
 

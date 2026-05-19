@@ -32,7 +32,7 @@ semantic-layer representations.
 
 The semantic layer is the architectural center.
 
-- `list` describes ordered, indexed, or ranged child references.
+- `list` describes ordered or indexed child references.
 - `map` describes authenticated keyed or path-like relations.
 - every map semantic object carries the reserved `@payload` binding.
 

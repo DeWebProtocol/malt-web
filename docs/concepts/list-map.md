@@ -8,13 +8,13 @@ the current UnixFS application layout, see [MALT UnixFS Layout](/docs/unixfs-lay
 
 ## List
 
-`list` describes complex graph nodes with ordered, indexed, or ranged child
-references.
+`list` describes complex graph nodes with ordered or indexed child references.
 
-Native reads:
+Read semantics:
 
-- index query
-- range query
+- first-class index query
+- logical range read over index intervals, represented in the current prototype
+  by path/`@payload` proof plus per-index list proofs
 - length-aware proof
 
 Native writes:
@@ -24,7 +24,12 @@ Native writes:
 - truncate
 
 List does not define path-resolution semantics. File layouts translate byte
-ranges into list range reads.
+ranges into chunk index intervals. The target verifier model combines
+file-layout metadata proof with the relevant per-index list proofs; the current
+prototype already emits path/`@payload` proof plus list-index proofs, while
+explicit `@size`/`@chunksize` metadata proof remains a ProofList-schema TODO.
+The current prototype does not expose a first-class cryptographic range-proof
+API.
 
 ## Map
 

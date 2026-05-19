@@ -52,5 +52,8 @@ ArcEntry {
 }
 ```
 
-Entries are sorted by canonical coordinate bytes. Duplicate coordinates are
-rejected. Coordinates are encoded by list or map semantics, not by ArcTable.
+Entries are sorted by canonical coordinate bytes. A well-formed ArcSet has at
+most one target per coordinate. Conflicting bindings for the same coordinate are
+invalid inputs; equivalent duplicate input may be rejected or collapsed before
+canonicalization. Coordinates are encoded by list or map semantics, not by
+ArcTable.
