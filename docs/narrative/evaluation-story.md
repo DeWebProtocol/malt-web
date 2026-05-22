@@ -16,12 +16,13 @@ The core read shape is:
 
 ```text
 Read(root, path/query) -> destination + proof/evidence
-Read(root, byte range) -> selected bytes + path/payload proof + index proofs
+Read(root, byte range) -> selected bytes + path/payload proof + list_range evidence
 ```
 
-The target verifier model also includes explicit file-layout metadata proof for
-mapping byte ranges to list indexes; that metadata step is still a ProofList
-schema item in the current prototype.
+The current MALT path uses measured-list `list_range` evidence for large-file
+range reads. The step carries authenticated fixed chunk metadata, covered
+segment CIDs, and metadata/index proof payload. Response-body range binding
+remains a ProofList-schema item to formalize.
 
 Metrics should include:
 

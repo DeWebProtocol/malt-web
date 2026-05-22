@@ -105,7 +105,7 @@ In the current MALT UnixFS direction:
 - large-file `@payload` points to a list node
 - list entries are chunk CIDs
 - path lookup composes map reads
-- range load composes list reads
+- large-file range load uses measured-list range evidence over chunk CIDs
 
 This layout demonstrates that the semantic layer can support practical file
 and directory behavior while keeping payload identity unchanged.

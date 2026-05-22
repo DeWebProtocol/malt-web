@@ -17,7 +17,7 @@ In pure MALT structure UnixFS:
 - large-file `@payload` points to a list node
 - list entries are chunk CIDs
 - path lookup composes map reads
-- file range load composes list reads
+- large-file range load uses measured-list range evidence over chunk CIDs
 
 Payload and chunks remain ordinary CAS data. MALT authenticates the structure
 that binds paths, payloads, and chunk lists together.

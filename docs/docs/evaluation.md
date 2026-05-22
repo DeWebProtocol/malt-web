@@ -64,8 +64,8 @@ Current operations:
   target plus `ProofList` evidence for MALT, or comparable traversal evidence
   for IPLD baselines
 - `content_range`: reads a range from the deterministic large file and returns
-  bytes plus composed list-index `ProofList` evidence for MALT, or comparable
-  traversal evidence for IPLD baselines
+  bytes plus measured-list `list_range` `ProofList` evidence for MALT, or
+  comparable traversal evidence for IPLD baselines
 
 Required read metrics include:
 

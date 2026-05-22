@@ -13,8 +13,8 @@ the current UnixFS application layout, see [MALT UnixFS Layout](/docs/unixfs-lay
 Read semantics:
 
 - first-class index query
-- logical range read over index intervals, represented in the current prototype
-  by path/`@payload` proof plus per-index list proofs
+- optional measured range query over byte intervals when the implementation
+  authenticates byte-layout metadata
 - length-aware proof
 
 Native writes:
@@ -24,12 +24,11 @@ Native writes:
 - truncate
 
 List does not define path-resolution semantics. File layouts translate byte
-ranges into chunk index intervals. The target verifier model combines
-file-layout metadata proof with the relevant per-index list proofs; the current
-prototype already emits path/`@payload` proof plus list-index proofs, while
-explicit `@size`/`@chunksize` metadata proof remains a ProofList-schema TODO.
-The current prototype does not expose a first-class cryptographic range-proof
-API.
+ranges into list queries. The current fixed-width measured list authenticates
+`child_count`, `total_size`, and `chunk_size` metadata and emits range evidence
+as path/`@payload` proof plus one measured-list `list_range` step carrying
+metadata, covered segment CIDs, and metadata/index proofs. The current
+prototype does not expose a first-class cryptographic range-proof API.
 
 ## Map
 

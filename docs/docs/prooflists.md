@@ -22,13 +22,15 @@ include:
 - exact binding proofs
 - terminal `@payload` proofs
 - list index proofs
-- composed list-index evidence for range reads
+- measured-list `list_range` evidence for range reads
 - blob binding evidence as needed by the layout
 
-The target verifier model for byte ranges also includes explicit file-layout
-metadata proof, such as `@size` and `@chunksize`. The current prototype stores
-and internally verifies that metadata, but the public ProofList schema still
-needs explicit metadata steps and response-body range binding.
+For list-backed byte ranges, the current implementation resolves the path and
+terminal `@payload` binding, then appends one measured-list `list_range` step.
+That step carries authenticated fixed chunk metadata, the segment CIDs covering
+the requested range, and a proof payload composed from metadata and index
+proofs. Response-body range binding remains a ProofList-schema item to
+formalize.
 
 The gateway is not trusted for correctness. If it returns an inconsistent
 result, stale materialization, or a forged transcript, verification fails.
