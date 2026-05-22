@@ -33,6 +33,83 @@ POST /{root}/_mutate
 /{root}/_mutate` is the root-scoped semantic mutation path. Both use the
 gateway materialization boundary instead of exposing mutable public heads.
 
+## Semantic Mutation Contract
+
+`POST /{root}/_mutate` accepts layout-produced semantic mutations. The request
+body carries canonical arc deltas, not source-domain file operations:
+
+```json
+{
+  "deltas": [
+    {
+      "object": "<existing map/list root, omitted for creation>",
+      "expected_root": "<optional replay check root>",
+      "kind": "map",
+      "changes": [
+        {
+          "path": "@payload",
+          "before": { "target": "<old CID>", "target_kind": "cas" },
+          "after": { "target": "<new CID>", "target_kind": "list" }
+        }
+      ]
+    },
+    {
+      "kind": "list",
+      "changes": [
+        {
+          "index": 0,
+          "after": { "target": "<chunk CID>", "target_kind": "cas" }
+        }
+      ],
+      "commit": {
+        "fixed_list": {
+          "total_size": 1048576,
+          "chunk_size": 262144
+        }
+      }
+    }
+  ]
+}
+```
+
+Each delta applies to one semantic object. `kind` selects the coordinate
+domain: map deltas use canonical path/key coordinates through `path`, while
+list deltas use canonical index coordinates through `index`. `before` and
+`after` describe one coordinate transition; omitting `before` means the
+coordinate is expected to be absent, and omitting `after` means deletion.
+
+Targets are typed references. `target_kind` may be `cas`, `map`, `list`, or
+`unknown`; omitting it keeps the target CID but treats the semantic target type
+as unknown for compatibility. The optional `commit.fixed_list` descriptor is
+valid only for list deltas. It lets large-file UnixFS materialization replay a
+measured fixed-width list root with the committed `total_size` and
+`chunk_size`.
+
+`expected_root` is an optional replay guard. When present, the gateway checks
+that applying the delta reproduces the layout or writer's expected semantic
+root. It is not a head publication or freshness mechanism.
+
+The response is a materialization receipt:
+
+```json
+{
+  "base_root": "<request root>",
+  "new_root": "<resulting root>",
+  "result_root": "<resulting root>",
+  "delta_count": 2,
+  "arc_count": 3,
+  "malt_object_count": 2,
+  "map_count": 1,
+  "list_count": 1
+}
+```
+
+The receipt counts are operational accounting. `delta_count` counts semantic
+object deltas, `arc_count` counts canonical coordinate changes, and
+`map_count` / `list_count` count deltas by semantic kind. These counts help
+storage and evaluation accounting; they are not verifier evidence and do not
+replace root recomputation or ProofList verification.
+
 ## Auxiliary Routes
 
 The daemon also exposes runtime support endpoints:

@@ -91,6 +91,8 @@ Materialize(newRoot, ArcSets) -> materializationReceipt
 ```
 
 The materialization receipt is operational metadata, not a correctness object.
+The current prototype's concrete write payload is documented in the
+[Semantic Mutation Contract](/docs/api#semantic-mutation-contract).
 
 ## UnixFS as a Layout
 

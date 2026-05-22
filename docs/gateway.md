@@ -62,5 +62,6 @@ Clients that only need bytes can opt out of default proof generation with
 `?proof=false` or `X-Malt-Proof: omit`.
 
 Root-scoped writes and root creation are documented in the
-[HTTP API](/docs/api). The gateway still does not own authoritative heads or
-freshness policy.
+[HTTP API](/docs/api), including the
+[Semantic Mutation Contract](/docs/api#semantic-mutation-contract). The gateway
+still does not own authoritative heads or freshness policy.

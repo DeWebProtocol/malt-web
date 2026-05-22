@@ -21,6 +21,29 @@ The current public `malt` CLI is intentionally small:
 The product path goes through daemon-client APIs. Removed direct in-process
 helpers are not part of the public command surface.
 
+## Mutation Materialization
+
+The current write boundary is root-scoped semantic mutation materialization.
+Application layouts produce canonical arc deltas and submit them through the
+gateway; the gateway applies those deltas to map/list semantic backends and
+returns a materialization receipt.
+
+Current mutation payloads are typed by semantic object kind:
+
+- map deltas use canonical path/key coordinates
+- list deltas use canonical index coordinates
+- targets carry `cas`, `map`, `list`, or `unknown` target kinds
+- large-file UnixFS list creation may include an optional fixed-list commit
+  descriptor with `total_size` and `chunk_size`
+
+The receipt reports delta, arc, map, and list counts for operational
+accounting. These counts are useful for storage and evaluation reporting, but
+they are not correctness evidence. Verification still comes from roots,
+semantic commitments, and ProofLists.
+
+For the concrete HTTP request and response shape, see the
+[Semantic Mutation Contract](/docs/api#semantic-mutation-contract).
+
 ## Evaluation CLI
 
 Evaluation commands live under the separate `malt-eval` binary:

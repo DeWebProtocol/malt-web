@@ -75,6 +75,9 @@ Materialize(newRoot, ArcSets) -> materializationReceipt
 The materialization receipt is operational metadata. It is not a correctness
 object and does not make the gateway the owner of a head.
 
+The current prototype exposes this write boundary as root-scoped canonical arc
+deltas; see the [Semantic Mutation Contract](/docs/api#semantic-mutation-contract).
+
 ## What MALT Does Not Own
 
 MALT core does not choose the latest root, publish authoritative heads,
