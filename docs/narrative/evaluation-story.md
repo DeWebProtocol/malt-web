@@ -62,7 +62,7 @@ hidden in a later breakdown.
 
 Cost breakdown explains the end-to-end results.
 
-For reads, useful components include gateway/runtime dispatch, ArcTable lookup,
+For reads, useful components include server/runtime dispatch, ArcTable lookup,
 commitment prove, CAS fetch, and client verification.
 
 For writes, useful components include layout translation, semantic mutation,

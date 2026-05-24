@@ -1,6 +1,6 @@
 # System Design
 
-MALT realizes the abstraction as a root-centric, gateway-accelerated,
+MALT realizes the abstraction as a root-centric, server-assisted,
 client-verifiable structure layer over immutable CAS payloads.
 
 ## Layering
@@ -36,9 +36,9 @@ The semantic layer is the architectural center.
 - `map` describes authenticated keyed or path-like relations.
 - every map semantic object carries the reserved `@payload` binding.
 
-Layouts and gateways use list/map semantics instead of treating the runtime
-graph package as the abstraction. This keeps the public model independent of
-current package boundaries.
+Layouts produce semantic mutations, and graph ports expose resolver reads and
+writer mutations over list/map semantics. This keeps the public model
+independent of current package boundaries.
 
 ## ArcTable
 
@@ -70,28 +70,27 @@ It is responsible for:
 It is not responsible for map key semantics, list range semantics, resolver
 policy, application layout, root publication, or freshness.
 
-## Gateway and Layouts
+## Graph Ports and Layouts
 
-The gateway is an untrusted root-relative materializer and prover. Its
-verifier-facing read shape is:
+The server runtime exposes resolver and writer ports. Its verifier-facing read
+shape is:
 
 ```text
 Read(root, query) -> result + ProofList
 VerifyRead(root, query, result, ProofList) -> valid / invalid
 ```
 
-The gateway does not choose the latest root, publish authoritative heads, or
-guarantee freshness. Those are application or deployment policies.
+The server runtime does not choose the latest root, publish authoritative heads,
+or guarantee freshness. Those are application or deployment policies.
 
-Writers compute root transitions from semantic mutations:
+The writer applies root transitions from semantic mutations:
 
 ```text
-ComputeRoot(baseRoot, semanticMutation) -> newRoot + ArcSets
-Materialize(newRoot, ArcSets) -> materializationReceipt
+ApplyMutation(baseRoot, semanticMutation) -> newRoot + writeReceipt
 ```
 
-The materialization receipt is operational metadata, not a correctness object.
-The current prototype's concrete write payload is documented in the
+The write receipt is operational metadata, not a correctness object. The current
+prototype's concrete write payload is documented in the
 [Semantic Mutation Contract](/docs/api#semantic-mutation-contract).
 
 ## UnixFS as a Layout

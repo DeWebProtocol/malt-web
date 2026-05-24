@@ -19,7 +19,7 @@ features:
   - title: Technical docs
     details: Runtime status, root-centric HTTP routes, ProofList transport, UnixFS layout, and benchmark protocol.
   - title: Root-centric verification
-    details: Readers verify result plus ProofList against an explicit trusted root. Gateways do not publish heads or decide freshness.
+    details: Readers verify result plus ProofList against an explicit trusted root. The server runtime does not publish heads or decide freshness.
 ---
 
 <script setup>
@@ -55,8 +55,8 @@ import { withBase } from 'vitepress'
       <span>Read the current prototype surface: CLI, HTTP API, ProofLists, UnixFS layout, and benchmark protocol.</span>
     </div>
     <div class="malt-strip">
-      <strong>Gateway model</strong>
-      <span>Understand the root-centric gateway contract: materialize explicit roots and return result + ProofList.</span>
+      <strong>Server runtime model</strong>
+      <span>Understand the root-centric resolver/writer contract: apply explicit-root mutations and return result + ProofList.</span>
     </div>
   </div>
 </section>

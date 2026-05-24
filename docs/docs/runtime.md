@@ -23,10 +23,10 @@ helpers are not part of the public command surface.
 
 ## Mutation Materialization
 
-The current write boundary is root-scoped semantic mutation materialization.
+The current write boundary is root-scoped writer mutation application.
 Application layouts produce canonical arc deltas and submit them through the
-gateway; the gateway applies those deltas to map/list semantic backends and
-returns a materialization receipt.
+writer route; the writer applies those deltas to map/list semantic backends and
+returns a write receipt.
 
 Current mutation payloads are typed by semantic object kind:
 
@@ -79,16 +79,16 @@ prototype modules mapped to the semantic model:
 | `core/structure/list/tree` | Primary list implementation. |
 | `core/structure/mapping` | Public map semantic abstraction and shared types. |
 | `core/structure/mapping/radix` | Primary map implementation. |
-| `core/structure/mapping/indexed` | Baseline comparison map implementation, not the current runtime map path. |
-| `core/layout/malt/unixfs` | Current list/map/CAS-blob UnixFS layout. |
-| `core/resolver` | Runtime read and compatibility adapters. |
-| `core/writer` | Transitional concrete map/arcs write adapter. |
-| `core/graph` | Runtime metadata, composition, and accessors. |
+| `cmd/eval/internal/baseline/indexedmap` | Baseline comparison map implementation, not the current runtime map path. |
+| `layout/unixfs` | Current list/map/CAS-blob UnixFS layout. |
+| `core/resolver` | Resolver read/proof port and explicit MALT path. |
+| `core/writer` | Mutation model and executor. |
+| `core/graph` | Graph contracts plus runtime composition around resolver and writer ports. |
 | `core/querypath` | Root-relative query path canonicalization helper. |
 | `core/manifest` | UnixFS directory-manifest helper used by the application layout. |
 
-core/graph is runtime metadata and composition code. It is not the semantic
-abstraction.
+`core/graph` is the graph boundary around resolver and writer ports. It is not
+the list/map semantic owner.
 
 ## Runtime Boundary
 

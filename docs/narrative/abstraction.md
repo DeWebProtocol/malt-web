@@ -15,8 +15,8 @@ The abstraction separates three concerns that are usually fused in a Merkle DAG:
 - verifier-facing authentication of those semantics
 
 MALT roots authenticate semantic-layer state. A reader obtains a trusted root
-from an application publication layer, asks a gateway or local runtime for a
-query result, and verifies the returned `ProofList` against that root.
+from an application publication layer, asks a server runtime or local runtime
+for a query result, and verifies the returned `ProofList` against that root.
 
 ## Graph Nodes and ArcSets
 

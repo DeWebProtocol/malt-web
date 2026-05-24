@@ -1,7 +1,7 @@
-# Gateway Model
+# Server Runtime Model
 
-The MALT gateway is a root-relative materializer and prover. It is a
-performance-critical component, not a correctness authority.
+The MALT server runtime exposes root-relative resolver and writer ports. It is
+a performance-critical component, not a correctness authority.
 
 For concrete prototype routes, see [Root-Centric HTTP API](/docs/api). For
 verifier-facing evidence, see [ProofLists](/docs/prooflists).
@@ -14,18 +14,18 @@ verifier-facing evidence, see [ProofLists](/docs/prooflists).
     <p>Turns source-domain data into list or map semantic mutations, computes or requests a new root, and publishes that root through application policy.</p>
   </div>
   <div class="malt-flow-card">
-    <strong>Gateway</strong>
-    <p>Stores and materializes ArcSets, accelerates root-relative queries, and assembles ProofLists for caller-supplied roots.</p>
+    <strong>Server runtime</strong>
+    <p>Applies writer mutations, accelerates root-relative queries, and assembles ProofLists for caller-supplied roots.</p>
   </div>
   <div class="malt-flow-card">
     <strong>Reader client</strong>
-    <p>Obtains a trusted root, queries any gateway, and verifies result plus ProofList locally.</p>
+    <p>Obtains a trusted root, queries any server runtime, and verifies result plus ProofList locally.</p>
   </div>
 </div>
 
 ## Correctness Boundary
 
-The gateway does not:
+The server runtime does not:
 
 - own authoritative heads
 - choose the latest root
@@ -33,9 +33,9 @@ The gateway does not:
 - arbitrate concurrent writers
 - define tenant, quota, ACL, pinning, or garbage-collection policy
 
-The gateway does:
+The server runtime does:
 
-- materialize semantic state for explicit roots
+- apply semantic mutations for explicit roots
 - answer root-relative queries
 - return `result + ProofList`
 - support local client verification
@@ -63,5 +63,5 @@ Clients that only need bytes can opt out of default proof generation with
 
 Root-scoped writes and root creation are documented in the
 [HTTP API](/docs/api), including the
-[Semantic Mutation Contract](/docs/api#semantic-mutation-contract). The gateway
-still does not own authoritative heads or freshness policy.
+[Semantic Mutation Contract](/docs/api#semantic-mutation-contract). The server
+runtime still does not own authoritative heads or freshness policy.

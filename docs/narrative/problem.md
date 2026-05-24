@@ -83,7 +83,7 @@ explicit, verifiable structure maintenance:
 - list and map semantics define what structure means
 - ArcTable stores and materializes root-relative arcsets
 - commitment backends authenticate semantic-layer representations
-- gateways return `result + ProofList` for caller-supplied roots
+- server runtimes return `result + ProofList` for caller-supplied roots
 
 The research question becomes whether this explicit structure layer gives a
 better cost and verification boundary for evolving CAS-backed data.

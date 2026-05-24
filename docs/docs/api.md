@@ -1,9 +1,9 @@
 # Root-Centric HTTP API
 
 The current prototype exposes a root-centric HTTP surface. The caller supplies
-the root that should be verified; the gateway resolves or materializes the
-root-relative query and returns result data plus proof material unless proof
-generation is explicitly omitted.
+the root that should be verified; server-side resolver and writer routes
+execute root-relative reads and mutations, returning result data plus proof
+material unless proof generation is explicitly omitted.
 
 ## Read Routes
 
@@ -30,8 +30,8 @@ POST /{root}/_mutate
 `POST /_` creates a root.
 
 `POST /{root}/{path...}` is the UnixFS convenience write path. `POST
-/{root}/_mutate` is the root-scoped semantic mutation path. Both use the
-gateway materialization boundary instead of exposing mutable public heads.
+/{root}/_mutate` is the root-scoped semantic mutation path. Both use the writer
+mutation boundary instead of exposing mutable public heads.
 
 ## Semantic Mutation Contract
 
@@ -85,9 +85,9 @@ valid only for list deltas. It lets large-file UnixFS materialization replay a
 measured fixed-width list root with the committed `total_size` and
 `chunk_size`.
 
-`expected_root` is an optional replay guard. When present, the gateway checks
-that applying the delta reproduces the layout or writer's expected semantic
-root. It is not a head publication or freshness mechanism.
+`expected_root` is an optional replay guard. When present, the writer checks
+that applying the delta reproduces the layout's expected semantic root. It is
+not a head publication or freshness mechanism.
 
 The response is a materialization receipt:
 

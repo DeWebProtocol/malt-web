@@ -59,21 +59,21 @@ Read(root, query) -> result + ProofList
 VerifyRead(root, query, result, ProofList) -> valid / invalid
 ```
 
-The root is the caller's correctness handle. The gateway may accelerate
-resolution and proof assembly, but the reader checks the returned result against
-the supplied root.
+The root is the caller's correctness handle. The server runtime may accelerate
+resolution and proof assembly, but the reader checks the returned result
+against the supplied root.
 
 ## Write Interface
 
-Writers or clients compute or select roots from semantic mutations:
+Layouts produce semantic mutations and the writer applies them under an
+explicit root:
 
 ```text
-ComputeRoot(baseRoot, semanticMutation) -> newRoot + ArcSets
-Materialize(newRoot, ArcSets) -> materializationReceipt
+ApplyMutation(baseRoot, semanticMutation) -> newRoot + writeReceipt
 ```
 
-The materialization receipt is operational metadata. It is not a correctness
-object and does not make the gateway the owner of a head.
+The write receipt is operational metadata. It is not a correctness object and
+does not make the server the owner of a head.
 
 The current prototype exposes this write boundary as root-scoped canonical arc
 deltas; see the [Semantic Mutation Contract](/docs/api#semantic-mutation-contract).

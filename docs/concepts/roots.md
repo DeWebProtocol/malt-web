@@ -3,7 +3,7 @@
 MALT is root-centric. A root is the verifier-facing handle for one committed
 semantic structure snapshot.
 
-For the fuller system model, see [Gateway Model](/gateway). For current
+For the fuller system model, see [Server Runtime Model](/runtime). For current
 transport details, see [Root-Centric HTTP API](/docs/api) and
 [ProofLists](/docs/prooflists).
 
@@ -21,12 +21,12 @@ workflow. MALT does not define that publication layer.
 ## ProofList
 
 A `ProofList` is the evidence needed to verify that a returned result matches a
-query under a root. It is assembled by a gateway or local runtime and checked by
-the client.
+query under a root. It is assembled by the server runtime or local runtime and
+checked by the client.
 
-ProofLists are useful because they keep the gateway out of the trust base:
+ProofLists are useful because they keep the server runtime out of the trust base:
 
-- the gateway can be wrong or stale
+- the server runtime can be wrong or stale
 - the reader can reject invalid results locally
 - the application chooses which roots are trusted
 - freshness policy stays outside MALT core

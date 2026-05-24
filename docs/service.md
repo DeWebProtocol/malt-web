@@ -11,7 +11,7 @@ added later.
 
 ## Recommended First Service
 
-Start with a hosted gateway for explicit-root reads:
+Start with a hosted server runtime for explicit-root reads:
 
 ```text
 Read(root, query) -> result + ProofList
@@ -39,7 +39,7 @@ surface. The documentation site should remain static and verifiable.
 Suggested split when that happens:
 
 - project website and docs: this VitePress site
-- gateway API: hosted service endpoint
+- runtime API: hosted service endpoint
 - service console: separate authenticated application
 - status page: separate operational status surface
 
@@ -47,10 +47,10 @@ Suggested split when that happens:
 
 Use precise public language:
 
-- "root-relative gateway reads"
+- "root-relative resolver reads"
 - "client-verifiable ProofLists"
 - "application-controlled root publication"
 - "snapshot correctness relative to a trusted root"
 
-Avoid implying that the gateway owns freshness, latest heads, or multi-writer
-merge policy.
+Avoid implying that the server runtime owns freshness, latest heads, or
+multi-writer merge policy.

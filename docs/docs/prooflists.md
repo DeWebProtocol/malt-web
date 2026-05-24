@@ -9,8 +9,8 @@ Read(root, query) -> result + ProofList
 VerifyRead(root, query, result, ProofList) -> valid / invalid
 ```
 
-The root is supplied by the caller. A gateway may assemble the `ProofList`, but
-the reader verifies the result locally.
+The root is supplied by the caller. The server runtime may assemble the
+`ProofList`, but the reader verifies the result locally.
 
 ## What a ProofList Covers
 
@@ -32,8 +32,9 @@ the requested range, and a proof payload composed from metadata and index
 proofs. Response-body range binding remains a ProofList-schema item to
 formalize.
 
-The gateway is not trusted for correctness. If it returns an inconsistent
-result, stale materialization, or a forged transcript, verification fails.
+The server runtime is not trusted for correctness. If it returns an
+inconsistent result, stale materialization, or a forged transcript, verification
+fails.
 
 ## HTTP Transport
 

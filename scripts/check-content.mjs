@@ -35,7 +35,7 @@ const requiredPhrases = new Map([
   ],
   [
     'docs/runtime.md',
-    ['malt add', 'malt-eval read', 'core/graph is runtime metadata']
+    ['malt add', 'malt-eval read', 'graph boundary around resolver and writer ports']
   ],
   [
     'docs/api.md',

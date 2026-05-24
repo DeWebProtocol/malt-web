@@ -25,7 +25,7 @@ export default defineConfig({
       { text: 'Overview', link: '/overview' },
       { text: 'Narrative', link: '/narrative/problem' },
       { text: 'Docs', link: '/docs/runtime' },
-      { text: 'Gateway', link: '/gateway' },
+      { text: 'Runtime', link: '/runtime' },
       { text: 'Service', link: '/service' }
     ],
     sidebar: [
@@ -61,9 +61,9 @@ export default defineConfig({
         ]
       },
       {
-        text: 'Gateway and Service',
+        text: 'Runtime and Service',
         items: [
-          { text: 'Gateway Model', link: '/gateway' },
+          { text: 'Server Runtime Model', link: '/runtime' },
           { text: 'Public Service Boundary', link: '/service' }
         ]
       },
