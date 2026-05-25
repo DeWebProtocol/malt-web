@@ -4,7 +4,7 @@ Public website and design documentation for MALT.
 
 MALT is an authenticated mutable structure layer over immutable
 content-addressed storage. This site presents the public design narrative,
-root-centric gateway model, service boundary, and evaluation plan.
+root-centric resolver/writer model, service boundary, and evaluation plan.
 
 ## Development
 
