@@ -72,23 +72,32 @@ prototype modules mapped to the semantic model:
 
 | Package | Role |
 |---|---|
-| `core/commitment` | Stateless commitment backends for commit/prove/verify/update. |
-| `core/arctable` | Root-recoverable arcset persistence and materialization. |
-| `core/arctable/bloom` | Optional negative-lookup optimization hook, disabled unless configured with a BloomCache. |
-| `core/structure/list` | Public list semantic abstraction and shared types. |
-| `core/structure/list/tree` | Primary list implementation. |
-| `core/structure/mapping` | Public map semantic abstraction and shared types. |
-| `core/structure/mapping/radix` | Primary map implementation. |
+| `auth/commitment` | Stateless commitment backends for commit/prove/verify/update. |
+| `auth/arcset` | Canonical path and arcset representation. |
+| `runtime/arctable` | Root-recoverable arcset persistence and materialization. |
+| `runtime/arctable/bloom` | Optional negative-lookup optimization hook, disabled unless configured with a BloomCache. |
+| `auth/semantic/list` | Public list semantic abstraction and shared types. |
+| `runtime/semantic/list/tree` | Primary list implementation. |
+| `auth/semantic/mapping` | Public map semantic abstraction and shared types. |
+| `runtime/semantic/mapping/radix` | Primary map implementation. |
 | `cmd/eval/internal/baseline/indexedmap` | Baseline comparison map implementation, not the current runtime map path. |
 | `layout/unixfs` | Current list/map/CAS-blob UnixFS layout. |
-| `core/resolver` | Resolver read/proof port and explicit MALT path. |
-| `core/writer` | Mutation model and executor. |
-| `core/graph` | Graph contracts plus runtime composition around resolver and writer ports. |
-| `core/querypath` | Root-relative query path canonicalization helper. |
-| `core/manifest` | UnixFS directory-manifest helper used by the application layout. |
+| `layout/unixfs/manifest` | UnixFS directory-manifest helper used by the application layout. |
+| `layout/unixfs/wire` | UnixFS manifest CID wire constants. |
+| `wire/maltcid` | Typed MALT map/list root CID helpers. |
+| `storage/cas` | Content-addressed storage interfaces and adapters. |
+| `storage/kv` | Generic persistence adapters. |
+| `graph/resolver` | Resolver read/proof port and explicit MALT path. |
+| `graph/writer` | Mutation model and executor. |
+| `graph` | Graph contracts around resolver and writer ports. |
+| `runtime/graph` | Concrete graph runtime composition around resolver and writer executors. |
+| `runtime/node` | Node/runtime factory. |
+| `api/http` | HTTP DTOs and JSON contracts. |
+| `sdk/client` | Daemon client facade. |
+| `graph/querypath` | Root-relative query path canonicalization helper. |
 
-`core/graph` is the graph boundary around resolver and writer ports. It is not
-the list/map semantic owner.
+`graph` is the graph boundary around resolver and writer ports. `runtime/graph`
+wires concrete executors. Neither is the list/map semantic owner.
 
 ## Runtime Boundary
 
