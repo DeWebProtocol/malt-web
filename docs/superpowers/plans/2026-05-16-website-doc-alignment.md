@@ -4,7 +4,7 @@
 
 **Goal:** Split the MALT website into aligned research narrative and technical documentation lanes.
 
-**Architecture:** Keep VitePress as the static site framework. Add a lightweight Node content check that verifies the new public documentation structure and core source-of-truth claims, then implement narrative pages, technical docs pages, updated landing copy, and navigation/sidebar wiring.
+**Architecture:** Keep VitePress as the static site framework. Add a lightweight Node content check that verifies the new public documentation structure and core source-of-truth claims, then implement narrative pages, technical docs pages, updated landing copy, and navigation/sidebar wiring. This historical plan has been updated to the current graph-port terminology: `graph` is the resolver/writer boundary, `resolver` is read/proof, and `writer` is mutation.
 
 **Tech Stack:** VitePress 1.6, npm, Node.js filesystem checks, Markdown content pages, TypeScript VitePress config.
 
@@ -21,7 +21,7 @@
 - Create: `docs/narrative/abstraction.md`
   - Public research narrative for MALT list/map/ArcSet abstraction.
 - Create: `docs/narrative/system-design.md`
-  - Public research narrative for semantic layer, ArcTable, commitments, gateway, and layouts.
+  - Public research narrative for semantic layer, ArcTable, commitments, graph ports, and layouts.
 - Create: `docs/narrative/evaluation-story.md`
   - Public research narrative for read latency, write amplification, and cost attribution.
 - Create: `docs/docs/runtime.md`
@@ -38,14 +38,14 @@
   - Sharpen the homepage and expose the two lanes.
 - Modify: `docs/overview.md`
   - Keep as compact overview and link to both lanes.
-- Modify: `docs/gateway.md`
-  - Link gateway contract to API and ProofList docs.
+- Modify: `docs/runtime.md`
+  - Link server/runtime contract to API and ProofList docs.
 - Modify: `docs/service.md`
   - Preserve service boundary and link to technical docs.
 - Modify: `docs/evaluation.md`
   - Turn the old top-level evaluation page into a bridge to narrative and technical evaluation docs.
 - Modify: `docs/concepts/roots.md`
-  - Cross-link to narrative abstraction, gateway, API, and ProofList docs.
+  - Cross-link to narrative abstraction, runtime, API, and ProofList docs.
 - Modify: `docs/concepts/list-map.md`
   - Cross-link to abstraction and UnixFS layout docs.
 - Modify: `docs/concepts/arctable.md`
@@ -87,7 +87,7 @@ const requiredPhrases = new Map([
   ['narrative/abstraction.md', ['authenticated graph semantic layer', 'CanonicalArcSet', '@payload']],
   ['narrative/system-design.md', ['Application layout', 'ArcTable', 'stateless commitment backend']],
   ['narrative/evaluation-story.md', ['Read latency', 'Write amplification', 'HAMT is a directory']],
-  ['docs/runtime.md', ['malt add', 'malt-eval read', 'core/graph is runtime metadata']],
+  ['docs/runtime.md', ['malt add', 'malt-eval read', 'graph boundary around resolver and writer ports']],
   ['docs/api.md', ['GET|HEAD /{root}/{path...}', 'GET /resolve/{root}[/{path...}]', 'legacy content-route `format=resolve` and `format=proof` modes are removed']],
   ['docs/prooflists.md', ['Read(root, query) -> result + ProofList', 'X-Malt-ProofList-Encoding', 'schema remains intentionally deferred']],
   ['docs/unixfs-layout.md', ['flat', 'hierarchical', 'dir-layout=basic|hamt|adaptive']],
@@ -195,7 +195,7 @@ Minimum required sections:
 ## Semantic Layer
 ## ArcTable
 ## Commitment Backend
-## Gateway and Layouts
+## Graph Ports and Layouts
 ## UnixFS as a Layout
 ```
 
@@ -233,7 +233,7 @@ Expected: still FAIL because technical docs pages are not complete yet; no failu
 Include current `malt` and `malt-eval` commands, package-role mapping, and the statement:
 
 ```markdown
-`core/graph` is runtime metadata and composition code. It is not the semantic abstraction.
+`core/graph` is the graph boundary around resolver and writer ports. It is not the list/map semantic owner.
 ```
 
 - [ ] **Step 2: Add API documentation**
@@ -279,7 +279,7 @@ Expected: PASS with `Content contract passed for 9 pages.`
 - Modify: `docs/.vitepress/config.ts`
 - Modify: `docs/index.md`
 - Modify: `docs/overview.md`
-- Modify: `docs/gateway.md`
+- Modify: `docs/runtime.md`
 - Modify: `docs/service.md`
 - Modify: `docs/evaluation.md`
 - Modify: `docs/concepts/roots.md`
@@ -295,12 +295,12 @@ nav: [
   { text: 'Overview', link: '/overview' },
   { text: 'Narrative', link: '/narrative/problem' },
   { text: 'Docs', link: '/docs/runtime' },
-  { text: 'Gateway', link: '/gateway' },
+  { text: 'Runtime', link: '/runtime' },
   { text: 'Service', link: '/service' }
 ]
 ```
 
-Set sidebar groups for Overview, Research Narrative, Technical Docs, Concepts, Gateway and Service.
+Set sidebar groups for Overview, Research Narrative, Technical Docs, Concepts, Runtime and Service.
 
 - [ ] **Step 2: Update homepage**
 
@@ -313,7 +313,7 @@ Technical docs -> /docs/runtime
 
 - [ ] **Step 3: Update cross-links and bridge pages**
 
-Add links from overview, gateway, service, top-level evaluation, and concept pages into the new narrative and technical pages.
+Add links from overview, runtime, service, top-level evaluation, and concept pages into the new narrative and technical pages.
 
 - [ ] **Step 4: Run content check**
 
@@ -336,7 +336,7 @@ Run:
 
 ```bash
 rg -n "compositional|core/graph is the semantic abstraction|latest head|authoritative head" docs --glob '!docs/superpowers/**'
-rg -n "format=resolve|format=proof" docs/docs docs/gateway.md docs/overview.md
+rg -n "format=resolve|format=proof" docs/docs docs/runtime.md docs/overview.md
 ```
 
 Expected:

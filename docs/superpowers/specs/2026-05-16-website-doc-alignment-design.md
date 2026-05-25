@@ -1,8 +1,13 @@
 # MALT Website Documentation Alignment Design
 
-Status: approved direction, ready for implementation planning
+Status: superseded by the PR #74 graph-port terminology pass
 Date: 2026-05-16
 Target repository: `web`
+
+Update note: this historical spec originally used an older public runtime label.
+Current website docs use `graph` as the abstraction boundary, `resolver` as the
+read/proof port, `writer` as the mutation port, and server/runtime node for the
+untrusted deployment surface.
 
 ## Goal
 
@@ -16,7 +21,7 @@ consistent parts:
 
 Both parts must be aligned with the current source-of-truth documents in
 `../documents`, especially `memories/SPEC.md`, `memories/OUTLINE.md`,
-`memories/IMPLEMENTATION_STATUS.md`, `memories/notes/Root-Centric Gateway Model.md`,
+`memories/IMPLEMENTATION_STATUS.md`, `memories/notes/Root-Centric Graph Port Model.md`,
 `memories/notes/Module Boundaries and Semantic Layering.md`, and
 `memories/benchmarks/BENCHMARK_PROTOCOL.md`.
 
@@ -66,7 +71,8 @@ Pages:
     trust root.
   - Explain commitment backends as stateless proof primitives over
     semantic-layer representations.
-  - Explain the gateway as an untrusted root-relative materializer and prover.
+  - Explain the server/runtime node as an untrusted root-relative resolver,
+    writer executor, and prover.
 - `narrative/evaluation-story.md`
   - Present read latency, write amplification, cost breakdown, sensitivity
     studies, and deferred semantic reachability demo.
@@ -87,10 +93,11 @@ Pages:
   - List the separate `malt-eval` commands: `read`, `write`, and `metrics`.
   - Map current implementation packages to their roles, including
     `core/commitment`, `core/arctable`, `core/structure/list`,
-    `core/structure/mapping`, `core/layout/malt/unixfs`, `core/resolver`,
-    `core/writer`, `core/graph`, `core/querypath`, and `core/manifest`.
-  - State that `core/graph` is runtime metadata/composition, not the semantic
-    abstraction.
+    `core/structure/mapping`, `cmd/eval/internal/baseline/indexedmap`,
+    `layout/unixfs`, `core/resolver`, `core/writer`, `core/graph`,
+    `core/querypath`, and `core/manifest`.
+  - State that `core/graph` is the graph boundary around resolver and writer
+    ports, not the list/map semantic owner.
 - `docs/api.md`
   - Document current root-centric HTTP shapes:
     `GET|HEAD /{root}/{path...}`, `GET /resolve/{root}[/{path...}]`,
@@ -131,8 +138,8 @@ Pages:
 - `index.md` becomes a more precise public landing page with two clear entry
   links: Research Narrative and Technical Docs.
 - `overview.md` remains the short canonical overview and links into both lanes.
-- `gateway.md` remains focused on the root-centric gateway contract and should
-  link to `docs/api.md` and `docs/prooflists.md`.
+- `runtime.md` remains focused on the root-centric server/runtime contract and
+  should link to `docs/api.md` and `docs/prooflists.md`.
 - `service.md` remains the managed-service boundary page and should keep
   product conveniences separate from MALT core correctness.
 - `concepts/roots.md`, `concepts/list-map.md`, and `concepts/arctable.md`
@@ -152,9 +159,9 @@ Use these terms consistently:
   trust root.
 - Commitment backends are stateless proof primitives over semantic-layer
   arcset/cell/node representations.
-- The gateway materializes ArcSets and returns `result + ProofList` for explicit
-  roots; it does not own authoritative heads, choose the latest root, or
-  provide freshness.
+- Server/runtime nodes apply writer mutations and return `result + ProofList`
+  for explicit roots; they do not own authoritative heads, choose the latest
+  root, or provide freshness.
 - Head publication, freshness, merge, multi-writer arbitration, tenant policy,
   quota, ACL, pinning, GC, and global CAS availability are application or
   deployment concerns.
@@ -164,7 +171,7 @@ Use these terms consistently:
 Avoid these mistakes:
 
 - Do not define MALT primarily as a hybrid resolver.
-- Do not treat current `core/graph` as the abstract semantic layer.
+- Do not treat current `core/graph` as the list/map semantic owner.
 - Do not describe runtime bucket or namespace placement as semantic identity,
   commitment input, ProofList input, verifier input, or authoritative head
   state.
@@ -202,7 +209,7 @@ After implementation:
 
 ## Non-Goals
 
-- Do not create a full hosted gateway service or service console.
+- Do not create a full hosted server service or service console.
 - Do not promise a finalized ProofList schema beyond the currently documented
   transport and verifier-facing contract.
 - Do not publish benchmark numbers as paper-grade results.
