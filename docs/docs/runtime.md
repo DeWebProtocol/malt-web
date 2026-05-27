@@ -82,8 +82,8 @@ prototype modules mapped to the semantic model:
 | `runtime/semantic/mapping/radix` | Primary map implementation. |
 | `cmd/eval/internal/baseline/indexedmap` | Baseline comparison map implementation, not the current runtime map path. |
 | `layout/unixfs` | Current list/map/CAS-blob UnixFS layout. |
-| `layout/unixfs/manifest` | UnixFS directory-manifest helper used by the application layout. |
-| `layout/unixfs/wire` | UnixFS manifest CID wire constants. |
+| `layout/unixfs/internal/manifest` | UnixFS directory-manifest helper used by the application layout. |
+| `layout/unixfs/internal/format` | UnixFS persisted-format helpers for manifest CID codecs, storage-kind projection, and directory-root bindings. |
 | `wire/maltcid` | Typed MALT map/list root CID helpers. |
 | `storage/cas` | Content-addressed storage interfaces and adapters. |
 | `storage/kv` | Generic persistence adapters. |
