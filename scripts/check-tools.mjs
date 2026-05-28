@@ -7,7 +7,11 @@ import {
   buildUnixFSWriteURL,
   buildResolveURL,
   decodeProofListHeader,
-  extractProofListInput
+  extractProofListInput,
+  joinMaltPath,
+  pathBasename,
+  pathParent,
+  profileStorageKey
 } from '../docs/.vitepress/theme/malt-client.mjs'
 
 const root = new URL('..', import.meta.url)
@@ -37,6 +41,27 @@ assert.match(configText, /link:\s*'\/tools\/verify'/)
 const appPage = fs.readFileSync(path.join(docsRoot, 'app.md'), 'utf8')
 assert.match(appPage, /<MaltApp\s*\/>/)
 
+const appSource = fs.readFileSync(
+  path.join(docsRoot, '.vitepress/theme/components/MaltApp.vue'),
+  'utf8'
+)
+for (const pattern of [
+  /localStorage/,
+  /profileStorageKey/,
+  /Load root/,
+  /Sign out/,
+  /breadcrumb/,
+  /openDirectory/,
+  /previewFile/,
+  /downloadFile/,
+  /showProof/,
+  /verified-dot/,
+  /type="file" multiple/,
+  /webkitdirectory directory/
+]) {
+  assert.match(appSource, pattern)
+}
+
 const resolvePage = fs.readFileSync(path.join(docsRoot, 'tools/resolve.md'), 'utf8')
 assert.match(resolvePage, /<MaltResolveTool\s*\/>/)
 
@@ -65,5 +90,12 @@ const encoded = Buffer.from(JSON.stringify(proofList), 'utf8').toString('base64u
 assert.deepEqual(decodeProofListHeader(encoded), proofList)
 assert.deepEqual(extractProofListInput(JSON.stringify({ prooflist: proofList })), proofList)
 assert.deepEqual(extractProofListInput(JSON.stringify(proofList)), proofList)
+
+assert.equal(joinMaltPath('', 'docs'), 'docs')
+assert.equal(joinMaltPath('docs', 'readme.md'), 'docs/readme.md')
+assert.equal(pathParent('docs/readme.md'), 'docs')
+assert.equal(pathParent('docs'), '')
+assert.equal(pathBasename('docs/readme.md'), 'readme.md')
+assert.equal(profileStorageKey('alice'), 'malt-app-profile:alice')
 
 console.log('Browser tool contract passed.')

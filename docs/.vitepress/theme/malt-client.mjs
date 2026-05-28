@@ -60,6 +60,35 @@ export function uploadPathForFile(file) {
   return normalizeUploadPath(file?.webkitRelativePath || file?.name || '')
 }
 
+export function joinMaltPath(basePath = '', child = '') {
+  const left = pathSegments(basePath)
+  const right = pathSegments(child)
+  return [...left, ...right].join('/')
+}
+
+export function pathParent(rawPath = '') {
+  const segments = pathSegments(rawPath)
+  segments.pop()
+  return segments.join('/')
+}
+
+export function pathBasename(rawPath = '') {
+  const segments = pathSegments(rawPath)
+  return segments[segments.length - 1] || ''
+}
+
+export function profileStorageKey(name) {
+  const clean = String(name || '').trim()
+  if (!clean) {
+    throw new Error('profile name is required')
+  }
+  return `malt-app-profile:${clean}`
+}
+
+export function activeProfileStorageKey() {
+  return 'malt-app-active-profile'
+}
+
 export async function resolvePath({ baseURL, root, path, signal }) {
   const url = buildResolveURL(baseURL, root, path)
   const response = await fetch(url, { signal })
@@ -93,6 +122,23 @@ export async function uploadUnixFSFile({ baseURL, root, path, file, signal }) {
   }
 }
 
+export async function statPath({ baseURL, root, path, signal }) {
+  const url = buildContentURL(baseURL, root, path)
+  const response = await fetch(url, { method: 'HEAD', signal })
+  if (!response.ok) {
+    throw new Error(await responseErrorMessage(response))
+  }
+  return {
+    endpoint: url.toString(),
+    status: response.status,
+    kind: response.headers.get('X-Malt-Kind') ?? '',
+    storageKind: response.headers.get('X-Malt-Storage-Kind') ?? '',
+    key: response.headers.get('X-Malt-Key') ?? '',
+    payload: response.headers.get('X-Malt-Payload') ?? '',
+    size: parseContentLength(response.headers.get('Content-Length'))
+  }
+}
+
 export async function readContent({ baseURL, root, path, range, signal }) {
   const url = buildContentURL(baseURL, root, path)
   const headers = new Headers()
@@ -111,6 +157,44 @@ export async function readContent({ baseURL, root, path, range, signal }) {
     contentRange: response.headers.get('Content-Range') ?? '',
     proofList: proofHeader ? decodeProofListHeader(proofHeader) : null,
     body: await response.text()
+  }
+}
+
+export async function readContentBlob({ baseURL, root, path, range, signal }) {
+  const url = buildContentURL(baseURL, root, path)
+  const headers = new Headers()
+  if (range?.trim()) {
+    headers.set('Range', range.trim())
+  }
+  const response = await fetch(url, { headers, signal })
+  if (!response.ok) {
+    throw new Error(await responseErrorMessage(response))
+  }
+  const proofHeader = response.headers.get('X-Malt-ProofList')
+  return {
+    endpoint: url.toString(),
+    status: response.status,
+    contentType: response.headers.get('Content-Type') ?? '',
+    contentRange: response.headers.get('Content-Range') ?? '',
+    proofList: proofHeader ? decodeProofListHeader(proofHeader) : null,
+    blob: await response.blob()
+  }
+}
+
+export async function readDirectory({ baseURL, root, path, signal }) {
+  const payload = await readContent({ baseURL, root, path, signal })
+  let manifest
+  try {
+    manifest = JSON.parse(payload.body)
+  } catch (err) {
+    throw new Error(`directory manifest is not JSON: ${err.message}`)
+  }
+  if (!manifest || !Array.isArray(manifest.entries)) {
+    throw new Error('directory manifest must contain an entries array')
+  }
+  return {
+    ...payload,
+    entries: manifest.entries.map((name) => String(name)).sort()
   }
 }
 
@@ -152,6 +236,14 @@ function pathSegments(rawPath) {
     .split('/')
     .map((segment) => segment.trim())
     .filter(Boolean)
+}
+
+function parseContentLength(raw) {
+  if (!raw) {
+    return null
+  }
+  const value = Number(raw)
+  return Number.isFinite(value) ? value : null
 }
 
 async function readJSONResponse(response) {
