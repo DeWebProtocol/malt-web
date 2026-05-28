@@ -25,6 +25,7 @@ export default defineConfig({
       { text: 'Overview', link: '/overview' },
       { text: 'Narrative', link: '/narrative/problem' },
       { text: 'Docs', link: '/docs/runtime' },
+      { text: 'Tools', link: '/tools/resolve' },
       { text: 'Runtime', link: '/runtime' },
       { text: 'Service', link: '/service' }
     ],
@@ -58,6 +59,13 @@ export default defineConfig({
           { text: 'Roots and Proofs', link: '/concepts/roots' },
           { text: 'List and Map Semantics', link: '/concepts/list-map' },
           { text: 'ArcTable and Commitments', link: '/concepts/arctable' }
+        ]
+      },
+      {
+        text: 'Tools',
+        items: [
+          { text: 'Resolve Tool', link: '/tools/resolve' },
+          { text: 'Verify Tool', link: '/tools/verify' }
         ]
       },
       {

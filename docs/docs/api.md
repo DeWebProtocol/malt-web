@@ -126,6 +126,11 @@ POST /verify
 delegate compatibility verification checks, while the core correctness model
 still assumes clients can verify locally against the selected root.
 
+Browser tools can call the local daemon when their origin is listed in
+`rpc.cors_allowed_origins`. CORS is limited to read/proof routes and
+`POST /verify`; root-scoped write routes are not exposed through the browser
+CORS path.
+
 ## Proof Transport
 
 Proof-bearing content reads use response headers:

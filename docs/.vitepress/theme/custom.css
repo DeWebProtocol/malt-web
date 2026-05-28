@@ -150,6 +150,191 @@
   color: var(--vp-c-text-2);
 }
 
+.malt-tool {
+  display: grid;
+  gap: 18px;
+  margin: 24px 0 40px;
+  padding: 22px;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  background: var(--vp-c-bg);
+}
+
+.malt-tool__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: start;
+}
+
+.malt-tool__head h2 {
+  margin: 0;
+  border: 0;
+  padding: 0;
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.malt-tool__eyebrow {
+  margin: 0 0 4px;
+  color: var(--vp-c-text-3);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.malt-tool__status {
+  min-width: 84px;
+  padding: 5px 9px;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 999px;
+  color: var(--vp-c-text-2);
+  background: var(--vp-c-bg-soft);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.malt-tool__status.is-valid {
+  border-color: rgba(15, 118, 110, 0.35);
+  color: #0f766e;
+  background: rgba(20, 184, 166, 0.12);
+}
+
+.malt-tool__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.malt-tool__grid.is-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.malt-tool label {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  color: var(--vp-c-text-2);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.malt-tool input,
+.malt-tool textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 7px;
+  padding: 9px 11px;
+  color: var(--vp-c-text-1);
+  background: var(--vp-c-bg-alt);
+  font: 14px/1.45 var(--vp-font-family-mono);
+}
+
+.malt-tool textarea {
+  resize: vertical;
+}
+
+.malt-tool__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.malt-tool__actions button {
+  min-height: 38px;
+  border: 1px solid var(--vp-c-brand-1);
+  border-radius: 7px;
+  padding: 0 14px;
+  color: #ffffff;
+  background: var(--vp-c-brand-1);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.malt-tool__actions button:nth-child(2),
+.malt-tool__actions button:nth-child(3) {
+  color: var(--vp-c-brand-1);
+  background: transparent;
+}
+
+.malt-tool__actions button:disabled {
+  border-color: var(--vp-c-divider);
+  color: var(--vp-c-text-3);
+  background: var(--vp-c-bg-soft);
+  cursor: not-allowed;
+}
+
+.malt-tool__error {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(185, 28, 28, 0.28);
+  border-radius: 7px;
+  color: #b91c1c;
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.malt-tool__result {
+  display: grid;
+  gap: 14px;
+}
+
+.malt-tool__result dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.malt-tool__result dl div {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+}
+
+.malt-tool__result dt {
+  color: var(--vp-c-text-3);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.malt-tool__result dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--vp-c-text-1);
+  font-family: var(--vp-font-family-mono);
+  font-size: 13px;
+}
+
+.malt-tool__panel {
+  display: grid;
+  gap: 8px;
+}
+
+.malt-tool__panel h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.malt-tool__panel pre {
+  max-height: 360px;
+  margin: 0;
+  overflow: auto;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 7px;
+  padding: 12px;
+  background: var(--vp-c-bg-alt);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 860px) {
   .malt-band {
     padding: 32px 20px;
@@ -162,5 +347,14 @@
 
   .malt-band h2 {
     font-size: 25px;
+  }
+
+  .malt-tool {
+    padding: 18px;
+  }
+
+  .malt-tool__grid,
+  .malt-tool__result dl div {
+    grid-template-columns: 1fr;
   }
 }
