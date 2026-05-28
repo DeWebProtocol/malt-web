@@ -517,7 +517,13 @@ async function previewFile(entry) {
       })
     )
     if (payload.proofList) {
-      await verifyAndMark(entry.path, payload.proofList)
+      const verification = await verifyAndMark(entry.path, payload.proofList)
+      proofView.value = {
+        path: entry.path,
+        kind: 'file',
+        proofList: payload.proofList,
+        verification
+      }
     }
     const blob = payload.blob
     const contentType = payload.contentType || blob.type || ''
@@ -841,7 +847,7 @@ function formatSize(size) {
         <p v-if="error" class="malt-app__error">{{ error }}</p>
         <p v-if="uploadStatus" class="malt-app__status-line">{{ uploadStatus }}</p>
 
-        <div class="malt-app__pathbar">
+        <div class="malt-app__repo-bar malt-app__pathbar">
           <nav class="malt-app__breadcrumb" aria-label="breadcrumb">
             <button
               v-for="crumb in breadcrumbs"
@@ -886,17 +892,52 @@ function formatSize(size) {
               </button>
             </div>
           </div>
-          <img
-            v-if="preview.kind === 'image'"
-            class="malt-app__image"
-            :src="preview.url"
-            :alt="preview.name"
-          />
-          <pre v-else-if="preview.kind === 'text'">{{ preview.body }}</pre>
-          <p v-else class="malt-app__empty">Binary preview is not available. Use Download.</p>
+          <div class="malt-app__preview-layout">
+            <div class="malt-app__preview-body">
+              <img
+                v-if="preview.kind === 'image'"
+                class="malt-app__image"
+                :src="preview.url"
+                :alt="preview.name"
+              />
+              <pre v-else-if="preview.kind === 'text'">{{ preview.body }}</pre>
+              <p v-else class="malt-app__empty">Binary preview is not available. Use Download.</p>
+            </div>
+            <aside class="malt-app__proof-sidebar" aria-label="ProofList">
+              <div class="malt-app__proof-head">
+                <h2>ProofList</h2>
+                <span :class="{ 'is-valid': proofView?.path === preview.path && proofView?.verification?.valid }">
+                  {{
+                    proofView?.path === preview.path
+                      ? proofView.verification?.valid
+                        ? 'valid'
+                        : 'invalid'
+                      : 'not loaded'
+                  }}
+                </span>
+              </div>
+              <template v-if="proofView?.path === preview.path">
+                <dl>
+                  <div>
+                    <dt>Path</dt>
+                    <dd>{{ proofView.path || '/' }}</dd>
+                  </div>
+                  <div>
+                    <dt>Verify</dt>
+                    <dd>{{ proofView.verification?.valid ? 'valid: true' : 'valid: false' }}</dd>
+                  </div>
+                </dl>
+                <div class="malt-app__button-row">
+                  <button type="button" :disabled="!proofText" @click="sendToVerifier">Verify page</button>
+                </div>
+                <pre class="malt-app__proof-json">{{ proofText }}</pre>
+              </template>
+              <p v-else class="malt-app__empty">Use Proof to load the current file proof.</p>
+            </aside>
+          </div>
         </section>
 
-        <section v-else class="malt-app__browser" aria-label="File browser">
+        <section v-else class="malt-app__browser malt-app__file-list" aria-label="File browser">
           <div class="malt-app__browser-head">
             <span>Name</span>
             <span>Size</span>
@@ -969,7 +1010,7 @@ function formatSize(size) {
           </div>
         </section>
 
-        <section v-if="proofView" class="malt-app__result">
+        <section v-if="proofView && !previewView" class="malt-app__result">
           <dl>
             <div>
               <dt>Path</dt>

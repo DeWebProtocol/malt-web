@@ -63,7 +63,13 @@ for (const pattern of [
   /withDaemonTimeout/,
   /AbortController/,
   /malt-app__status-line/,
+  /malt-app__repo-bar/,
+  /malt-app__file-list/,
   /malt-app__preview/,
+  /malt-app__preview-layout/,
+  /malt-app__preview-body/,
+  /malt-app__proof-sidebar/,
+  /malt-app__proof-json/,
   /backToBrowser/,
   /previewView/,
   /settingsOpen/,
@@ -96,6 +102,10 @@ for (const pattern of [
   /body\.malt-app-page\s+\.VPContent\.has-sidebar/,
   /body\.malt-app-page\s+\.VPDocFooter/,
   /body\.malt-app-page\s+\.VPFooter/,
+  /--malt-gh-border/,
+  /--malt-gh-muted/,
+  /\.malt-app__file-list/,
+  /\.malt-app__proof-sidebar/,
   /malt-app__dropzone/
 ]) {
   assert.match(customCSS, pattern)
