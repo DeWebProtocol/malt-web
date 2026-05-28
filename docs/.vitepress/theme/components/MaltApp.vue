@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { withBase } from 'vitepress'
 import {
   activeProfileStorageKey,
+  defaultCASURL,
   defaultDaemonURL,
   joinMaltPath,
   normalizeUploadPath,
@@ -17,12 +18,12 @@ import {
 } from '../malt-client.mjs'
 
 const baseURL = ref(defaultDaemonURL)
+const casURL = ref(defaultCASURL)
 const profileInput = ref('')
 const activeProfile = ref('')
 const root = ref('')
 const currentPath = ref('')
 const prefix = ref('')
-const files = ref([])
 const entries = ref([])
 const busy = ref(false)
 const error = ref('')
@@ -30,10 +31,25 @@ const uploadResult = ref(null)
 const preview = ref(null)
 const proofView = ref(null)
 const verifiedPaths = ref({})
+const settingsOpen = ref(false)
+const openMenuPath = ref('')
+const dropActive = ref(false)
 
 const signedIn = computed(() => activeProfile.value !== '')
 const currentLabel = computed(() => (currentPath.value ? `/${currentPath.value}` : '/'))
 const currentDirectoryVerified = computed(() => verificationState(currentPath.value) === true)
+const statusText = computed(() => {
+  if (!signedIn.value) {
+    return 'signed out'
+  }
+  if (busy.value) {
+    return 'working'
+  }
+  if (currentDirectoryVerified.value) {
+    return 'verified'
+  }
+  return root.value ? 'ready' : 'no root'
+})
 const proofText = computed(() =>
   proofView.value?.proofList ? JSON.stringify(proofView.value.proofList, null, 2) : ''
 )
@@ -77,9 +93,12 @@ function signIn() {
   window.localStorage.setItem(activeProfileStorageKey(), name)
   const saved = loadStoredProfile(name)
   baseURL.value = saved.baseURL || baseURL.value || defaultDaemonURL
+  casURL.value = saved.casURL || casURL.value || defaultCASURL
   root.value = saved.root || ''
-  currentPath.value = saved.currentPath || ''
+  currentPath.value = root.value ? saved.currentPath || '' : ''
+  prefix.value = saved.prefix || ''
   verifiedPaths.value = saved.verifiedPaths || {}
+  settingsOpen.value = !root.value
   error.value = ''
   uploadResult.value = null
   preview.value = null
@@ -94,11 +113,16 @@ function signOut() {
   persistProfile()
   activeProfile.value = ''
   profileInput.value = ''
+  baseURL.value = defaultDaemonURL
+  casURL.value = defaultCASURL
   root.value = ''
   currentPath.value = ''
+  prefix.value = ''
   entries.value = []
-  files.value = []
   uploadResult.value = null
+  settingsOpen.value = false
+  openMenuPath.value = ''
+  dropActive.value = false
   clearPreview()
   proofView.value = null
 }
@@ -119,11 +143,30 @@ function persistProfile() {
     profileStorageKey(activeProfile.value),
     JSON.stringify({
       baseURL: baseURL.value,
+      casURL: casURL.value,
       root: root.value,
       currentPath: currentPath.value,
+      prefix: prefix.value,
       verifiedPaths: verifiedPaths.value
     })
   )
+}
+
+async function applySettings() {
+  error.value = ''
+  openMenuPath.value = ''
+  if (!root.value.trim()) {
+    currentPath.value = ''
+    entries.value = []
+    uploadResult.value = null
+    clearPreview()
+    proofView.value = null
+    persistProfile()
+    settingsOpen.value = false
+    return
+  }
+  settingsOpen.value = false
+  await loadRoot(currentPath.value)
 }
 
 async function loadRoot(nextPath = '') {
@@ -131,6 +174,7 @@ async function loadRoot(nextPath = '') {
     error.value = 'root is required'
     return
   }
+  openMenuPath.value = ''
   currentPath.value = normalizeOptionalPath(nextPath)
   await refreshDirectory()
 }
@@ -183,25 +227,108 @@ async function refreshDirectory() {
   }
 }
 
-function selectFiles(event) {
-  files.value = Array.from(event.target.files || [])
-  uploadResult.value = null
+async function handleDrop(event) {
+  dropActive.value = false
+  if (busy.value) {
+    return
+  }
   error.value = ''
+  uploadResult.value = null
+  try {
+    const uploadItems = await droppedUploadItems(event.dataTransfer)
+    await uploadDropped(uploadItems)
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err)
+  }
 }
 
-function targetPath(file) {
-  const rel = uploadPathForFile(file)
+function handleDragLeave(event) {
+  if (event.currentTarget?.contains(event.relatedTarget)) {
+    return
+  }
+  dropActive.value = false
+}
+
+async function droppedUploadItems(dataTransfer) {
+  if (!dataTransfer) {
+    return []
+  }
+  const transferItems = Array.from(dataTransfer.items || [])
+  const entriesFromItems = transferItems
+    .map((item) =>
+      typeof item.webkitGetAsEntry === 'function' ? item.webkitGetAsEntry() : null
+    )
+    .filter(Boolean)
+
+  if (entriesFromItems.length > 0) {
+    const uploadItems = []
+    for (const entry of entriesFromItems) {
+      await collectDroppedEntry(entry, '', uploadItems)
+    }
+    return uploadItems
+  }
+
+  return Array.from(dataTransfer.files || []).map((file) => ({
+    file,
+    path: uploadPathForFile(file)
+  }))
+}
+
+async function collectDroppedEntry(entry, basePath, uploadItems) {
+  const entryPath = joinMaltPath(basePath, entry.name || '')
+  if (entry.isFile) {
+    const file = await readDroppedFile(entry)
+    uploadItems.push({
+      file,
+      path: entryPath || uploadPathForFile(file)
+    })
+    return
+  }
+
+  if (!entry.isDirectory) {
+    return
+  }
+
+  const reader = entry.createReader()
+  const children = await readDroppedDirectoryEntries(reader)
+  for (const child of children) {
+    await collectDroppedEntry(child, entryPath, uploadItems)
+  }
+}
+
+function readDroppedFile(entry) {
+  return new Promise((resolve, reject) => {
+    entry.file(resolve, reject)
+  })
+}
+
+async function readDroppedDirectoryEntries(reader) {
+  const entries = []
+  for (;;) {
+    const batch = await new Promise((resolve, reject) => {
+      reader.readEntries(resolve, reject)
+    })
+    if (batch.length === 0) {
+      return entries
+    }
+    entries.push(...batch)
+  }
+}
+
+function targetUploadPath(rawPath) {
+  const rel = normalizeUploadPath(rawPath)
   const cleanPrefix = prefix.value.trim() ? normalizeUploadPath(prefix.value) : ''
   return joinMaltPath(currentPath.value, joinMaltPath(cleanPrefix, rel))
 }
 
-async function uploadSelected() {
+async function uploadDropped(uploadItems) {
   error.value = ''
   uploadResult.value = null
   proofView.value = null
   clearPreview()
-  if (files.value.length === 0) {
-    error.value = 'choose files first'
+  openMenuPath.value = ''
+  if (uploadItems.length === 0) {
+    error.value = 'drop files or folders first'
     return
   }
 
@@ -209,13 +336,13 @@ async function uploadSelected() {
   try {
     let currentRoot = root.value.trim()
     const writes = []
-    for (const file of files.value) {
-      const writePath = targetPath(file)
+    for (const item of uploadItems) {
+      const writePath = targetUploadPath(item.path)
       const write = await uploadUnixFSFile({
         baseURL: baseURL.value,
         root: currentRoot,
         path: writePath,
-        file
+        file: item.file
       })
       if (!write.newRoot) {
         throw new Error('write response did not include a new root')
@@ -239,6 +366,7 @@ async function uploadSelected() {
 }
 
 async function openDirectory(entry) {
+  openMenuPath.value = ''
   if (entry.kind !== 'dir') {
     return
   }
@@ -246,6 +374,7 @@ async function openDirectory(entry) {
 }
 
 async function previewFile(entry) {
+  openMenuPath.value = ''
   if (entry.kind !== 'file') {
     return
   }
@@ -301,6 +430,7 @@ async function previewFile(entry) {
 }
 
 async function downloadFile(entry) {
+  openMenuPath.value = ''
   if (entry.kind !== 'file' || typeof window === 'undefined') {
     return
   }
@@ -331,6 +461,7 @@ async function downloadFile(entry) {
 }
 
 async function showProof(target) {
+  openMenuPath.value = ''
   error.value = ''
   proofView.value = null
   busy.value = true
@@ -355,6 +486,23 @@ async function showProof(target) {
     error.value = err instanceof Error ? err.message : String(err)
   } finally {
     busy.value = false
+  }
+}
+
+function toggleEntryMenu(entry) {
+  openMenuPath.value = openMenuPath.value === entry.path ? '' : entry.path
+}
+
+async function runEntryAction(action, entry) {
+  openMenuPath.value = ''
+  if (action === 'open') {
+    await openDirectory(entry)
+  } else if (action === 'preview') {
+    await previewFile(entry)
+  } else if (action === 'download') {
+    await downloadFile(entry)
+  } else if (action === 'proof') {
+    await showProof(entry)
   }
 }
 
@@ -425,6 +573,16 @@ function isImagePreview(name, contentType) {
   return contentType.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/i.test(name)
 }
 
+function kindLabel(entry) {
+  if (entry.kind === 'dir') {
+    return 'Folder'
+  }
+  if (entry.kind === 'file') {
+    return 'File'
+  }
+  return 'Unknown'
+}
+
 function formatSize(size) {
   if (size == null) {
     return ''
@@ -440,169 +598,197 @@ function formatSize(size) {
 </script>
 
 <template>
-  <section class="malt-tool malt-app" aria-labelledby="malt-app-heading">
-    <div class="malt-tool__head">
-      <div>
-        <p class="malt-tool__eyebrow">Local daemon</p>
-        <h2 id="malt-app-heading">{{ signedIn ? activeProfile : 'Sign in' }}</h2>
-      </div>
-      <span class="malt-tool__status" :class="{ 'is-valid': currentDirectoryVerified }">
-        {{ busy ? 'working' : currentDirectoryVerified ? 'verified' : signedIn ? 'ready' : 'signed out' }}
-      </span>
-    </div>
-
+  <section class="malt-app" :class="{ 'is-login': !signedIn }" aria-label="MALT app">
     <form v-if="!signedIn" class="malt-app__login" @submit.prevent="signIn">
+      <div class="malt-app__login-brand">MALT</div>
+      <h1>Sign in</h1>
       <label>
         <span>Profile</span>
         <input v-model="profileInput" autocomplete="username" spellcheck="false" />
       </label>
-      <label>
-        <span>Daemon URL</span>
-        <input v-model="baseURL" autocomplete="off" spellcheck="false" />
-      </label>
-      <div class="malt-tool__actions">
-        <button type="submit">Sign in</button>
-      </div>
+      <button type="submit">Continue</button>
+      <p v-if="error" class="malt-app__error">{{ error }}</p>
     </form>
 
     <template v-else>
-      <div class="malt-tool__grid">
-        <label>
-          <span>Daemon URL</span>
-          <input v-model="baseURL" autocomplete="off" spellcheck="false" @change="persistProfile" />
-        </label>
-        <label>
-          <span>Root</span>
-          <input v-model="root" autocomplete="off" spellcheck="false" @change="persistProfile" />
-        </label>
-        <label>
-          <span>Upload prefix</span>
-          <input v-model="prefix" autocomplete="off" spellcheck="false" />
-        </label>
-        <div class="malt-tool__meta">{{ currentLabel }}</div>
-        <label>
-          <span>Files</span>
-          <input type="file" multiple @change="selectFiles" />
-        </label>
-        <label>
-          <span>Folder</span>
-          <input type="file" multiple webkitdirectory directory @change="selectFiles" />
-        </label>
-      </div>
-
-      <div class="malt-tool__actions">
-        <button type="button" :disabled="busy" @click="loadRoot(currentPath)">Load root</button>
-        <button type="button" :disabled="busy || files.length === 0" @click="uploadSelected">
-          Upload
-        </button>
-        <button type="button" :disabled="busy || !root" @click="showProof({ path: currentPath, kind: 'dir' })">
-          Current proof
-        </button>
-        <button type="button" :disabled="busy" @click="signOut">Sign out</button>
-      </div>
-
-      <p v-if="error" class="malt-tool__error">{{ error }}</p>
-
-      <nav class="malt-app__breadcrumb" aria-label="breadcrumb">
-        <button
-          v-for="crumb in breadcrumbs"
-          :key="crumb.path"
-          type="button"
-          :disabled="busy || crumb.path === currentPath"
-          @click="loadRoot(crumb.path)"
-        >
-          {{ crumb.label }}
-        </button>
-      </nav>
-
-      <div class="malt-app__browser">
-        <div class="malt-app__browser-head">
-          <span>Name</span>
-          <span>Type</span>
-          <span>Size</span>
-          <span>Proof</span>
-          <span>Actions</span>
+      <header class="malt-app__topbar">
+        <div class="malt-app__identity">
+          <strong>MALT</strong>
+          <span>{{ activeProfile }}</span>
         </div>
-        <div v-if="entries.length === 0" class="malt-app__empty">
-          {{ root ? 'No entries' : 'Set a root or upload files' }}
+        <div class="malt-app__top-actions">
+          <span class="malt-app__status" :class="{ 'is-valid': currentDirectoryVerified }">
+            {{ statusText }}
+          </span>
+          <button type="button" :disabled="busy" @click="settingsOpen = !settingsOpen">Settings</button>
+          <button type="button" :disabled="busy" @click="signOut">Sign out</button>
         </div>
-        <div v-for="entry in entries" :key="entry.path" class="malt-app__row">
+      </header>
+
+      <section v-if="settingsOpen" class="malt-app__settings" aria-label="App settings">
+        <div class="malt-app__settings-grid">
+          <label>
+            <span>Root</span>
+            <input v-model="root" autocomplete="off" spellcheck="false" />
+          </label>
+          <label>
+            <span>Daemon URL</span>
+            <input v-model="baseURL" autocomplete="off" spellcheck="false" />
+          </label>
+          <label>
+            <span>CAS URL</span>
+            <input v-model="casURL" autocomplete="off" spellcheck="false" />
+          </label>
+          <label>
+            <span>Upload prefix</span>
+            <input v-model="prefix" autocomplete="off" spellcheck="false" />
+          </label>
+        </div>
+        <div class="malt-app__button-row">
+          <button type="button" :disabled="busy" @click="applySettings">Apply</button>
+          <button type="button" :disabled="busy" @click="settingsOpen = false">Close</button>
+        </div>
+      </section>
+
+      <main class="malt-app__main">
+        <p v-if="error" class="malt-app__error">{{ error }}</p>
+
+        <div class="malt-app__pathbar">
+          <nav class="malt-app__breadcrumb" aria-label="breadcrumb">
+            <button
+              v-for="crumb in breadcrumbs"
+              :key="crumb.path"
+              type="button"
+              :disabled="busy || crumb.path === currentPath"
+              @click="loadRoot(crumb.path)"
+            >
+              {{ crumb.label }}
+            </button>
+          </nav>
           <button
             type="button"
-            class="malt-app__name"
-            :disabled="busy || entry.kind === 'unknown'"
-            @click="entry.kind === 'dir' ? openDirectory(entry) : previewFile(entry)"
+            :disabled="busy || !root"
+            @click="showProof({ path: currentPath, kind: 'dir' })"
           >
-            <span
-              class="verified-dot"
-              :class="{ 'is-valid': verificationState(entry.path) === true, 'is-invalid': verificationState(entry.path) === false }"
-            ></span>
-            <span>{{ entry.name }}</span>
+            Current proof
           </button>
-          <span>{{ entry.kind }}</span>
-          <span>{{ formatSize(entry.size) }}</span>
-          <button type="button" :disabled="busy || entry.kind === 'unknown'" @click="showProof(entry)">
-            Proof
-          </button>
-          <span class="malt-app__row-actions">
-            <button v-if="entry.kind === 'dir'" type="button" :disabled="busy" @click="openDirectory(entry)">
-              Open
-            </button>
-            <button v-if="entry.kind === 'file'" type="button" :disabled="busy" @click="previewFile(entry)">
-              Preview
-            </button>
-            <button v-if="entry.kind === 'file'" type="button" :disabled="busy" @click="downloadFile(entry)">
-              Download
-            </button>
-          </span>
         </div>
-      </div>
 
-      <div v-if="uploadResult" class="malt-tool__result">
-        <dl>
-          <div>
-            <dt>New root</dt>
-            <dd>{{ uploadResult.newRoot }}</dd>
-          </div>
-          <div>
-            <dt>Uploaded</dt>
-            <dd>{{ uploadResult.files.length }}</dd>
-          </div>
-        </dl>
-        <div class="malt-tool__panel">
-          <h3>Uploads</h3>
-          <pre>{{ uploadText }}</pre>
-        </div>
-      </div>
+        <section
+          class="malt-app__dropzone"
+          :class="{ 'is-active': dropActive }"
+          @dragenter.prevent="dropActive = true"
+          @dragover.prevent="dropActive = true"
+          @dragleave.prevent="handleDragLeave"
+          @drop.prevent="handleDrop"
+        >
+          <strong>Drop files or folders</strong>
+          <span>{{ root ? `Target: ${currentLabel}` : 'Target: new root' }}</span>
+        </section>
 
-      <div v-if="preview" class="malt-tool__panel">
-        <h3>Preview: {{ preview.path }}</h3>
-        <img v-if="preview.kind === 'image'" class="malt-app__image" :src="preview.url" :alt="preview.name" />
-        <pre v-else-if="preview.kind === 'text'">{{ preview.body }}</pre>
-        <p v-else class="malt-app__empty">
-          Binary preview is not available. Use Download.
-        </p>
-      </div>
+        <section class="malt-app__browser" aria-label="File browser">
+          <div class="malt-app__browser-head">
+            <span>Name</span>
+            <span>Size</span>
+            <span></span>
+          </div>
+          <div v-if="entries.length === 0" class="malt-app__empty">
+            {{ root ? 'No entries' : 'Drop files or set a root' }}
+          </div>
+          <div v-for="entry in entries" :key="entry.path" class="malt-app__row">
+            <button
+              type="button"
+              class="malt-app__name"
+              :disabled="busy || entry.kind === 'unknown'"
+              :title="kindLabel(entry)"
+              @click="entry.kind === 'dir' ? openDirectory(entry) : previewFile(entry)"
+            >
+              <span
+                class="malt-app__file-icon"
+                :class="{ 'is-dir': entry.kind === 'dir', 'is-file': entry.kind === 'file' }"
+                aria-hidden="true"
+              ></span>
+              <span class="malt-app__name-text">{{ entry.name }}</span>
+              <span
+                class="verified-dot"
+                :class="{
+                  'is-valid': verificationState(entry.path) === true,
+                  'is-invalid': verificationState(entry.path) === false
+                }"
+              ></span>
+            </button>
+            <span class="malt-app__size">{{ formatSize(entry.size) }}</span>
+            <span class="malt-app__row-menu">
+              <button
+                type="button"
+                class="malt-app__more"
+                :disabled="busy || entry.kind === 'unknown'"
+                :aria-expanded="openMenuPath === entry.path"
+                aria-label="Actions"
+                @click="toggleEntryMenu(entry)"
+              >
+                ⋮
+              </button>
+              <span v-if="openMenuPath === entry.path" class="malt-app__menu">
+                <button v-if="entry.kind === 'dir'" type="button" @click="runEntryAction('open', entry)">
+                  Open
+                </button>
+                <button v-if="entry.kind === 'file'" type="button" @click="runEntryAction('preview', entry)">
+                  Preview
+                </button>
+                <button v-if="entry.kind === 'file'" type="button" @click="runEntryAction('download', entry)">
+                  Download
+                </button>
+                <button type="button" @click="runEntryAction('proof', entry)">Proof</button>
+              </span>
+            </span>
+          </div>
+        </section>
 
-      <div v-if="proofView" class="malt-tool__result">
-        <dl>
-          <div>
-            <dt>Path</dt>
-            <dd>{{ proofView.path || '/' }}</dd>
+        <section v-if="uploadResult" class="malt-app__result">
+          <dl>
+            <div>
+              <dt>New root</dt>
+              <dd>{{ uploadResult.newRoot }}</dd>
+            </div>
+            <div>
+              <dt>Uploaded</dt>
+              <dd>{{ uploadResult.files.length }}</dd>
+            </div>
+          </dl>
+          <div class="malt-app__panel">
+            <h2>Uploads</h2>
+            <pre>{{ uploadText }}</pre>
           </div>
-          <div>
-            <dt>Verify</dt>
-            <dd>{{ proofView.verification?.valid ? 'valid: true' : 'valid: false' }}</dd>
+        </section>
+
+        <section v-if="preview" class="malt-app__panel">
+          <h2>Preview: {{ preview.path }}</h2>
+          <img v-if="preview.kind === 'image'" class="malt-app__image" :src="preview.url" :alt="preview.name" />
+          <pre v-else-if="preview.kind === 'text'">{{ preview.body }}</pre>
+          <p v-else class="malt-app__empty">Binary preview is not available. Use Download.</p>
+        </section>
+
+        <section v-if="proofView" class="malt-app__result">
+          <dl>
+            <div>
+              <dt>Path</dt>
+              <dd>{{ proofView.path || '/' }}</dd>
+            </div>
+            <div>
+              <dt>Verify</dt>
+              <dd>{{ proofView.verification?.valid ? 'valid: true' : 'valid: false' }}</dd>
+            </div>
+          </dl>
+          <div class="malt-app__button-row">
+            <button type="button" :disabled="!proofText" @click="sendToVerifier">Verify page</button>
           </div>
-        </dl>
-        <div class="malt-tool__actions">
-          <button type="button" :disabled="!proofText" @click="sendToVerifier">Verify page</button>
-        </div>
-        <div class="malt-tool__panel">
-          <h3>ProofList</h3>
-          <pre>{{ proofText }}</pre>
-        </div>
-      </div>
+          <div class="malt-app__panel">
+            <h2>ProofList</h2>
+            <pre>{{ proofText }}</pre>
+          </div>
+        </section>
+      </main>
     </template>
   </section>
 </template>

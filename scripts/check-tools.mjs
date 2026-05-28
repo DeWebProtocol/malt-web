@@ -40,6 +40,7 @@ assert.match(configText, /link:\s*'\/tools\/verify'/)
 
 const appPage = fs.readFileSync(path.join(docsRoot, 'app.md'), 'utf8')
 assert.match(appPage, /<MaltApp\s*\/>/)
+assert.doesNotMatch(appPage, /^# App/m)
 
 const appSource = fs.readFileSync(
   path.join(docsRoot, '.vitepress/theme/components/MaltApp.vue'),
@@ -48,19 +49,29 @@ const appSource = fs.readFileSync(
 for (const pattern of [
   /localStorage/,
   /profileStorageKey/,
-  /Load root/,
+  /is-login/,
   /Sign out/,
   /breadcrumb/,
+  /handleDrop/,
+  /malt-app__dropzone/,
+  /settingsOpen/,
+  /malt-app__settings/,
+  /Daemon URL/,
+  /CAS URL/,
   /openDirectory/,
   /previewFile/,
   /downloadFile/,
   /showProof/,
+  /openMenuPath/,
+  /malt-app__menu/,
+  /⋮/,
   /verified-dot/,
-  /type="file" multiple/,
-  /webkitdirectory directory/
+  /malt-app__file-icon/
 ]) {
   assert.match(appSource, pattern)
 }
+assert.doesNotMatch(appSource, /type="file" multiple/)
+assert.doesNotMatch(appSource, /webkitdirectory directory/)
 
 const resolvePage = fs.readFileSync(path.join(docsRoot, 'tools/resolve.md'), 'utf8')
 assert.match(resolvePage, /<MaltResolveTool\s*\/>/)

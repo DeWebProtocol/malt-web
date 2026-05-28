@@ -6,6 +6,4 @@ title: App
 import MaltApp from './.vitepress/theme/components/MaltApp.vue'
 </script>
 
-# App
-
 <MaltApp />

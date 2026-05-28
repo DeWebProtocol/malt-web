@@ -1,4 +1,5 @@
 export const defaultDaemonURL = 'http://127.0.0.1:4317'
+export const defaultCASURL = 'http://127.0.0.1:4318'
 
 export function buildResolveURL(baseURL, root, rawPath = '') {
   return buildDaemonURL(baseURL, ['resolve', root, ...pathSegments(rawPath)])
