@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { withBase } from 'vitepress'
 import {
   activeProfileStorageKey,
@@ -29,11 +29,18 @@ const busy = ref(false)
 const error = ref('')
 const uploadResult = ref(null)
 const preview = ref(null)
+const previewView = ref(false)
 const proofView = ref(null)
 const verifiedPaths = ref({})
 const settingsOpen = ref(false)
 const openMenuPath = ref('')
 const dropActive = ref(false)
+const dragDepth = ref(0)
+const uploadStatus = ref('')
+const entryNameCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
+const daemonRequestTimeoutMs = 120_000
+const uploadRequestTimeoutMs = 600_000
+let dragResetTimer = 0
 
 const signedIn = computed(() => activeProfile.value !== '')
 const currentLabel = computed(() => (currentPath.value ? `/${currentPath.value}` : '/'))
@@ -75,11 +82,28 @@ const uploadText = computed(() => {
 })
 
 onMounted(() => {
+  document.body.classList.add('malt-app-page')
+  window.addEventListener('dragenter', beginPageDrag)
+  window.addEventListener('dragover', handlePageDragOver)
+  window.addEventListener('dragleave', handlePageDragLeave)
+  window.addEventListener('drop', handlePageDrop)
+  window.addEventListener('dragend', cancelPageDrag)
   const stored = window.localStorage.getItem(activeProfileStorageKey())
   if (stored) {
     profileInput.value = stored
     signIn()
   }
+})
+
+onUnmounted(() => {
+  document.body.classList.remove('malt-app-page')
+  window.removeEventListener('dragenter', beginPageDrag)
+  window.removeEventListener('dragover', handlePageDragOver)
+  window.removeEventListener('dragleave', handlePageDragLeave)
+  window.removeEventListener('drop', handlePageDrop)
+  window.removeEventListener('dragend', cancelPageDrag)
+  window.clearTimeout(dragResetTimer)
+  clearPreview()
 })
 
 function signIn() {
@@ -102,6 +126,7 @@ function signIn() {
   error.value = ''
   uploadResult.value = null
   preview.value = null
+  previewView.value = false
   proofView.value = null
   entries.value = []
   if (root.value) {
@@ -122,7 +147,8 @@ function signOut() {
   uploadResult.value = null
   settingsOpen.value = false
   openMenuPath.value = ''
-  dropActive.value = false
+  cancelPageDrag()
+  uploadStatus.value = ''
   clearPreview()
   proofView.value = null
 }
@@ -185,19 +211,24 @@ async function refreshDirectory() {
   proofView.value = null
   busy.value = true
   try {
-    const manifest = await readDirectory({
-      baseURL: baseURL.value,
-      root: root.value,
-      path: currentPath.value
-    })
+    const manifest = await withDaemonTimeout('read directory', (signal) =>
+      readDirectory({
+        baseURL: baseURL.value,
+        root: root.value,
+        path: currentPath.value,
+        signal
+      })
+    )
     if (manifest.proofList) {
       await verifyAndMark(currentPath.value, manifest.proofList)
     }
-    entries.value = await Promise.all(
+    const loadedEntries = await Promise.all(
       manifest.entries.map(async (name) => {
         const childPath = joinMaltPath(currentPath.value, name)
         try {
-          const stat = await statPath({ baseURL: baseURL.value, root: root.value, path: childPath })
+          const stat = await withDaemonTimeout('stat path', (signal) =>
+            statPath({ baseURL: baseURL.value, root: root.value, path: childPath, signal })
+          )
           return {
             name,
             path: childPath,
@@ -218,6 +249,7 @@ async function refreshDirectory() {
         }
       })
     )
+    entries.value = loadedEntries.sort(compareEntries)
     persistProfile()
   } catch (err) {
     entries.value = []
@@ -227,26 +259,110 @@ async function refreshDirectory() {
   }
 }
 
-async function handleDrop(event) {
+function beginPageDrag(event) {
+  if (!isFileDrag(event)) {
+    return
+  }
+  event.preventDefault()
+  if (!canAcceptFileDrop()) {
+    setDropEffect(event, 'none')
+    return
+  }
+  dragDepth.value += 1
+  showPageDropTarget(event)
+}
+
+function handlePageDragOver(event) {
+  if (!isFileDrag(event)) {
+    return
+  }
+  event.preventDefault()
+  if (!canAcceptFileDrop()) {
+    setDropEffect(event, 'none')
+    return
+  }
+  showPageDropTarget(event)
+}
+
+function handlePageDragLeave(event) {
+  if (!isFileDrag(event)) {
+    return
+  }
+  dragDepth.value = Math.max(0, dragDepth.value - 1)
+  if (isOutsideViewport(event) || dragDepth.value === 0) {
+    schedulePageDragReset()
+  }
+}
+
+async function handlePageDrop(event) {
+  if (!isFileDrag(event)) {
+    return
+  }
+  event.preventDefault()
+  cancelPageDrag()
+  if (!signedIn.value) {
+    error.value = 'sign in before uploading'
+    return
+  }
+  await handleDrop(event)
+}
+
+function showPageDropTarget(event) {
+  dropActive.value = true
+  setDropEffect(event, 'copy')
+  schedulePageDragReset()
+}
+
+function setDropEffect(event, effect) {
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = effect
+  }
+}
+
+function canAcceptFileDrop() {
+  return signedIn.value && !busy.value
+}
+
+function schedulePageDragReset() {
+  window.clearTimeout(dragResetTimer)
+  dragResetTimer = window.setTimeout(() => {
+    dragDepth.value = 0
+    dropActive.value = false
+  }, 160)
+}
+
+function cancelPageDrag() {
+  window.clearTimeout(dragResetTimer)
+  dragDepth.value = 0
   dropActive.value = false
+}
+
+function isFileDrag(event) {
+  return Array.from(event.dataTransfer?.types || []).includes('Files')
+}
+
+function isOutsideViewport(event) {
+  return (
+    event.clientX <= 0 ||
+    event.clientY <= 0 ||
+    event.clientX >= window.innerWidth ||
+    event.clientY >= window.innerHeight
+  )
+}
+
+async function handleDrop(event) {
   if (busy.value) {
     return
   }
   error.value = ''
   uploadResult.value = null
+  uploadStatus.value = ''
   try {
     const uploadItems = await droppedUploadItems(event.dataTransfer)
     await uploadDropped(uploadItems)
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
   }
-}
-
-function handleDragLeave(event) {
-  if (event.currentTarget?.contains(event.relatedTarget)) {
-    return
-  }
-  dropActive.value = false
 }
 
 async function droppedUploadItems(dataTransfer) {
@@ -327,6 +443,7 @@ async function uploadDropped(uploadItems) {
   proofView.value = null
   clearPreview()
   openMenuPath.value = ''
+  uploadStatus.value = ''
   if (uploadItems.length === 0) {
     error.value = 'drop files or folders first'
     return
@@ -336,14 +453,21 @@ async function uploadDropped(uploadItems) {
   try {
     let currentRoot = root.value.trim()
     const writes = []
-    for (const item of uploadItems) {
+    for (const [index, item] of uploadItems.entries()) {
       const writePath = targetUploadPath(item.path)
-      const write = await uploadUnixFSFile({
-        baseURL: baseURL.value,
-        root: currentRoot,
-        path: writePath,
-        file: item.file
-      })
+      uploadStatus.value = `Uploading ${index + 1}/${uploadItems.length}: ${writePath}`
+      const write = await withDaemonTimeout(
+        `upload ${writePath}`,
+        (signal) =>
+          uploadUnixFSFile({
+            baseURL: baseURL.value,
+            root: currentRoot,
+            path: writePath,
+            file: item.file,
+            signal
+          }),
+        uploadRequestTimeoutMs
+      )
       if (!write.newRoot) {
         throw new Error('write response did not include a new root')
       }
@@ -356,6 +480,7 @@ async function uploadDropped(uploadItems) {
       newRoot: currentRoot,
       files: writes
     }
+    uploadStatus.value = `Uploaded ${writes.length} item${writes.length === 1 ? '' : 's'}`
     persistProfile()
     await refreshDirectory()
   } catch (err) {
@@ -383,11 +508,14 @@ async function previewFile(entry) {
   clearPreview()
   busy.value = true
   try {
-    const payload = await readContentBlob({
-      baseURL: baseURL.value,
-      root: root.value,
-      path: entry.path
-    })
+    const payload = await withDaemonTimeout('read file', (signal) =>
+      readContentBlob({
+        baseURL: baseURL.value,
+        root: root.value,
+        path: entry.path,
+        signal
+      })
+    )
     if (payload.proofList) {
       await verifyAndMark(entry.path, payload.proofList)
     }
@@ -402,6 +530,7 @@ async function previewFile(entry) {
         size: blob.size,
         url: URL.createObjectURL(blob)
       }
+      previewView.value = true
       return
     }
     if (isTextPreview(entry.name, contentType, blob.size)) {
@@ -413,6 +542,7 @@ async function previewFile(entry) {
         size: blob.size,
         body: await blob.text()
       }
+      previewView.value = true
       return
     }
     preview.value = {
@@ -422,6 +552,7 @@ async function previewFile(entry) {
       contentType,
       size: blob.size
     }
+    previewView.value = true
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
   } finally {
@@ -437,11 +568,14 @@ async function downloadFile(entry) {
   error.value = ''
   busy.value = true
   try {
-    const payload = await readContentBlob({
-      baseURL: baseURL.value,
-      root: root.value,
-      path: entry.path
-    })
+    const payload = await withDaemonTimeout('download file', (signal) =>
+      readContentBlob({
+        baseURL: baseURL.value,
+        root: root.value,
+        path: entry.path,
+        signal
+      })
+    )
     if (payload.proofList) {
       await verifyAndMark(entry.path, payload.proofList)
     }
@@ -470,8 +604,12 @@ async function showProof(target) {
     const kind = target?.kind ?? 'dir'
     const payload =
       kind === 'dir'
-        ? await readDirectory({ baseURL: baseURL.value, root: root.value, path })
-        : await readContentBlob({ baseURL: baseURL.value, root: root.value, path })
+        ? await withDaemonTimeout('read proof directory', (signal) =>
+            readDirectory({ baseURL: baseURL.value, root: root.value, path, signal })
+          )
+        : await withDaemonTimeout('read proof file', (signal) =>
+            readContentBlob({ baseURL: baseURL.value, root: root.value, path, signal })
+          )
     if (!payload.proofList) {
       throw new Error('response did not include ProofList material')
     }
@@ -497,8 +635,6 @@ async function runEntryAction(action, entry) {
   openMenuPath.value = ''
   if (action === 'open') {
     await openDirectory(entry)
-  } else if (action === 'preview') {
-    await previewFile(entry)
   } else if (action === 'download') {
     await downloadFile(entry)
   } else if (action === 'proof') {
@@ -507,12 +643,30 @@ async function runEntryAction(action, entry) {
 }
 
 async function verifyAndMark(path, proofList) {
-  const verification = await verifyProofList({
-    baseURL: baseURL.value,
-    proofList
-  })
+  const verification = await withDaemonTimeout('verify proof', (signal) =>
+    verifyProofList({
+      baseURL: baseURL.value,
+      proofList,
+      signal
+    })
+  )
   markVerification(path, verification.valid)
   return verification
+}
+
+async function withDaemonTimeout(label, operation, timeoutMs = daemonRequestTimeoutMs) {
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await operation(controller.signal)
+  } catch (err) {
+    if (err?.name === 'AbortError') {
+      throw new Error(`${label} timed out after ${Math.round(timeoutMs / 1000)} seconds`)
+    }
+    throw err
+  } finally {
+    window.clearTimeout(timeout)
+  }
 }
 
 function markVerification(path, valid) {
@@ -540,6 +694,12 @@ function clearPreview() {
     URL.revokeObjectURL(preview.value.url)
   }
   preview.value = null
+  previewView.value = false
+}
+
+function backToBrowser() {
+  clearPreview()
+  proofView.value = null
 }
 
 function sendToVerifier() {
@@ -583,6 +743,24 @@ function kindLabel(entry) {
   return 'Unknown'
 }
 
+function entryKindOrder(entry) {
+  if (entry.kind === 'dir') {
+    return 0
+  }
+  if (entry.kind === 'file') {
+    return 1
+  }
+  return 2
+}
+
+function compareEntries(left, right) {
+  const kindDiff = entryKindOrder(left) - entryKindOrder(right)
+  if (kindDiff !== 0) {
+    return kindDiff
+  }
+  return entryNameCollator.compare(left.name, right.name)
+}
+
 function formatSize(size) {
   if (size == null) {
     return ''
@@ -598,7 +776,11 @@ function formatSize(size) {
 </script>
 
 <template>
-  <section class="malt-app" :class="{ 'is-login': !signedIn }" aria-label="MALT app">
+  <section
+    class="malt-app"
+    :class="{ 'is-login': !signedIn, 'is-dropping': dropActive }"
+    aria-label="MALT app"
+  >
     <form v-if="!signedIn" class="malt-app__login" @submit.prevent="signIn">
       <div class="malt-app__login-brand">MALT</div>
       <h1>Sign in</h1>
@@ -650,8 +832,14 @@ function formatSize(size) {
         </div>
       </section>
 
+      <div v-show="dropActive" class="malt-app__dropzone" aria-live="polite">
+        <strong>Drop files or folders</strong>
+        <span>{{ root ? `Target: ${currentLabel}` : 'Target: new root' }}</span>
+      </div>
+
       <main class="malt-app__main">
         <p v-if="error" class="malt-app__error">{{ error }}</p>
+        <p v-if="uploadStatus" class="malt-app__status-line">{{ uploadStatus }}</p>
 
         <div class="malt-app__pathbar">
           <nav class="malt-app__breadcrumb" aria-label="breadcrumb">
@@ -674,19 +862,41 @@ function formatSize(size) {
           </button>
         </div>
 
-        <section
-          class="malt-app__dropzone"
-          :class="{ 'is-active': dropActive }"
-          @dragenter.prevent="dropActive = true"
-          @dragover.prevent="dropActive = true"
-          @dragleave.prevent="handleDragLeave"
-          @drop.prevent="handleDrop"
-        >
-          <strong>Drop files or folders</strong>
-          <span>{{ root ? `Target: ${currentLabel}` : 'Target: new root' }}</span>
+        <section v-if="previewView && preview" class="malt-app__preview" aria-label="File preview">
+          <div class="malt-app__preview-head">
+            <button type="button" :disabled="busy" @click="backToBrowser">Back</button>
+            <div>
+              <span>Preview</span>
+              <h2>{{ preview.path }}</h2>
+            </div>
+            <div class="malt-app__preview-actions">
+              <button
+                type="button"
+                :disabled="busy"
+                @click="downloadFile({ name: preview.name, path: preview.path, kind: 'file' })"
+              >
+                Download
+              </button>
+              <button
+                type="button"
+                :disabled="busy"
+                @click="showProof({ path: preview.path, kind: 'file' })"
+              >
+                Proof
+              </button>
+            </div>
+          </div>
+          <img
+            v-if="preview.kind === 'image'"
+            class="malt-app__image"
+            :src="preview.url"
+            :alt="preview.name"
+          />
+          <pre v-else-if="preview.kind === 'text'">{{ preview.body }}</pre>
+          <p v-else class="malt-app__empty">Binary preview is not available. Use Download.</p>
         </section>
 
-        <section class="malt-app__browser" aria-label="File browser">
+        <section v-else class="malt-app__browser" aria-label="File browser">
           <div class="malt-app__browser-head">
             <span>Name</span>
             <span>Size</span>
@@ -733,9 +943,6 @@ function formatSize(size) {
                 <button v-if="entry.kind === 'dir'" type="button" @click="runEntryAction('open', entry)">
                   Open
                 </button>
-                <button v-if="entry.kind === 'file'" type="button" @click="runEntryAction('preview', entry)">
-                  Preview
-                </button>
                 <button v-if="entry.kind === 'file'" type="button" @click="runEntryAction('download', entry)">
                   Download
                 </button>
@@ -760,13 +967,6 @@ function formatSize(size) {
             <h2>Uploads</h2>
             <pre>{{ uploadText }}</pre>
           </div>
-        </section>
-
-        <section v-if="preview" class="malt-app__panel">
-          <h2>Preview: {{ preview.path }}</h2>
-          <img v-if="preview.kind === 'image'" class="malt-app__image" :src="preview.url" :alt="preview.name" />
-          <pre v-else-if="preview.kind === 'text'">{{ preview.body }}</pre>
-          <p v-else class="malt-app__empty">Binary preview is not available. Use Download.</p>
         </section>
 
         <section v-if="proofView" class="malt-app__result">

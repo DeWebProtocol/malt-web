@@ -50,14 +50,28 @@ for (const pattern of [
   /localStorage/,
   /profileStorageKey/,
   /is-login/,
+  /malt-app-page/,
   /Sign out/,
   /breadcrumb/,
   /handleDrop/,
+  /beginPageDrag/,
+  /handlePageDrop/,
+  /dragDepth/,
+  /window\.addEventListener\('drop', handlePageDrop\)/,
   /malt-app__dropzone/,
+  /v-show="dropActive"/,
+  /withDaemonTimeout/,
+  /AbortController/,
+  /malt-app__status-line/,
+  /malt-app__preview/,
+  /backToBrowser/,
+  /previewView/,
   /settingsOpen/,
   /malt-app__settings/,
   /Daemon URL/,
   /CAS URL/,
+  /compareEntries/,
+  /entryKindOrder/,
   /openDirectory/,
   /previewFile/,
   /downloadFile/,
@@ -70,8 +84,22 @@ for (const pattern of [
 ]) {
   assert.match(appSource, pattern)
 }
+assert.doesNotMatch(appSource, /runEntryAction\('preview'/)
 assert.doesNotMatch(appSource, /type="file" multiple/)
 assert.doesNotMatch(appSource, /webkitdirectory directory/)
+
+const customCSS = fs.readFileSync(path.join(docsRoot, '.vitepress/theme/custom.css'), 'utf8')
+for (const pattern of [
+  /body\.malt-app-page\s+\.VPNav/,
+  /body\.malt-app-page\s+\.VPSidebar/,
+  /body\.malt-app-page\s+\.VPLocalNav/,
+  /body\.malt-app-page\s+\.VPContent\.has-sidebar/,
+  /body\.malt-app-page\s+\.VPDocFooter/,
+  /body\.malt-app-page\s+\.VPFooter/,
+  /malt-app__dropzone/
+]) {
+  assert.match(customCSS, pattern)
+}
 
 const resolvePage = fs.readFileSync(path.join(docsRoot, 'tools/resolve.md'), 'utf8')
 assert.match(resolvePage, /<MaltResolveTool\s*\/>/)

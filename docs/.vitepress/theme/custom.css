@@ -539,12 +539,59 @@
   }
 }
 
+body.malt-app-page .VPNav,
+body.malt-app-page .VPSidebar,
+body.malt-app-page .VPLocalNav,
+body.malt-app-page .VPDocFooter,
+body.malt-app-page .VPFooter {
+  display: none !important;
+}
+
+body.malt-app-page .VPContent.has-sidebar,
+body.malt-app-page .VPDoc.has-sidebar,
+body.malt-app-page .VPFooter.has-sidebar {
+  padding-left: 0 !important;
+}
+
+body.malt-app-page .VPContent {
+  padding-top: 0 !important;
+}
+
+body.malt-app-page .VPDoc {
+  padding: 0 !important;
+}
+
+body.malt-app-page .VPDoc .container {
+  max-width: none !important;
+  margin: 0 !important;
+}
+
+body.malt-app-page .VPDoc .content,
+body.malt-app-page .VPDoc .content-container {
+  max-width: none !important;
+  padding: 0 !important;
+}
+
+body.malt-app-page .VPDoc .aside {
+  display: none !important;
+}
+
 .malt-app {
+  position: relative;
   width: 100vw;
-  min-height: calc(100vh - var(--vp-nav-height, 64px));
+  min-height: 100vh;
   margin: -24px 0 -40px calc(50% - 50vw);
   color: var(--vp-c-text-1);
   background: var(--vp-c-bg);
+}
+
+body.malt-app-page .malt-app {
+  margin: 0;
+}
+
+.malt-app.is-dropping {
+  outline: 2px solid var(--vp-c-brand-1);
+  outline-offset: -2px;
 }
 
 .malt-app.is-login {
@@ -738,24 +785,24 @@
 }
 
 .malt-app__dropzone {
+  position: fixed;
+  z-index: 80;
+  inset: 0;
   display: grid;
   place-items: center;
-  min-height: 112px;
-  border: 1px dashed var(--vp-c-divider);
-  border-radius: 8px;
+  align-content: center;
+  min-height: 0;
+  border: 2px dashed var(--vp-c-brand-1);
+  border-radius: 0;
   padding: 22px;
-  background: var(--vp-c-bg-alt);
+  pointer-events: none;
+  background: color-mix(in srgb, var(--vp-c-bg) 88%, var(--vp-c-brand-1));
   text-align: center;
-}
-
-.malt-app__dropzone.is-active {
-  border-color: var(--vp-c-brand-1);
-  background: var(--vp-c-brand-soft);
 }
 
 .malt-app__dropzone strong {
   color: var(--vp-c-text-1);
-  font-size: 16px;
+  font-size: 22px;
 }
 
 .malt-app__dropzone span {
@@ -919,6 +966,69 @@
   background: var(--vp-c-bg-soft);
 }
 
+.malt-app__preview {
+  display: grid;
+  gap: 14px;
+  min-height: min(560px, calc(100vh - 220px));
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  padding: 14px;
+  background: var(--vp-c-bg);
+}
+
+.malt-app__preview-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.malt-app__preview-head div {
+  min-width: 0;
+}
+
+.malt-app__preview-head span {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--vp-c-text-3);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.malt-app__preview-head h2 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  border: 0;
+  padding: 0;
+  color: var(--vp-c-text-1);
+  font: 15px/1.35 var(--vp-font-family-mono);
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.malt-app__preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.malt-app__preview pre {
+  max-height: calc(100vh - 300px);
+  margin: 0;
+  overflow: auto;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 7px;
+  padding: 12px;
+  background: var(--vp-c-bg-alt);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .verified-dot {
   flex: 0 0 auto;
   width: 9px;
@@ -953,6 +1063,17 @@
   border-radius: 7px;
   color: #b91c1c;
   background: rgba(248, 113, 113, 0.1);
+}
+
+.malt-app__status-line {
+  margin: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 7px;
+  color: var(--vp-c-text-2);
+  background: var(--vp-c-bg-soft);
+  font: 12px/1.4 var(--vp-font-family-mono);
+  overflow-wrap: anywhere;
 }
 
 .malt-app__result {
@@ -1057,6 +1178,10 @@
 
   .malt-app__main {
     padding: 14px 14px 26px;
+  }
+
+  .malt-app__preview-head {
+    grid-template-columns: 1fr;
   }
 
   .malt-app__browser {
