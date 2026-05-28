@@ -13,7 +13,8 @@ The current public `malt` CLI is intentionally small:
 
 - `malt init`: create or initialize local configuration
 - `malt daemon`: run the local daemon and HTTP API in the foreground
-- `malt daemon start/status/stop/restart`: manage a local background daemon
+- `malt daemon start/status/stop/restart`: detach, inspect, stop, or restart a
+  managed local background daemon
 - `malt add`: import data through the daemon/client path and return a root
 - `malt resolve`: print a root-relative resolve response
 - `malt verify`: verify ProofList material, including responses that contain a
@@ -21,6 +22,10 @@ The current public `malt` CLI is intentionally small:
 
 The product path goes through daemon-client APIs. Removed direct in-process
 helpers are not part of the public command surface.
+
+The website App uses the same local daemon boundary from the browser. It can
+upload files or browser-selected folders through the UnixFS write routes, then
+resolve from the resulting root and verify the returned ProofList response.
 
 ## Mutation Materialization
 

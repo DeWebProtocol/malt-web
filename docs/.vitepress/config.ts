@@ -23,6 +23,7 @@ export default defineConfig({
     logo: '/visuals/malt-mark.svg',
     nav: [
       { text: 'Overview', link: '/overview' },
+      { text: 'App', link: '/app' },
       { text: 'Narrative', link: '/narrative/problem' },
       { text: 'Docs', link: '/docs/runtime' },
       { text: 'Tools', link: '/tools/resolve' },
@@ -33,6 +34,10 @@ export default defineConfig({
       {
         text: 'Overview',
         items: [{ text: 'MALT Design Overview', link: '/overview' }]
+      },
+      {
+        text: 'App',
+        items: [{ text: 'Browser App', link: '/app' }]
       },
       {
         text: 'Research Narrative',

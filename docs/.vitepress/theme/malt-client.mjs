@@ -8,6 +8,16 @@ export function buildContentURL(baseURL, root, rawPath = '') {
   return buildDaemonURL(baseURL, [root, ...pathSegments(rawPath)])
 }
 
+export function buildUnixFSWriteURL(baseURL, root, rawPath) {
+  const cleanPath = normalizeUploadPath(rawPath)
+  if (String(root || '').trim()) {
+    return buildDaemonURL(baseURL, [root, ...pathSegments(cleanPath)])
+  }
+  const url = buildDaemonURL(baseURL, ['_unixfs'])
+  url.searchParams.set('path', cleanPath)
+  return url
+}
+
 export function decodeProofListHeader(raw) {
   if (!raw) {
     throw new Error('missing X-Malt-ProofList header')
@@ -33,6 +43,23 @@ export function extractProofListInput(input) {
   return proofList
 }
 
+export function normalizeUploadPath(rawPath) {
+  const path = String(rawPath || '')
+    .replace(/\\/g, '/')
+    .split('/')
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+    .join('/')
+  if (!path) {
+    throw new Error('upload path is required')
+  }
+  return path
+}
+
+export function uploadPathForFile(file) {
+  return normalizeUploadPath(file?.webkitRelativePath || file?.name || '')
+}
+
 export async function resolvePath({ baseURL, root, path, signal }) {
   const url = buildResolveURL(baseURL, root, path)
   const response = await fetch(url, { signal })
@@ -42,6 +69,27 @@ export async function resolvePath({ baseURL, root, path, signal }) {
     status: response.status,
     response: payload,
     proofList: payload.prooflist ?? null
+  }
+}
+
+export async function uploadUnixFSFile({ baseURL, root, path, file, signal }) {
+  const url = buildUnixFSWriteURL(baseURL, root, path)
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/octet-stream' },
+    body: file,
+    signal
+  })
+  const payload = await readJSONResponse(response)
+  return {
+    endpoint: url.toString(),
+    status: response.status,
+    path: payload.path ?? path,
+    kind: payload.kind ?? 'file',
+    oldRoot: payload.old_root ?? '',
+    newRoot: payload.new_root ?? '',
+    arcCount: payload.arc_count ?? 0,
+    response: payload
   }
 }
 

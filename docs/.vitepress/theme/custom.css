@@ -238,6 +238,17 @@
   resize: vertical;
 }
 
+.malt-tool__meta {
+  align-self: end;
+  min-height: 37px;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 7px;
+  padding: 9px 11px;
+  color: var(--vp-c-text-2);
+  background: var(--vp-c-bg-soft);
+  font: 13px/1.45 var(--vp-font-family-mono);
+}
+
 .malt-tool__actions {
   display: flex;
   flex-wrap: wrap;

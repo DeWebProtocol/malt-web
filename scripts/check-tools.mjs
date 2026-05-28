@@ -4,6 +4,7 @@ import path from 'node:path'
 
 import {
   buildContentURL,
+  buildUnixFSWriteURL,
   buildResolveURL,
   decodeProofListHeader,
   extractProofListInput
@@ -13,8 +14,10 @@ const root = new URL('..', import.meta.url)
 const docsRoot = path.join(root.pathname, 'docs')
 
 const requiredFiles = [
+  'app.md',
   'tools/resolve.md',
   'tools/verify.md',
+  '.vitepress/theme/components/MaltApp.vue',
   '.vitepress/theme/components/MaltResolveTool.vue',
   '.vitepress/theme/components/MaltVerifyTool.vue',
   '.vitepress/theme/malt-client.mjs'
@@ -25,9 +28,14 @@ for (const file of requiredFiles) {
 }
 
 const configText = fs.readFileSync(path.join(docsRoot, '.vitepress/config.ts'), 'utf8')
+assert.match(configText, /text:\s*'App'/)
+assert.match(configText, /link:\s*'\/app'/)
 assert.match(configText, /text:\s*'Tools'/)
 assert.match(configText, /link:\s*'\/tools\/resolve'/)
 assert.match(configText, /link:\s*'\/tools\/verify'/)
+
+const appPage = fs.readFileSync(path.join(docsRoot, 'app.md'), 'utf8')
+assert.match(appPage, /<MaltApp\s*\/>/)
 
 const resolvePage = fs.readFileSync(path.join(docsRoot, 'tools/resolve.md'), 'utf8')
 assert.match(resolvePage, /<MaltResolveTool\s*\/>/)
@@ -41,6 +49,14 @@ assert.equal(
 )
 assert.equal(
   buildContentURL('http://127.0.0.1:4317', 'bafkqaaa', 'docs/read me').toString(),
+  'http://127.0.0.1:4317/bafkqaaa/docs/read%20me'
+)
+assert.equal(
+  buildUnixFSWriteURL('http://127.0.0.1:4317', '', 'docs/read me').toString(),
+  'http://127.0.0.1:4317/_unixfs?path=docs%2Fread+me'
+)
+assert.equal(
+  buildUnixFSWriteURL('http://127.0.0.1:4317', 'bafkqaaa', 'docs/read me').toString(),
   'http://127.0.0.1:4317/bafkqaaa/docs/read%20me'
 )
 

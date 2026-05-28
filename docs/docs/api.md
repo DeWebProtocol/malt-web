@@ -23,15 +23,18 @@ the route used by `malt resolve`.
 
 ```text
 POST /_
+POST /_unixfs?path=<path>
 POST /{root}/{path...}
 POST /{root}/_mutate
 ```
 
 `POST /_` creates a root.
 
-`POST /{root}/{path...}` is the UnixFS convenience write path. `POST
-/{root}/_mutate` is the root-scoped semantic mutation path. Both use the writer
-mutation boundary instead of exposing mutable public heads.
+`POST /_unixfs?path=<path>` writes file bytes into a new UnixFS root. `POST
+/{root}/{path...}` writes file bytes into an existing UnixFS root and returns
+the updated root. `POST /{root}/_mutate` is the root-scoped semantic mutation
+path. The UnixFS and semantic mutation routes use the writer mutation boundary
+instead of exposing mutable public heads.
 
 ## Semantic Mutation Contract
 
@@ -127,9 +130,11 @@ delegate compatibility verification checks, while the core correctness model
 still assumes clients can verify locally against the selected root.
 
 Browser tools can call the local daemon when their origin is listed in
-`rpc.cors_allowed_origins`. CORS is limited to read/proof routes and
-`POST /verify`; root-scoped write routes are not exposed through the browser
-CORS path.
+`rpc.cors_allowed_origins`. Defaults include local VitePress dev/preview
+origins and the current public documentation origins. CORS is limited to
+read/proof routes, `POST /verify`, and the UnixFS upload conveniences
+`POST /_unixfs?path=...` and `POST /{root}/{path...}`. Admin routes and raw
+semantic mutation routes are not exposed through the browser CORS path.
 
 ## Proof Transport
 
