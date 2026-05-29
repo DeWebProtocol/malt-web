@@ -3,12 +3,14 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import {
+  buildAppStatePath,
   buildContentURL,
   buildUnixFSWriteURL,
   buildResolveURL,
   decodeProofListHeader,
   extractProofListInput,
   joinMaltPath,
+  parseAppStatePath,
   pathBasename,
   pathParent,
   profileStorageKey
@@ -97,6 +99,12 @@ for (const pattern of [
   /downloadFile/,
   /showProof/,
   /openMenuPath/,
+  /parseAppStatePath/,
+  /buildAppStatePath/,
+  /syncBrowserLocation/,
+  /window\.history\.pushState/,
+  /window\.history\.replaceState/,
+  /window\.addEventListener\('popstate', handleAppPopState\)/,
   /malt-app__menu/,
   /malt-app__more/,
   /verified-dot/,
@@ -164,6 +172,24 @@ assert.equal(
   buildUnixFSWriteURL('http://127.0.0.1:4317', 'bafkqaaa', 'docs/read me').toString(),
   'http://127.0.0.1:4317/bafkqaaa/docs/read%20me'
 )
+assert.equal(
+  buildAppStatePath('/app', 'bafkqaaa', 'docs/read me'),
+  '/app/bafkqaaa/docs/read%20me'
+)
+assert.equal(
+  buildAppStatePath('/malt/app/', 'bafkqaaa', 'docs/read me'),
+  '/malt/app/bafkqaaa/docs/read%20me'
+)
+assert.deepEqual(parseAppStatePath('/app', '/app/bafkqaaa/docs/read%20me'), {
+  root: 'bafkqaaa',
+  path: 'docs/read me'
+})
+assert.deepEqual(parseAppStatePath('/malt/app', '/malt/app/bafkqaaa/docs/read%20me'), {
+  root: 'bafkqaaa',
+  path: 'docs/read me'
+})
+assert.deepEqual(parseAppStatePath('/app', '/app'), { root: '', path: '' })
+assert.equal(parseAppStatePath('/app', '/docs/runtime'), null)
 
 const proofList = { root: 'bafkqaaa', query: 'docs/readme', target: 'bafkreihash', steps: [] }
 const encoded = Buffer.from(JSON.stringify(proofList), 'utf8').toString('base64url')

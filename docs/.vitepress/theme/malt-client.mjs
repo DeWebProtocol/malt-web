@@ -19,6 +19,38 @@ export function buildUnixFSWriteURL(baseURL, root, rawPath) {
   return url
 }
 
+export function buildAppStatePath(appBasePath, root, rawPath = '') {
+  const base = normalizeAppBasePath(appBasePath)
+  const cleanRoot = String(root || '').trim()
+  if (!cleanRoot) {
+    return base
+  }
+  const encoded = [cleanRoot, ...pathSegments(rawPath)].map((segment) =>
+    encodeURIComponent(segment)
+  )
+  return `${base}/${encoded.join('/')}`
+}
+
+export function parseAppStatePath(appBasePath, pathname) {
+  const base = normalizeAppBasePath(appBasePath)
+  const cleanPathname = normalizeBrowserPath(pathname)
+  if (cleanPathname !== base && !cleanPathname.startsWith(`${base}/`)) {
+    return null
+  }
+  const suffix = cleanPathname.slice(base.length).replace(/^\/+/, '')
+  if (!suffix) {
+    return { root: '', path: '' }
+  }
+  const decoded = safeDecodeSegments(suffix)
+  if (!decoded || decoded.length === 0) {
+    return { root: '', path: '' }
+  }
+  return {
+    root: decoded[0],
+    path: decoded.slice(1).join('/')
+  }
+}
+
 export function decodeProofListHeader(raw) {
   if (!raw) {
     throw new Error('missing X-Malt-ProofList header')
@@ -241,6 +273,31 @@ function normalizeBaseURL(baseURL) {
     throw new Error('daemon URL is required')
   }
   return trimmed
+}
+
+function normalizeAppBasePath(appBasePath) {
+  const raw = String(appBasePath || '/app').trim() || '/app'
+  const withLeadingSlash = raw.startsWith('/') ? raw : `/${raw}`
+  const clean = withLeadingSlash.replace(/\/+$/, '')
+  return clean || '/'
+}
+
+function normalizeBrowserPath(pathname) {
+  const raw = String(pathname || '/').trim() || '/'
+  const withLeadingSlash = raw.startsWith('/') ? raw : `/${raw}`
+  const clean = withLeadingSlash.replace(/\/+$/, '')
+  return clean || '/'
+}
+
+function safeDecodeSegments(rawPath) {
+  try {
+    return String(rawPath || '')
+      .split('/')
+      .filter(Boolean)
+      .map((segment) => decodeURIComponent(segment))
+  } catch {
+    return null
+  }
 }
 
 function pathSegments(rawPath) {

@@ -3,12 +3,14 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { withBase } from 'vitepress'
 import {
   activeProfileStorageKey,
+  buildAppStatePath,
   defaultCASURL,
   defaultDaemonURL,
   joinMaltPath,
   normalizeUploadPath,
   pathBasename,
   pathParent,
+  parseAppStatePath,
   profileStorageKey,
   readContentBlob,
   readDirectory,
@@ -94,6 +96,7 @@ onMounted(() => {
   window.addEventListener('dragleave', handlePageDragLeave)
   window.addEventListener('drop', handlePageDrop)
   window.addEventListener('dragend', cancelPageDrag)
+  window.addEventListener('popstate', handleAppPopState)
   const stored = window.localStorage.getItem(activeProfileStorageKey())
   if (stored) {
     profileInput.value = stored
@@ -108,6 +111,7 @@ onUnmounted(() => {
   window.removeEventListener('dragleave', handlePageDragLeave)
   window.removeEventListener('drop', handlePageDrop)
   window.removeEventListener('dragend', cancelPageDrag)
+  window.removeEventListener('popstate', handleAppPopState)
   window.clearTimeout(dragResetTimer)
   clearPreview()
 })
@@ -122,10 +126,12 @@ function signIn() {
   activeProfile.value = name
   window.localStorage.setItem(activeProfileStorageKey(), name)
   const saved = loadStoredProfile(name)
+  const routeState = currentAppRouteState()
+  const hasRouteRoot = Boolean(routeState?.root)
   baseURL.value = saved.baseURL || baseURL.value || defaultDaemonURL
   casURL.value = saved.casURL || casURL.value || defaultCASURL
-  root.value = saved.root || ''
-  currentPath.value = root.value ? saved.currentPath || '' : ''
+  root.value = hasRouteRoot ? routeState.root : saved.root || ''
+  currentPath.value = root.value ? (hasRouteRoot ? routeState.path : saved.currentPath || '') : ''
   prefix.value = saved.prefix || ''
   verifiedPaths.value = saved.verifiedPaths || {}
   settingsOpen.value = !root.value
@@ -137,7 +143,13 @@ function signIn() {
   entries.value = []
   resetTreeState()
   if (root.value) {
-    void loadRoot(currentPath.value)
+    if (hasRouteRoot) {
+      void openAppRouteState(routeState, { history: 'replace' })
+    } else {
+      void loadRoot(currentPath.value, { history: 'replace' })
+    }
+  } else {
+    syncBrowserLocation('replace')
   }
 }
 
@@ -159,6 +171,7 @@ function signOut() {
   uploadStatus.value = ''
   clearPreview()
   proofView.value = null
+  syncBrowserLocation('replace')
 }
 
 function loadStoredProfile(name) {
@@ -198,11 +211,12 @@ async function applySettings() {
     proofView.value = null
     persistProfile()
     settingsOpen.value = false
+    syncBrowserLocation('replace')
     return
   }
   settingsOpen.value = false
   resetTreeState()
-  await loadRoot(currentPath.value)
+  await loadRoot(currentPath.value, { history: 'replace' })
 }
 
 async function loadRoot(nextPath = '', options = {}) {
@@ -214,7 +228,74 @@ async function loadRoot(nextPath = '', options = {}) {
   currentPath.value = normalizeOptionalPath(nextPath)
   seedTreePath(currentPath.value)
   expandTreeAncestors(currentPath.value)
+  if (options.syncURL !== false) {
+    syncBrowserLocation(options.history || 'push')
+  }
   await refreshDirectory({ payload: options.payload })
+}
+
+async function openAppRouteState(routeState, options = {}) {
+  if (!routeState) {
+    return
+  }
+  root.value = routeState.root
+  const routePath = normalizeOptionalPath(routeState.path)
+  if (!root.value) {
+    currentPath.value = ''
+    entries.value = []
+    resetTreeState()
+    clearPreview()
+    proofView.value = null
+    if (options.syncURL !== false) {
+      syncBrowserLocation(options.history || 'replace')
+    }
+    persistProfile()
+    return
+  }
+  if (!routePath) {
+    await loadRoot('', { syncURL: false })
+    if (options.syncURL !== false) {
+      syncBrowserLocation(options.history || 'replace')
+    }
+    return
+  }
+  busy.value = true
+  let stat
+  try {
+    stat = await withDaemonTimeout('stat route path', (signal) =>
+      statPath({ baseURL: baseURL.value, root: root.value, path: routePath, signal })
+    )
+  } catch (err) {
+    busy.value = false
+    error.value = err instanceof Error ? err.message : String(err)
+    if (options.syncURL !== false) {
+      syncBrowserLocation(options.history || 'replace', routePath)
+    }
+    return
+  }
+  busy.value = false
+  if (stat.kind === 'file') {
+    const parentPath = pathParent(routePath)
+    await loadRoot(parentPath, { syncURL: false })
+    await previewFile(
+      {
+        name: pathBasename(routePath),
+        path: routePath,
+        kind: 'file',
+        storageKind: stat.storageKind,
+        key: stat.key,
+        payload: stat.payload,
+        size: stat.size,
+        error: ''
+      },
+      { syncURL: false }
+    )
+  } else {
+    await loadRoot(routePath, { payload: stat.payload, syncURL: false })
+  }
+  if (options.syncURL !== false) {
+    syncBrowserLocation(options.history || 'replace', routePath)
+  }
 }
 
 async function refreshDirectory(options = {}) {
@@ -469,6 +550,46 @@ function isOutsideViewport(event) {
   )
 }
 
+function currentAppRouteState() {
+  if (typeof window === 'undefined') {
+    return null
+  }
+  return parseAppStatePath(withBase('/app'), window.location.pathname)
+}
+
+function syncBrowserLocation(mode = 'push', pathOverride = currentPath.value) {
+  if (typeof window === 'undefined') {
+    return
+  }
+  const state = {
+    root: root.value.trim(),
+    path: normalizeOptionalPath(pathOverride)
+  }
+  const url = new URL(window.location.href)
+  url.pathname = buildAppStatePath(withBase('/app'), state.root, state.path)
+  url.search = ''
+  url.hash = ''
+  if (url.pathname === window.location.pathname && !window.location.search && !window.location.hash) {
+    return
+  }
+  if (mode === 'replace') {
+    window.history.replaceState(state, '', url)
+    return
+  }
+  window.history.pushState(state, '', url)
+}
+
+async function handleAppPopState() {
+  if (!signedIn.value) {
+    return
+  }
+  const routeState = currentAppRouteState()
+  if (!routeState) {
+    return
+  }
+  await openAppRouteState(routeState, { syncURL: false })
+}
+
 async function handleDrop(event) {
   if (busy.value) {
     return
@@ -595,6 +716,7 @@ async function uploadDropped(uploadItems) {
     }
     root.value = currentRoot
     verifiedPaths.value = {}
+    syncBrowserLocation('replace')
     uploadResult.value = {
       newRoot: currentRoot,
       files: writes
@@ -653,7 +775,7 @@ async function loadTreeDirectory(entry) {
   cacheDirectoryEntries(path, loadedEntries)
 }
 
-async function previewFile(entry) {
+async function previewFile(entry, options = {}) {
   openMenuPath.value = ''
   if (entry.kind !== 'file') {
     return
@@ -661,6 +783,9 @@ async function previewFile(entry) {
   error.value = ''
   proofView.value = null
   clearPreview()
+  if (options.syncURL !== false) {
+    syncBrowserLocation(options.history || 'push', entry.path)
+  }
   busy.value = true
   try {
     const payload = await withDaemonTimeout('read file', (signal) =>
@@ -861,6 +986,7 @@ function clearPreview() {
 function backToBrowser() {
   clearPreview()
   proofView.value = null
+  syncBrowserLocation('push')
 }
 
 function sendToVerifier() {
