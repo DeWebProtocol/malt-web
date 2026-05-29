@@ -143,12 +143,18 @@ for (const pattern of [
   /--malt-gh-muted/,
   /font-family:\s*-apple-system,\s*BlinkMacSystemFont,\s*"Segoe UI",\s*sans-serif/,
   /grid-template-columns:\s*296px minmax\(0, 1fr\)/,
+  /--malt-tree-row-height:\s*32px/,
   /\.malt-app__file-list/,
   /\.malt-app__proof-sidebar/,
   /malt-app__dropzone/
 ]) {
   assert.match(customCSS, pattern)
 }
+assert.match(customCSS, /\.malt-app__tree-row\s*\{[\s\S]*?grid-template-columns:\s*16px minmax\(0, 1fr\)/)
+assert.match(customCSS, /\.malt-app__tree-row\.is-active::before/)
+assert.match(customCSS, /\.malt-app \.malt-app__tree-toggle,\s*\n\.malt-app \.malt-app__tree-link\s*\{[\s\S]*?appearance:\s*none/)
+assert.match(customCSS, /\.malt-app \.malt-app__tree-toggle,\s*\n\.malt-app \.malt-app__tree-link\s*\{[\s\S]*?border:\s*0 !important/)
+assert.doesNotMatch(customCSS, /\.malt-app__row button,\s*\n\.malt-app__name/)
 
 const resolvePage = fs.readFileSync(path.join(docsRoot, 'tools/resolve.md'), 'utf8')
 assert.match(resolvePage, /<MaltResolveTool\s*\/>/)

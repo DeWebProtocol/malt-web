@@ -346,135 +346,6 @@
   overflow-wrap: anywhere;
 }
 
-.malt-app__login {
-  display: grid;
-  gap: 14px;
-}
-
-.malt-app__breadcrumb {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-  min-height: 34px;
-}
-
-.malt-app__breadcrumb button {
-  min-height: 30px;
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 7px;
-  padding: 0 10px;
-  color: var(--vp-c-text-1);
-  background: var(--vp-c-bg-alt);
-  font: 12px/1.2 var(--vp-font-family-mono);
-  cursor: pointer;
-}
-
-.malt-app__breadcrumb button:disabled {
-  color: var(--vp-c-text-3);
-  cursor: default;
-}
-
-.malt-app__browser {
-  display: grid;
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 7px;
-  overflow: hidden;
-}
-
-.malt-app__row {
-  display: grid;
-  grid-template-columns: minmax(180px, 1.8fr) 90px 90px 84px minmax(180px, 1.2fr);
-  gap: 10px;
-  align-items: center;
-  min-height: 42px;
-  padding: 0 12px;
-}
-
-.malt-app__row {
-  border-top: 1px solid var(--vp-c-divider);
-  color: var(--vp-c-text-2);
-  font-size: 13px;
-}
-
-.malt-app__row button,
-.malt-app__name {
-  min-height: 30px;
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 7px;
-  padding: 0 10px;
-  color: var(--vp-c-text-1);
-  background: var(--vp-c-bg);
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.malt-app .malt-app__name {
-  display: inline-flex;
-  gap: 8px;
-  align-items: center;
-  justify-content: flex-start;
-  min-width: 0;
-  overflow: hidden;
-  font-family: var(--vp-font-family-mono);
-}
-
-.malt-app__name span:last-child {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.malt-app__row button:disabled {
-  color: var(--vp-c-text-3);
-  cursor: not-allowed;
-}
-
-.malt-app__row-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.verified-dot {
-  flex: 0 0 auto;
-  width: 9px;
-  height: 9px;
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 50%;
-  background: var(--vp-c-bg-soft);
-}
-
-.verified-dot.is-valid {
-  border-color: #0f766e;
-  background: #14b8a6;
-}
-
-.verified-dot.is-invalid {
-  border-color: #b91c1c;
-  background: #ef4444;
-}
-
-.malt-app__empty {
-  margin: 0;
-  padding: 18px 12px;
-  color: var(--vp-c-text-3);
-  background: var(--vp-c-bg-alt);
-  font-size: 13px;
-}
-
-.malt-app__image {
-  display: block;
-  max-width: 100%;
-  max-height: 460px;
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 7px;
-  object-fit: contain;
-  background: var(--vp-c-bg-alt);
-}
-
 @media (max-width: 860px) {
   .malt-band {
     padding: 32px 20px;
@@ -498,14 +369,6 @@
     grid-template-columns: 1fr;
   }
 
-  .malt-app__browser {
-    overflow-x: auto;
-  }
-
-  .malt-app__row {
-    grid-template-columns: 180px 82px 82px 76px 180px;
-    min-width: 700px;
-  }
 }
 
 @supports selector(:has(*)) {
@@ -573,6 +436,8 @@ body.malt-app-page .VPDoc .aside {
   --malt-gh-subtle: #f6f8fa;
   --malt-gh-link: #0969da;
   --malt-gh-success: #1a7f37;
+  --malt-tree-row-height: 32px;
+  --malt-tree-indent: 18px;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -804,12 +669,12 @@ body.malt-app-page .malt-app {
 .malt-app__sidebar {
   display: grid;
   align-content: start;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
   min-height: 0;
   overflow: auto;
   border-right: 1px solid var(--malt-gh-border);
-  padding: 12px 8px;
+  padding: 12px 0 16px;
   background: var(--malt-gh-bg);
 }
 
@@ -817,21 +682,21 @@ body.malt-app-page .malt-app {
   display: flex;
   gap: 10px;
   align-items: center;
-  min-height: 34px;
+  min-height: 36px;
   color: var(--vp-c-text-1);
-  padding: 0 8px;
+  padding: 0 16px;
 }
 
 .malt-app__sidebar-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--malt-gh-border);
+  width: 24px;
+  height: 24px;
+  border: 0;
   border-radius: 6px;
   color: var(--malt-gh-muted);
-  background: var(--malt-gh-subtle);
+  background: transparent;
 }
 
 .malt-app__sidebar-controls {
@@ -842,16 +707,25 @@ body.malt-app-page .malt-app {
 
 .malt-app__sidebar-controls button {
   width: 100%;
-  min-height: 34px;
+  min-height: 30px;
+  border: 0 !important;
+  border-radius: 6px;
+  padding: 0 16px;
   color: var(--malt-gh-muted);
-  background: var(--malt-gh-subtle);
+  background: transparent !important;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.malt-app__sidebar-controls button:hover:not(:disabled) {
+  background: var(--malt-gh-subtle) !important;
 }
 
 .malt-app__tree {
-  display: grid;
-  gap: 0;
+  display: block;
   min-width: 0;
-  padding-top: 6px;
+  padding: 4px 4px 16px;
 }
 
 .malt-app__tree-empty {
@@ -862,55 +736,75 @@ body.malt-app-page .malt-app {
 }
 
 .malt-app__tree-row {
+  position: relative;
   display: grid;
-  grid-template-columns: 20px minmax(0, 1fr);
+  grid-template-columns: 16px minmax(0, 1fr);
   gap: 0;
   align-items: center;
   min-width: 0;
-  min-height: 26px;
+  min-height: var(--malt-tree-row-height);
   border-radius: 6px;
-  padding-left: calc(8px + var(--tree-depth, 0) * 16px);
+  padding-left: calc(12px + var(--tree-depth, 0) * var(--malt-tree-indent));
 }
 
 .malt-app__tree-row.is-active {
   background: var(--malt-gh-subtle);
-  box-shadow: inset 3px 0 0 var(--malt-gh-link);
 }
 
-.malt-app__tree-toggle,
-.malt-app__tree-link {
-  border-color: transparent !important;
+.malt-app__tree-row.is-active::before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  left: 0;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--malt-gh-link);
+}
+
+.malt-app .malt-app__tree-toggle,
+.malt-app .malt-app__tree-link {
+  appearance: none;
+  border: 0 !important;
+  box-shadow: none !important;
   background: transparent !important;
+  font: inherit;
 }
 
 .malt-app__tree-toggle {
-  width: 20px;
-  min-height: 26px;
+  width: 16px;
+  min-height: var(--malt-tree-row-height);
   padding: 0;
   color: var(--malt-gh-muted);
 }
 
 .malt-app__tree-toggle-spacer {
-  width: 20px;
-  height: 26px;
+  width: 16px;
+  height: var(--malt-tree-row-height);
 }
 
 .malt-app__tree-link {
-  display: flex;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  column-gap: 8px;
   align-items: center;
   justify-content: flex-start;
   width: 100%;
   min-width: 0;
-  min-height: 26px;
-  padding: 0 6px 0 0;
+  min-height: var(--malt-tree-row-height);
+  padding: 0 8px 0 2px;
   color: var(--vp-c-text-1);
-  font: 13px/20px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-weight: 600;
+  font: 14px/20px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-weight: 400;
+  text-align: left;
 }
 
 .malt-app__tree-link:hover:not(:disabled) {
   color: var(--malt-gh-link);
+}
+
+.malt-app__tree-row.is-active .malt-app__tree-link {
+  font-weight: 600;
 }
 
 .malt-app__tree-name {
@@ -1060,8 +954,8 @@ body.malt-app-page .malt-app {
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
 }
 
 .malt-app__file-icon.is-file {
@@ -1079,6 +973,8 @@ body.malt-app-page .malt-app {
 }
 
 .malt-app__tree-toggle .malt-app__octicon {
+  width: 16px;
+  height: 16px;
   transition: transform 120ms ease;
 }
 
