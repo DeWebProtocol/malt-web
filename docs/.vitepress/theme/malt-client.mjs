@@ -140,11 +140,14 @@ export async function statPath({ baseURL, root, path, signal }) {
   }
 }
 
-export async function readContent({ baseURL, root, path, range, signal }) {
+export async function readContent({ baseURL, root, path, range, signal, omitProof = false }) {
   const url = buildContentURL(baseURL, root, path)
   const headers = new Headers()
   if (range?.trim()) {
     headers.set('Range', range.trim())
+  }
+  if (omitProof) {
+    headers.set('X-Malt-Proof', 'omit')
   }
   const response = await fetch(url, { headers, signal })
   if (!response.ok) {
@@ -182,8 +185,8 @@ export async function readContentBlob({ baseURL, root, path, range, signal }) {
   }
 }
 
-export async function readDirectory({ baseURL, root, path, signal }) {
-  const payload = await readContent({ baseURL, root, path, signal })
+export async function readDirectory({ baseURL, root, path, signal, omitProof = false }) {
+  const payload = await readContent({ baseURL, root, path, signal, omitProof })
   let manifest
   try {
     manifest = JSON.parse(payload.body)
@@ -197,6 +200,14 @@ export async function readDirectory({ baseURL, root, path, signal }) {
     ...payload,
     entries: manifest.entries.map((name) => String(name)).sort()
   }
+}
+
+export async function readDirectoryByPayload({ baseURL, payload, signal }) {
+  const payloadCID = String(payload || '').trim()
+  if (!payloadCID) {
+    throw new Error('directory payload CID is required')
+  }
+  return readDirectory({ baseURL, root: payloadCID, path: '', signal, omitProof: true })
 }
 
 export async function verifyProofList({ baseURL, proofList, signal }) {

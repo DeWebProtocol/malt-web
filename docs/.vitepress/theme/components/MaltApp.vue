@@ -11,6 +11,7 @@ import {
   profileStorageKey,
   readContentBlob,
   readDirectory,
+  readDirectoryByPayload,
   statPath,
   uploadPathForFile,
   uploadUnixFSFile,
@@ -195,29 +196,36 @@ async function applySettings() {
   await loadRoot(currentPath.value)
 }
 
-async function loadRoot(nextPath = '') {
+async function loadRoot(nextPath = '', options = {}) {
   if (!root.value.trim()) {
     error.value = 'root is required'
     return
   }
   openMenuPath.value = ''
   currentPath.value = normalizeOptionalPath(nextPath)
-  await refreshDirectory()
+  await refreshDirectory({ payload: options.payload })
 }
 
-async function refreshDirectory() {
+async function refreshDirectory(options = {}) {
   error.value = ''
   clearPreview()
   proofView.value = null
   busy.value = true
   try {
+    const directoryPayload = String(options.payload || '').trim()
     const manifest = await withDaemonTimeout('read directory', (signal) =>
-      readDirectory({
-        baseURL: baseURL.value,
-        root: root.value,
-        path: currentPath.value,
-        signal
-      })
+      directoryPayload
+        ? readDirectoryByPayload({
+            baseURL: baseURL.value,
+            payload: directoryPayload,
+            signal
+          })
+        : readDirectory({
+            baseURL: baseURL.value,
+            root: root.value,
+            path: currentPath.value,
+            signal
+          })
     )
     if (manifest.proofList) {
       await verifyAndMark(currentPath.value, manifest.proofList)
@@ -234,6 +242,8 @@ async function refreshDirectory() {
             path: childPath,
             kind: stat.kind || 'unknown',
             storageKind: stat.storageKind,
+            key: stat.key,
+            payload: stat.payload,
             size: stat.size,
             error: ''
           }
@@ -243,6 +253,8 @@ async function refreshDirectory() {
             path: childPath,
             kind: 'unknown',
             storageKind: '',
+            key: '',
+            payload: '',
             size: null,
             error: err instanceof Error ? err.message : String(err)
           }
@@ -495,7 +507,7 @@ async function openDirectory(entry) {
   if (entry.kind !== 'dir') {
     return
   }
-  await loadRoot(entry.path)
+  await loadRoot(entry.path, { payload: entry.payload })
 }
 
 async function previewFile(entry) {

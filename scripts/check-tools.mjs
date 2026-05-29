@@ -79,6 +79,7 @@ for (const pattern of [
   /CAS URL/,
   /compareEntries/,
   /entryKindOrder/,
+  /readDirectoryByPayload/,
   /openDirectory/,
   /previewFile/,
   /downloadFile/,
@@ -91,10 +92,15 @@ for (const pattern of [
 ]) {
   assert.match(appSource, pattern)
 }
+assert.match(appSource, /payload:\s*entry\.payload/)
 assert.doesNotMatch(appSource, /runEntryAction\('preview'/)
 assert.doesNotMatch(appSource, /malt-app__browser-head/)
 assert.doesNotMatch(appSource, /type="file" multiple/)
 assert.doesNotMatch(appSource, /webkitdirectory directory/)
+
+const clientSource = fs.readFileSync(path.join(docsRoot, '.vitepress/theme/malt-client.mjs'), 'utf8')
+assert.match(clientSource, /readDirectoryByPayload/)
+assert.match(clientSource, /X-Malt-Proof['"],\s*['"]omit/)
 
 const customCSS = fs.readFileSync(path.join(docsRoot, '.vitepress/theme/custom.css'), 'utf8')
 for (const pattern of [
