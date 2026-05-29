@@ -382,7 +382,6 @@
   overflow: hidden;
 }
 
-.malt-app__browser-head,
 .malt-app__row {
   display: grid;
   grid-template-columns: minmax(180px, 1.8fr) 90px 90px 84px minmax(180px, 1.2fr);
@@ -390,15 +389,6 @@
   align-items: center;
   min-height: 42px;
   padding: 0 12px;
-}
-
-.malt-app__browser-head {
-  min-height: 36px;
-  color: var(--vp-c-text-3);
-  background: var(--vp-c-bg-soft);
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
 }
 
 .malt-app__row {
@@ -512,7 +502,6 @@
     overflow-x: auto;
   }
 
-  .malt-app__browser-head,
   .malt-app__row {
     grid-template-columns: 180px 82px 82px 76px 180px;
     min-width: 700px;
@@ -847,24 +836,13 @@ body.malt-app-page .malt-app {
   overflow: visible;
 }
 
-.malt-app__browser-head,
 .malt-app__row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 110px 48px;
+  grid-template-columns: minmax(260px, 2fr) minmax(180px, 1fr) 96px 40px;
   gap: 10px;
   align-items: center;
-  min-height: 39px;
+  min-height: 41px;
   padding: 0 14px;
-}
-
-.malt-app__browser-head {
-  min-height: 38px;
-  color: var(--malt-gh-muted);
-  background: var(--malt-gh-subtle);
-  border-radius: 6px 6px 0 0;
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
 }
 
 .malt-app__row {
@@ -872,6 +850,10 @@ body.malt-app-page .malt-app {
   border-top: 1px solid var(--malt-gh-border);
   color: var(--malt-gh-muted);
   font-size: 13px;
+}
+
+.malt-app__row:first-of-type {
+  border-top: 0;
 }
 
 .malt-app__row:hover {
@@ -911,9 +893,9 @@ body.malt-app-page .malt-app {
 }
 
 .malt-app__file-icon.is-file {
-  border: 1.5px solid #2563eb;
+  border: 1.5px solid #6e7781;
   border-radius: 3px;
-  background: rgba(37, 99, 235, 0.08);
+  background: transparent;
 }
 
 .malt-app__file-icon.is-file::after {
@@ -922,18 +904,18 @@ body.malt-app-page .malt-app {
   right: -1px;
   width: 6px;
   height: 6px;
-  border-left: 1.5px solid #2563eb;
-  border-bottom: 1.5px solid #2563eb;
-  background: var(--vp-c-bg);
+  border-left: 1.5px solid #6e7781;
+  border-bottom: 1.5px solid #6e7781;
+  background: var(--malt-gh-panel);
   content: "";
 }
 
 .malt-app__file-icon.is-dir {
   height: 14px;
   margin-top: 3px;
-  border: 1.5px solid #ca8a04;
+  border: 1.5px solid #54aeef;
   border-radius: 3px;
-  background: rgba(234, 179, 8, 0.22);
+  background: #54aeef;
 }
 
 .malt-app__file-icon.is-dir::before {
@@ -942,16 +924,23 @@ body.malt-app-page .malt-app {
   left: 1px;
   width: 9px;
   height: 5px;
-  border: 1.5px solid #ca8a04;
+  border: 1.5px solid #54aeef;
   border-bottom: 0;
   border-radius: 3px 3px 0 0;
-  background: rgba(234, 179, 8, 0.22);
+  background: #54aeef;
   content: "";
 }
 
+.malt-app__row-spacer {
+  min-width: 0;
+  height: 1px;
+}
+
 .malt-app__size {
+  justify-self: end;
   color: var(--malt-gh-muted);
   font: 12px/1.3 var(--vp-font-family-mono);
+  text-align: right;
 }
 
 .malt-app__row-menu {
@@ -1313,7 +1302,10 @@ body.malt-app-page .malt-app {
     overflow-x: auto;
   }
 
-  .malt-app__browser-head,
+  .malt-app__row-spacer {
+    display: none;
+  }
+
   .malt-app__row {
     grid-template-columns: minmax(180px, 1fr) 78px 42px;
     min-width: 330px;

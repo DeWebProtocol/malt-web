@@ -938,11 +938,6 @@ function formatSize(size) {
         </section>
 
         <section v-else class="malt-app__browser malt-app__file-list" aria-label="File browser">
-          <div class="malt-app__browser-head">
-            <span>Name</span>
-            <span>Size</span>
-            <span></span>
-          </div>
           <div v-if="entries.length === 0" class="malt-app__empty">
             {{ root ? 'No entries' : 'Drop files or set a root' }}
           </div>
@@ -968,6 +963,7 @@ function formatSize(size) {
                 }"
               ></span>
             </button>
+            <span class="malt-app__row-spacer" aria-hidden="true"></span>
             <span class="malt-app__size">{{ formatSize(entry.size) }}</span>
             <span class="malt-app__row-menu">
               <button

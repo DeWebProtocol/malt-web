@@ -65,6 +65,7 @@ for (const pattern of [
   /malt-app__status-line/,
   /malt-app__repo-bar/,
   /malt-app__file-list/,
+  /malt-app__row-spacer/,
   /malt-app__preview/,
   /malt-app__preview-layout/,
   /malt-app__preview-body/,
@@ -91,6 +92,7 @@ for (const pattern of [
   assert.match(appSource, pattern)
 }
 assert.doesNotMatch(appSource, /runEntryAction\('preview'/)
+assert.doesNotMatch(appSource, /malt-app__browser-head/)
 assert.doesNotMatch(appSource, /type="file" multiple/)
 assert.doesNotMatch(appSource, /webkitdirectory directory/)
 
