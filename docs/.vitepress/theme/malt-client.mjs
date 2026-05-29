@@ -1,5 +1,6 @@
 export const defaultDaemonURL = 'http://127.0.0.1:4317'
 export const defaultCASURL = 'http://127.0.0.1:4318'
+export const appFallbackStorageKey = 'malt-app-fallback-path'
 
 export function buildResolveURL(baseURL, root, rawPath = '') {
   return buildDaemonURL(baseURL, ['resolve', root, ...pathSegments(rawPath)])
@@ -48,6 +49,21 @@ export function parseAppStatePath(appBasePath, pathname) {
   return {
     root: decoded[0],
     path: decoded.slice(1).join('/')
+  }
+}
+
+export function parseAppFallbackRoute(appBasePath, raw) {
+  if (!raw) {
+    return null
+  }
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+    if (!parsed || typeof parsed !== 'object') {
+      return null
+    }
+    return parseAppStatePath(appBasePath, parsed.pathname)
+  } catch {
+    return null
   }
 }
 

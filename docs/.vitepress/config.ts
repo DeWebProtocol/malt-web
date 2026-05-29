@@ -1,11 +1,41 @@
 import { defineConfig } from 'vitepress'
 
+const appFallbackRedirectScript = `<script>
+;(() => {
+  const storageKey = 'malt-app-fallback-path'
+  const pathname = window.location.pathname
+  const appMarker = '/app/'
+  const appIndex = pathname.indexOf(appMarker)
+  if (appIndex === -1) {
+    return
+  }
+  const appPath = pathname.slice(0, appIndex + '/app'.length) || '/app'
+  try {
+    window.sessionStorage.setItem(
+      storageKey,
+      JSON.stringify({
+        pathname,
+        search: window.location.search,
+        hash: window.location.hash
+      })
+    )
+  } catch {}
+  window.location.replace(appPath)
+})()
+</script>`
+
 export default defineConfig({
   title: 'MALT',
   description: 'Authenticated mutable structure over immutable content-addressed storage.',
   lang: 'en-US',
   cleanUrls: true,
   base: process.env.BASE_PATH || '/',
+  transformHtml(code, id) {
+    if (!id.endsWith('404.html')) {
+      return
+    }
+    return code.replace('</head>', `${appFallbackRedirectScript}\n  </head>`)
+  },
   head: [
     ['meta', { name: 'theme-color', content: '#0f766e' }],
     ['meta', { property: 'og:type', content: 'website' }],

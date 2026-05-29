@@ -699,33 +699,10 @@ body.malt-app-page .malt-app {
   background: transparent;
 }
 
-.malt-app__sidebar-controls {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 8px;
-}
-
-.malt-app__sidebar-controls button {
-  width: 100%;
-  min-height: 30px;
-  border: 0 !important;
-  border-radius: 6px;
-  padding: 0 16px;
-  color: var(--malt-gh-muted);
-  background: transparent !important;
-  font-size: 13px;
-  font-weight: 600;
-  text-align: left;
-}
-
-.malt-app__sidebar-controls button:hover:not(:disabled) {
-  background: var(--malt-gh-subtle) !important;
-}
-
 .malt-app__tree {
   display: block;
   min-width: 0;
-  padding: 4px 4px 16px;
+  padding: 6px 4px 16px;
 }
 
 .malt-app__tree-empty {
@@ -748,6 +725,10 @@ body.malt-app-page .malt-app {
 }
 
 .malt-app__tree-row.is-active {
+  background: var(--malt-gh-subtle);
+}
+
+.malt-app__tree-row:hover {
   background: var(--malt-gh-subtle);
 }
 

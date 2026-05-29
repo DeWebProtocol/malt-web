@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { withBase } from 'vitepress'
 import {
   activeProfileStorageKey,
+  appFallbackStorageKey,
   buildAppStatePath,
   defaultCASURL,
   defaultDaemonURL,
@@ -10,6 +11,7 @@ import {
   normalizeUploadPath,
   pathBasename,
   pathParent,
+  parseAppFallbackRoute,
   parseAppStatePath,
   profileStorageKey,
   readContentBlob,
@@ -554,7 +556,29 @@ function currentAppRouteState() {
   if (typeof window === 'undefined') {
     return null
   }
-  return parseAppStatePath(withBase('/app'), window.location.pathname)
+  const appBasePath = withBase('/app')
+  const routeState = parseAppStatePath(appBasePath, window.location.pathname)
+  if (routeState && !routeState.root) {
+    const fallbackRoute = consumeAppFallbackRoute(appBasePath)
+    if (fallbackRoute?.root) {
+      return fallbackRoute
+    }
+  }
+  return routeState
+}
+
+function consumeAppFallbackRoute(appBasePath) {
+  try {
+    const raw = window.sessionStorage.getItem(appFallbackStorageKey)
+    if (!raw) {
+      return null
+    }
+    const routeState = parseAppFallbackRoute(appBasePath, raw)
+    window.sessionStorage.removeItem(appFallbackStorageKey)
+    return routeState
+  } catch {
+    return null
+  }
 }
 
 function syncBrowserLocation(mode = 'push', pathOverride = currentPath.value) {
@@ -1135,9 +1159,6 @@ function formatSize(size) {
               </svg>
             </span>
             <strong>Files</strong>
-          </div>
-          <div class="malt-app__sidebar-controls">
-            <button type="button" :disabled="busy || !root" @click="loadRoot('')">root</button>
           </div>
           <div class="malt-app__tree">
             <p v-if="treeRows.length === 0" class="malt-app__tree-empty">

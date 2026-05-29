@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import {
+  appFallbackStorageKey,
   buildAppStatePath,
   buildContentURL,
   buildUnixFSWriteURL,
@@ -10,6 +11,7 @@ import {
   decodeProofListHeader,
   extractProofListInput,
   joinMaltPath,
+  parseAppFallbackRoute,
   parseAppStatePath,
   pathBasename,
   pathParent,
@@ -20,6 +22,7 @@ const root = new URL('..', import.meta.url)
 const docsRoot = path.join(root.pathname, 'docs')
 
 const requiredFiles = [
+  '404.md',
   'app.md',
   'tools/resolve.md',
   'tools/verify.md',
@@ -39,6 +42,9 @@ assert.match(configText, /link:\s*'\/app'/)
 assert.match(configText, /text:\s*'Tools'/)
 assert.match(configText, /link:\s*'\/tools\/resolve'/)
 assert.match(configText, /link:\s*'\/tools\/verify'/)
+assert.match(configText, /transformHtml/)
+assert.match(configText, /malt-app-fallback-path/)
+assert.match(configText, /404\.html/)
 
 const appPage = fs.readFileSync(path.join(docsRoot, 'app.md'), 'utf8')
 assert.match(appPage, /<MaltApp\s*\/>/)
@@ -102,6 +108,7 @@ for (const pattern of [
   /parseAppStatePath/,
   /buildAppStatePath/,
   /syncBrowserLocation/,
+  /consumeAppFallbackRoute/,
   /window\.history\.pushState/,
   /window\.history\.replaceState/,
   /window\.addEventListener\('popstate', handleAppPopState\)/,
@@ -113,6 +120,8 @@ for (const pattern of [
 ]) {
   assert.match(appSource, pattern)
 }
+assert.doesNotMatch(appSource, /malt-app__sidebar-controls/)
+assert.doesNotMatch(appSource, />root<\/button>/)
 const toggleTreeDirectorySource = appSource.match(
   /async function toggleTreeDirectory\(entry\) \{[\s\S]*?\n\}\n\nasync function loadTreeDirectory/
 )?.[0]
@@ -130,6 +139,8 @@ assert.doesNotMatch(appSource, /webkitdirectory directory/)
 const clientSource = fs.readFileSync(path.join(docsRoot, '.vitepress/theme/malt-client.mjs'), 'utf8')
 assert.match(clientSource, /readDirectoryByPayload/)
 assert.match(clientSource, /X-Malt-Proof['"],\s*['"]omit/)
+assert.match(clientSource, /appFallbackStorageKey/)
+assert.match(clientSource, /parseAppFallbackRoute/)
 
 const customCSS = fs.readFileSync(path.join(docsRoot, '.vitepress/theme/custom.css'), 'utf8')
 for (const pattern of [
@@ -141,9 +152,9 @@ for (const pattern of [
   /body\.malt-app-page\s+\.VPFooter/,
   /--malt-gh-border/,
   /--malt-gh-muted/,
+  /--malt-tree-row-height:\s*32px/,
   /font-family:\s*-apple-system,\s*BlinkMacSystemFont,\s*"Segoe UI",\s*sans-serif/,
   /grid-template-columns:\s*296px minmax\(0, 1fr\)/,
-  /--malt-tree-row-height:\s*32px/,
   /\.malt-app__file-list/,
   /\.malt-app__proof-sidebar/,
   /malt-app__dropzone/
@@ -155,6 +166,10 @@ assert.match(customCSS, /\.malt-app__tree-row\.is-active::before/)
 assert.match(customCSS, /\.malt-app \.malt-app__tree-toggle,\s*\n\.malt-app \.malt-app__tree-link\s*\{[\s\S]*?appearance:\s*none/)
 assert.match(customCSS, /\.malt-app \.malt-app__tree-toggle,\s*\n\.malt-app \.malt-app__tree-link\s*\{[\s\S]*?border:\s*0 !important/)
 assert.doesNotMatch(customCSS, /\.malt-app__row button,\s*\n\.malt-app__name/)
+assert.doesNotMatch(customCSS, /malt-app__sidebar-controls/)
+
+const notFoundPage = fs.readFileSync(path.join(docsRoot, '404.md'), 'utf8')
+assert.match(notFoundPage, /^# 404/m)
 
 const resolvePage = fs.readFileSync(path.join(docsRoot, 'tools/resolve.md'), 'utf8')
 assert.match(resolvePage, /<MaltResolveTool\s*\/>/)
@@ -196,6 +211,13 @@ assert.deepEqual(parseAppStatePath('/malt/app', '/malt/app/bafkqaaa/docs/read%20
 })
 assert.deepEqual(parseAppStatePath('/app', '/app'), { root: '', path: '' })
 assert.equal(parseAppStatePath('/app', '/docs/runtime'), null)
+assert.equal(appFallbackStorageKey, 'malt-app-fallback-path')
+assert.deepEqual(
+  parseAppFallbackRoute('/app', JSON.stringify({ pathname: '/app/bafkqaaa/docs/read%20me' })),
+  { root: 'bafkqaaa', path: 'docs/read me' }
+)
+assert.equal(parseAppFallbackRoute('/app', JSON.stringify({ pathname: '/docs/runtime' })), null)
+assert.equal(parseAppFallbackRoute('/app', 'not-json'), null)
 
 const proofList = { root: 'bafkqaaa', query: 'docs/readme', target: 'bafkreihash', steps: [] }
 const encoded = Buffer.from(JSON.stringify(proofList), 'utf8').toString('base64url')
