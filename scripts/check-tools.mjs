@@ -90,6 +90,7 @@ for (const pattern of [
   /cacheDirectoryEntries/,
   /seedTreePath/,
   /toggleTreeDirectory/,
+  /loadTreeDirectory/,
   /readDirectoryByPayload/,
   /openDirectory/,
   /previewFile/,
@@ -97,12 +98,21 @@ for (const pattern of [
   /showProof/,
   /openMenuPath/,
   /malt-app__menu/,
-  /⋮/,
+  /malt-app__more/,
   /verified-dot/,
-  /malt-app__file-icon/
+  /malt-app__file-icon/,
+  /malt-app__octicon/
 ]) {
   assert.match(appSource, pattern)
 }
+const toggleTreeDirectorySource = appSource.match(
+  /async function toggleTreeDirectory\(entry\) \{[\s\S]*?\n\}\n\nasync function loadTreeDirectory/
+)?.[0]
+assert.ok(toggleTreeDirectorySource, 'toggleTreeDirectory function is missing')
+assert.match(toggleTreeDirectorySource, /loadTreeDirectory\(entry\)/)
+assert.doesNotMatch(toggleTreeDirectorySource, /openDirectory\(entry\)/)
+assert.doesNotMatch(appSource, />\[\]<|>\[\]/)
+assert.doesNotMatch(appSource, /\? \(node\.expanded \? 'v' : '>'\)/)
 assert.match(appSource, /payload:\s*entry\.payload/)
 assert.doesNotMatch(appSource, /runEntryAction\('preview'/)
 assert.doesNotMatch(appSource, /malt-app__browser-head/)
@@ -123,6 +133,8 @@ for (const pattern of [
   /body\.malt-app-page\s+\.VPFooter/,
   /--malt-gh-border/,
   /--malt-gh-muted/,
+  /font-family:\s*-apple-system,\s*BlinkMacSystemFont,\s*"Segoe UI",\s*sans-serif/,
+  /grid-template-columns:\s*296px minmax\(0, 1fr\)/,
   /\.malt-app__file-list/,
   /\.malt-app__proof-sidebar/,
   /malt-app__dropzone/

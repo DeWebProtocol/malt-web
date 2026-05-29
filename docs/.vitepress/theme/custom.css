@@ -410,7 +410,7 @@
   cursor: pointer;
 }
 
-.malt-app__name {
+.malt-app .malt-app__name {
   display: inline-flex;
   gap: 8px;
   align-items: center;
@@ -574,11 +574,18 @@ body.malt-app-page .VPDoc .aside {
   --malt-gh-link: #0969da;
   --malt-gh-success: #1a7f37;
   position: relative;
+  display: flex;
+  flex-direction: column;
   width: 100vw;
+  height: 100vh;
   min-height: 100vh;
+  overflow: hidden;
   margin: -24px 0 -40px calc(50% - 50vw);
   color: var(--vp-c-text-1);
   background: var(--malt-gh-bg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 .dark .malt-app {
@@ -607,14 +614,20 @@ body.malt-app-page .malt-app {
 }
 
 .malt-app button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   min-height: 34px;
   border: 1px solid var(--malt-gh-border);
   border-radius: 6px;
   padding: 0 12px;
   color: var(--vp-c-text-1);
   background: var(--malt-gh-panel);
+  font-family: inherit;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
+  line-height: 20px;
   cursor: pointer;
 }
 
@@ -688,6 +701,7 @@ body.malt-app-page .malt-app {
 }
 
 .malt-app__topbar {
+  flex: 0 0 auto;
   display: flex;
   justify-content: space-between;
   gap: 16px;
@@ -750,6 +764,7 @@ body.malt-app-page .malt-app {
 }
 
 .malt-app__settings {
+  flex: 0 0 auto;
   display: grid;
   gap: 14px;
   padding: 18px 24px;
@@ -766,12 +781,14 @@ body.malt-app-page .malt-app {
 
 .malt-app__main {
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
+  grid-template-columns: 296px minmax(0, 1fr);
   gap: 0;
+  flex: 1 1 auto;
   width: 100%;
-  min-height: calc(100vh - 57px);
+  min-height: 0;
   margin: 0 auto;
   padding: 0;
+  overflow: hidden;
 }
 
 .malt-app__content {
@@ -779,6 +796,8 @@ body.malt-app-page .malt-app {
   align-content: start;
   gap: 16px;
   min-width: 0;
+  min-height: 0;
+  overflow: auto;
   padding: 18px 24px 34px;
 }
 
@@ -787,9 +806,10 @@ body.malt-app-page .malt-app {
   align-content: start;
   gap: 8px;
   min-width: 0;
-  min-height: calc(100vh - 57px);
+  min-height: 0;
+  overflow: auto;
   border-right: 1px solid var(--malt-gh-border);
-  padding: 12px 10px;
+  padding: 12px 8px;
   background: var(--malt-gh-bg);
 }
 
@@ -799,18 +819,19 @@ body.malt-app-page .malt-app {
   align-items: center;
   min-height: 34px;
   color: var(--vp-c-text-1);
+  padding: 0 8px;
 }
 
 .malt-app__sidebar-icon {
-  display: grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 30px;
   height: 30px;
   border: 1px solid var(--malt-gh-border);
   border-radius: 6px;
   color: var(--malt-gh-muted);
   background: var(--malt-gh-subtle);
-  font: 11px/1 var(--vp-font-family-mono);
 }
 
 .malt-app__sidebar-controls {
@@ -820,7 +841,6 @@ body.malt-app-page .malt-app {
 }
 
 .malt-app__sidebar-controls button {
-  justify-content: space-between;
   width: 100%;
   min-height: 34px;
   color: var(--malt-gh-muted);
@@ -829,9 +849,8 @@ body.malt-app-page .malt-app {
 
 .malt-app__tree {
   display: grid;
-  gap: 1px;
+  gap: 0;
   min-width: 0;
-  overflow: auto;
   padding-top: 6px;
 }
 
@@ -844,13 +863,13 @@ body.malt-app-page .malt-app {
 
 .malt-app__tree-row {
   display: grid;
-  grid-template-columns: 22px minmax(0, 1fr);
-  gap: 2px;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 0;
   align-items: center;
   min-width: 0;
-  min-height: 32px;
+  min-height: 26px;
   border-radius: 6px;
-  padding-left: calc(var(--tree-depth, 0) * 16px);
+  padding-left: calc(8px + var(--tree-depth, 0) * 16px);
 }
 
 .malt-app__tree-row.is-active {
@@ -860,31 +879,34 @@ body.malt-app-page .malt-app {
 
 .malt-app__tree-toggle,
 .malt-app__tree-link {
-  border-color: transparent;
-  background: transparent;
+  border-color: transparent !important;
+  background: transparent !important;
 }
 
 .malt-app__tree-toggle {
-  width: 22px;
-  min-height: 28px;
+  width: 20px;
+  min-height: 26px;
   padding: 0;
   color: var(--malt-gh-muted);
-  font: 12px/1 var(--vp-font-family-mono);
 }
 
-.malt-app__tree-toggle:disabled {
-  opacity: 0;
+.malt-app__tree-toggle-spacer {
+  width: 20px;
+  height: 26px;
 }
 
 .malt-app__tree-link {
   display: flex;
-  gap: 8px;
+  gap: 6px;
+  align-items: center;
   justify-content: flex-start;
+  width: 100%;
   min-width: 0;
-  min-height: 28px;
+  min-height: 26px;
   padding: 0 6px 0 0;
   color: var(--vp-c-text-1);
-  font: 13px/1.25 var(--vp-font-family-mono);
+  font: 13px/20px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-weight: 600;
 }
 
 .malt-app__tree-link:hover:not(:disabled) {
@@ -925,7 +947,7 @@ body.malt-app-page .malt-app {
   padding: 0;
   color: var(--malt-gh-link);
   background: transparent;
-  font: 15px/1.2 var(--vp-font-family-mono);
+  font: 15px/20px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-weight: 600;
 }
 
@@ -971,6 +993,7 @@ body.malt-app-page .malt-app {
   border: 1px solid var(--malt-gh-border);
   border-radius: 6px;
   background: var(--malt-gh-panel);
+  overflow: visible;
 }
 
 .malt-app__file-list {
@@ -979,18 +1002,18 @@ body.malt-app-page .malt-app {
 
 .malt-app__row {
   display: grid;
-  grid-template-columns: minmax(260px, 2fr) minmax(180px, 1fr) 96px 40px;
-  gap: 10px;
+  grid-template-columns: minmax(220px, 1.5fr) minmax(120px, 1fr) 88px 36px;
+  gap: 8px;
   align-items: center;
-  min-height: 41px;
-  padding: 0 14px;
+  min-height: 40px;
+  padding: 0 12px 0 16px;
 }
 
 .malt-app__row {
   position: relative;
   border-top: 1px solid var(--malt-gh-border);
   color: var(--malt-gh-muted);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .malt-app__row:first-of-type {
@@ -1001,19 +1024,25 @@ body.malt-app-page .malt-app {
   background: color-mix(in srgb, var(--malt-gh-link) 4%, var(--malt-gh-panel));
 }
 
-.malt-app__name {
-  display: flex;
-  gap: 9px;
+.malt-app .malt-app__name {
+  display: inline-flex;
+  gap: 8px;
   align-items: center;
   justify-content: flex-start;
+  width: 100%;
   min-width: 0;
-  border-color: transparent;
+  min-height: 32px;
+  border: 0 !important;
   padding: 0;
-  background: transparent;
-  font-family: var(--vp-font-family-mono);
+  color: var(--vp-c-text-1);
+  background: transparent !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
 }
 
-.malt-app__name:hover:not(:disabled) {
+.malt-app .malt-app__name:hover:not(:disabled) {
   border-color: transparent;
   color: var(--malt-gh-link);
 }
@@ -1027,49 +1056,34 @@ body.malt-app-page .malt-app {
 }
 
 .malt-app__file-icon {
-  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex: 0 0 auto;
   width: 18px;
   height: 18px;
 }
 
 .malt-app__file-icon.is-file {
-  border: 1.5px solid #6e7781;
-  border-radius: 3px;
-  background: transparent;
-}
-
-.malt-app__file-icon.is-file::after {
-  position: absolute;
-  top: -1px;
-  right: -1px;
-  width: 6px;
-  height: 6px;
-  border-left: 1.5px solid #6e7781;
-  border-bottom: 1.5px solid #6e7781;
-  background: var(--malt-gh-panel);
-  content: "";
+  color: #6e7781;
 }
 
 .malt-app__file-icon.is-dir {
-  height: 14px;
-  margin-top: 3px;
-  border: 1.5px solid #54aeef;
-  border-radius: 3px;
-  background: #54aeef;
+  color: #54aeef;
 }
 
-.malt-app__file-icon.is-dir::before {
-  position: absolute;
-  top: -5px;
-  left: 1px;
-  width: 9px;
-  height: 5px;
-  border: 1.5px solid #54aeef;
-  border-bottom: 0;
-  border-radius: 3px 3px 0 0;
-  background: #54aeef;
-  content: "";
+.malt-app__octicon {
+  display: block;
+  flex: 0 0 auto;
+  fill: currentColor;
+}
+
+.malt-app__tree-toggle .malt-app__octicon {
+  transition: transform 120ms ease;
+}
+
+.malt-app__tree-toggle .malt-app__octicon.is-expanded {
+  transform: rotate(90deg);
 }
 
 .malt-app__row-spacer {
@@ -1089,12 +1103,13 @@ body.malt-app-page .malt-app {
   justify-self: end;
 }
 
-.malt-app__more {
-  width: 34px;
-  min-height: 34px;
+.malt-app .malt-app__more {
+  width: 32px;
+  min-height: 32px;
+  border-color: transparent !important;
   padding: 0;
-  font-size: 20px;
-  line-height: 1;
+  color: var(--malt-gh-muted);
+  background: transparent !important;
 }
 
 .malt-app__menu {

@@ -223,56 +223,14 @@ async function refreshDirectory(options = {}) {
   proofView.value = null
   busy.value = true
   try {
-    const directoryPayload = String(options.payload || '').trim()
-    const manifest = await withDaemonTimeout('read directory', (signal) =>
-      directoryPayload
-        ? readDirectoryByPayload({
-            baseURL: baseURL.value,
-            payload: directoryPayload,
-            signal
-          })
-        : readDirectory({
-            baseURL: baseURL.value,
-            root: root.value,
-            path: currentPath.value,
-            signal
-          })
+    const { manifest, loadedEntries } = await loadDirectoryEntries(
+      currentPath.value,
+      options.payload
     )
     if (manifest.proofList) {
       await verifyAndMark(currentPath.value, manifest.proofList)
     }
-    const loadedEntries = await Promise.all(
-      manifest.entries.map(async (name) => {
-        const childPath = joinMaltPath(currentPath.value, name)
-        try {
-          const stat = await withDaemonTimeout('stat path', (signal) =>
-            statPath({ baseURL: baseURL.value, root: root.value, path: childPath, signal })
-          )
-          return {
-            name,
-            path: childPath,
-            kind: stat.kind || 'unknown',
-            storageKind: stat.storageKind,
-            key: stat.key,
-            payload: stat.payload,
-            size: stat.size,
-            error: ''
-          }
-        } catch (err) {
-          return {
-            name,
-            path: childPath,
-            kind: 'unknown',
-            storageKind: '',
-            key: '',
-            payload: '',
-            size: null,
-            error: err instanceof Error ? err.message : String(err)
-          }
-        }
-      })
-    )
-    entries.value = loadedEntries.sort(compareEntries)
+    entries.value = loadedEntries
     cacheDirectoryEntries(currentPath.value, entries.value)
     persistProfile()
   } catch (err) {
@@ -280,6 +238,60 @@ async function refreshDirectory(options = {}) {
     error.value = err instanceof Error ? err.message : String(err)
   } finally {
     busy.value = false
+  }
+}
+
+async function loadDirectoryEntries(path, payload) {
+  const directoryPath = normalizeOptionalPath(path)
+  const directoryPayload = String(payload || '').trim()
+  const manifest = await withDaemonTimeout('read directory', (signal) =>
+    directoryPayload
+      ? readDirectoryByPayload({
+          baseURL: baseURL.value,
+          payload: directoryPayload,
+          signal
+        })
+      : readDirectory({
+          baseURL: baseURL.value,
+          root: root.value,
+          path: directoryPath,
+          signal
+        })
+  )
+  const loadedEntries = await Promise.all(
+    manifest.entries.map(async (name) => {
+      const childPath = joinMaltPath(directoryPath, name)
+      try {
+        const stat = await withDaemonTimeout('stat path', (signal) =>
+          statPath({ baseURL: baseURL.value, root: root.value, path: childPath, signal })
+        )
+        return {
+          name,
+          path: childPath,
+          kind: stat.kind || 'unknown',
+          storageKind: stat.storageKind,
+          key: stat.key,
+          payload: stat.payload,
+          size: stat.size,
+          error: ''
+        }
+      } catch (err) {
+        return {
+          name,
+          path: childPath,
+          kind: 'unknown',
+          storageKind: '',
+          key: '',
+          payload: '',
+          size: null,
+          error: err instanceof Error ? err.message : String(err)
+        }
+      }
+    })
+  )
+  return {
+    manifest,
+    loadedEntries: loadedEntries.sort(compareEntries)
   }
 }
 
@@ -624,7 +636,21 @@ async function toggleTreeDirectory(entry) {
     }
     return
   }
-  await openDirectory(entry)
+  error.value = ''
+  busy.value = true
+  try {
+    await loadTreeDirectory(entry)
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err)
+  } finally {
+    busy.value = false
+  }
+}
+
+async function loadTreeDirectory(entry) {
+  const path = normalizeOptionalPath(entry.path)
+  const { loadedEntries } = await loadDirectoryEntries(path, entry.payload)
+  cacheDirectoryEntries(path, loadedEntries)
 }
 
 async function previewFile(entry) {
@@ -975,7 +1001,13 @@ function formatSize(size) {
       <main class="malt-app__main">
         <aside class="malt-app__sidebar" aria-label="File tree">
           <div class="malt-app__sidebar-head">
-            <span class="malt-app__sidebar-icon" aria-hidden="true">[]</span>
+            <span class="malt-app__sidebar-icon" aria-hidden="true">
+              <svg class="malt-app__octicon" viewBox="0 0 16 16" width="16" height="16">
+                <path
+                  d="M2 2.75C2 1.784 2.784 1 3.75 1h8.5C13.216 1 14 1.784 14 2.75v10.5A1.75 1.75 0 0 1 12.25 15h-8.5A1.75 1.75 0 0 1 2 13.25Zm1.75-.25a.25.25 0 0 0-.25.25v10.5c0 .138.112.25.25.25H6.5v-11Zm4.25 11h4.25a.25.25 0 0 0 .25-.25V2.75a.25.25 0 0 0-.25-.25H8Z"
+                />
+              </svg>
+            </span>
             <strong>Files</strong>
           </div>
           <div class="malt-app__sidebar-controls">
@@ -998,14 +1030,26 @@ function formatSize(size) {
               :style="{ '--tree-depth': node.depth }"
             >
               <button
+                v-if="node.entry.kind === 'dir'"
                 type="button"
                 class="malt-app__tree-toggle"
-                :disabled="busy || node.entry.kind !== 'dir'"
-                :aria-label="node.expanded ? 'Collapse directory' : 'Expand directory'"
+                :disabled="busy"
+                :aria-label="node.expanded ? 'Collapse folder' : 'Expand folder'"
                 @click="toggleTreeDirectory(node.entry)"
               >
-                {{ node.entry.kind === 'dir' ? (node.expanded ? 'v' : '>') : '' }}
+                <svg
+                  class="malt-app__octicon"
+                  :class="{ 'is-expanded': node.expanded }"
+                  viewBox="0 0 16 16"
+                  width="16"
+                  height="16"
+                >
+                  <path
+                    d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 1 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z"
+                  />
+                </svg>
               </button>
+              <span v-else class="malt-app__tree-toggle-spacer" aria-hidden="true"></span>
               <button
                 type="button"
                 class="malt-app__tree-link"
@@ -1016,7 +1060,24 @@ function formatSize(size) {
                   class="malt-app__file-icon"
                   :class="{ 'is-dir': node.entry.kind === 'dir', 'is-file': node.entry.kind === 'file' }"
                   aria-hidden="true"
-                ></span>
+                >
+                  <svg
+                    v-if="node.entry.kind === 'dir'"
+                    class="malt-app__octicon"
+                    viewBox="0 0 16 16"
+                    width="16"
+                    height="16"
+                  >
+                    <path
+                      d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2A1.75 1.75 0 0 0 5 1Zm0 1.5H5c.079 0 .153.037.2.1l.9 1.2c.331.441.85.7 1.4.7h6.75a.25.25 0 0 1 .25.25v8.5a.25.25 0 0 1-.25.25H1.75a.25.25 0 0 1-.25-.25V2.75a.25.25 0 0 1 .25-.25Z"
+                    />
+                  </svg>
+                  <svg v-else class="malt-app__octicon" viewBox="0 0 16 16" width="16" height="16">
+                    <path
+                      d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688Z"
+                    />
+                  </svg>
+                </span>
                 <span class="malt-app__tree-name">{{ node.entry.name }}</span>
               </button>
             </div>
@@ -1130,7 +1191,13 @@ function formatSize(size) {
               title="Parent directory"
               @click="openParentDirectory"
             >
-              <span class="malt-app__file-icon is-dir" aria-hidden="true"></span>
+              <span class="malt-app__file-icon is-dir" aria-hidden="true">
+                <svg class="malt-app__octicon" viewBox="0 0 16 16" width="16" height="16">
+                  <path
+                    d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2A1.75 1.75 0 0 0 5 1Zm0 1.5H5c.079 0 .153.037.2.1l.9 1.2c.331.441.85.7 1.4.7h6.75a.25.25 0 0 1 .25.25v8.5a.25.25 0 0 1-.25.25H1.75a.25.25 0 0 1-.25-.25V2.75a.25.25 0 0 1 .25-.25Z"
+                  />
+                </svg>
+              </span>
               <span class="malt-app__name-text">..</span>
             </button>
             <span class="malt-app__row-spacer" aria-hidden="true"></span>
@@ -1149,7 +1216,24 @@ function formatSize(size) {
                 class="malt-app__file-icon"
                 :class="{ 'is-dir': entry.kind === 'dir', 'is-file': entry.kind === 'file' }"
                 aria-hidden="true"
-              ></span>
+              >
+                <svg
+                  v-if="entry.kind === 'dir'"
+                  class="malt-app__octicon"
+                  viewBox="0 0 16 16"
+                  width="16"
+                  height="16"
+                >
+                  <path
+                    d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2A1.75 1.75 0 0 0 5 1Zm0 1.5H5c.079 0 .153.037.2.1l.9 1.2c.331.441.85.7 1.4.7h6.75a.25.25 0 0 1 .25.25v8.5a.25.25 0 0 1-.25.25H1.75a.25.25 0 0 1-.25-.25V2.75a.25.25 0 0 1 .25-.25Z"
+                  />
+                </svg>
+                <svg v-else class="malt-app__octicon" viewBox="0 0 16 16" width="16" height="16">
+                  <path
+                    d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688Z"
+                  />
+                </svg>
+              </span>
               <span class="malt-app__name-text">{{ entry.name }}</span>
               <span
                 class="verified-dot"
@@ -1170,7 +1254,11 @@ function formatSize(size) {
                 aria-label="Actions"
                 @click="toggleEntryMenu(entry)"
               >
-                ⋮
+                <svg class="malt-app__octicon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                  <path
+                    d="M8 3a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm0 6.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3ZM9.5 14.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z"
+                  />
+                </svg>
               </button>
               <span v-if="openMenuPath === entry.path" class="malt-app__menu">
                 <button v-if="entry.kind === 'dir'" type="button" @click="runEntryAction('open', entry)">
