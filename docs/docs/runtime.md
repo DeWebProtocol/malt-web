@@ -12,9 +12,8 @@ so readers can connect the research model to the prototype.
 The current public `malt` CLI is intentionally small:
 
 - `malt init`: create or initialize local configuration
-- `malt daemon`: run the local daemon and HTTP API in the foreground
-- `malt daemon start/status/stop/restart`: detach, inspect, stop, or restart a
-  managed local background daemon
+- `malt start/status/stop/restart`: detach, inspect, stop, or restart a managed
+  local background daemon
 - `malt add`: import data through the daemon/client path and return a root
 - `malt resolve`: print a root-relative resolve response
 - `malt verify`: verify ProofList material, including responses that contain a
