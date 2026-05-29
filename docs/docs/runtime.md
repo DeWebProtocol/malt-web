@@ -26,6 +26,9 @@ helpers are not part of the public command surface.
 The website App uses the same local daemon boundary from the browser. It can
 upload files or browser-selected folders through the UnixFS write routes, then
 resolve from the resulting root and verify the returned ProofList response.
+When the current root is not already a UnixFS root, browser uploads fail fast;
+legacy-root migration is a daemon compatibility opt-in rather than a default
+browser action.
 
 ## Mutation Materialization
 

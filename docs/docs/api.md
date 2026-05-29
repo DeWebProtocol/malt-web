@@ -32,9 +32,12 @@ POST /{root}/_mutate
 
 `POST /_unixfs?path=<path>` writes file bytes into a new UnixFS root. `POST
 /{root}/{path...}` writes file bytes into an existing UnixFS root and returns
-the updated root. `POST /{root}/_mutate` is the root-scoped semantic mutation
-path. The UnixFS and semantic mutation routes use the writer mutation boundary
-instead of exposing mutable public heads.
+the updated root. Root-scoped UnixFS writes require `{root}` to already be a
+UnixFS root by default. Legacy map roots can be migrated only with explicit
+`migrate=1` opt-in, so browser uploads fail fast instead of implicitly
+traversing and migrating a whole legacy tree. `POST /{root}/_mutate` is the
+root-scoped semantic mutation path. The UnixFS and semantic mutation routes use
+the writer mutation boundary instead of exposing mutable public heads.
 
 ## Semantic Mutation Contract
 
@@ -133,8 +136,10 @@ Browser tools can call the local daemon when their origin is listed in
 `rpc.cors_allowed_origins`. Defaults include local VitePress dev/preview
 origins and the current public documentation origins. CORS is limited to
 read/proof routes, `POST /verify`, and the UnixFS upload conveniences
-`POST /_unixfs?path=...` and `POST /{root}/{path...}`. Admin routes and raw
-semantic mutation routes are not exposed through the browser CORS path.
+`POST /_unixfs?path=...` and `POST /{root}/{path...}`. Root-scoped browser
+uploads still follow the UnixFS-root-only default; they do not request legacy
+migration. Admin routes and raw semantic mutation routes are not exposed
+through the browser CORS path.
 
 ## Proof Transport
 
