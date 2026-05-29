@@ -8,6 +8,7 @@ import {
   joinMaltPath,
   normalizeUploadPath,
   pathBasename,
+  pathParent,
   profileStorageKey,
   readContentBlob,
   readDirectory,
@@ -26,6 +27,8 @@ const root = ref('')
 const currentPath = ref('')
 const prefix = ref('')
 const entries = ref([])
+const directoryCache = ref({})
+const treeExpanded = ref({ '': true })
 const busy = ref(false)
 const error = ref('')
 const uploadResult = ref(null)
@@ -72,6 +75,8 @@ const breadcrumbs = computed(() => {
   }
   return crumbs
 })
+
+const treeRows = computed(() => buildTreeRows(directoryCache.value[''] || [], 0))
 
 const uploadText = computed(() => {
   if (!uploadResult.value) {
@@ -130,6 +135,7 @@ function signIn() {
   previewView.value = false
   proofView.value = null
   entries.value = []
+  resetTreeState()
   if (root.value) {
     void loadRoot(currentPath.value)
   }
@@ -145,6 +151,7 @@ function signOut() {
   currentPath.value = ''
   prefix.value = ''
   entries.value = []
+  resetTreeState()
   uploadResult.value = null
   settingsOpen.value = false
   openMenuPath.value = ''
@@ -185,6 +192,7 @@ async function applySettings() {
   if (!root.value.trim()) {
     currentPath.value = ''
     entries.value = []
+    resetTreeState()
     uploadResult.value = null
     clearPreview()
     proofView.value = null
@@ -193,6 +201,7 @@ async function applySettings() {
     return
   }
   settingsOpen.value = false
+  resetTreeState()
   await loadRoot(currentPath.value)
 }
 
@@ -203,6 +212,8 @@ async function loadRoot(nextPath = '', options = {}) {
   }
   openMenuPath.value = ''
   currentPath.value = normalizeOptionalPath(nextPath)
+  seedTreePath(currentPath.value)
+  expandTreeAncestors(currentPath.value)
   await refreshDirectory({ payload: options.payload })
 }
 
@@ -262,6 +273,7 @@ async function refreshDirectory(options = {}) {
       })
     )
     entries.value = loadedEntries.sort(compareEntries)
+    cacheDirectoryEntries(currentPath.value, entries.value)
     persistProfile()
   } catch (err) {
     entries.value = []
@@ -269,6 +281,89 @@ async function refreshDirectory(options = {}) {
   } finally {
     busy.value = false
   }
+}
+
+function resetTreeState() {
+  directoryCache.value = {}
+  treeExpanded.value = { '': true }
+}
+
+function cacheDirectoryEntries(path, nextEntries) {
+  const cleanPath = normalizeOptionalPath(path)
+  directoryCache.value = {
+    ...directoryCache.value,
+    [cleanPath]: nextEntries
+  }
+  treeExpanded.value = {
+    ...treeExpanded.value,
+    [cleanPath]: true
+  }
+}
+
+function seedTreePath(path) {
+  const segments = normalizeOptionalPath(path).split('/').filter(Boolean)
+  if (segments.length === 0) {
+    return
+  }
+
+  const nextCache = { ...directoryCache.value }
+  let parentPath = ''
+  let cursor = ''
+  for (const segment of segments) {
+    cursor = joinMaltPath(cursor, segment)
+    const parentEntries = nextCache[parentPath] || []
+    if (!parentEntries.some((entry) => entry.path === cursor)) {
+      nextCache[parentPath] = [
+        ...parentEntries,
+        {
+          name: segment,
+          path: cursor,
+          kind: 'dir',
+          storageKind: '',
+          key: '',
+          payload: '',
+          size: null,
+          error: ''
+        }
+      ].sort(compareEntries)
+    }
+    parentPath = cursor
+  }
+  directoryCache.value = nextCache
+}
+
+function expandTreeAncestors(path) {
+  const next = { ...treeExpanded.value, '': true }
+  const segments = normalizeOptionalPath(path).split('/').filter(Boolean)
+  let cursor = ''
+  for (const segment of segments) {
+    cursor = joinMaltPath(cursor, segment)
+    next[cursor] = true
+  }
+  treeExpanded.value = next
+}
+
+function buildTreeRows(parentEntries, depth) {
+  const rows = []
+  for (const entry of parentEntries) {
+    const expanded = Boolean(treeExpanded.value[entry.path])
+    rows.push({
+      entry,
+      depth,
+      expanded
+    })
+    if (entry.kind === 'dir' && expanded) {
+      rows.push(...buildTreeRows(directoryCache.value[entry.path] || [], depth + 1))
+    }
+  }
+  return rows
+}
+
+async function openParentDirectory() {
+  if (!currentPath.value) {
+    return
+  }
+  await loadRoot(pathParent(currentPath.value))
 }
 
 function beginPageDrag(event) {
@@ -508,6 +603,28 @@ async function openDirectory(entry) {
     return
   }
   await loadRoot(entry.path, { payload: entry.payload })
+}
+
+async function toggleTreeDirectory(entry) {
+  if (entry.kind !== 'dir') {
+    return
+  }
+  const expanded = Boolean(treeExpanded.value[entry.path])
+  if (expanded) {
+    treeExpanded.value = {
+      ...treeExpanded.value,
+      [entry.path]: false
+    }
+    return
+  }
+  if (directoryCache.value[entry.path]) {
+    treeExpanded.value = {
+      ...treeExpanded.value,
+      [entry.path]: true
+    }
+    return
+  }
+  await openDirectory(entry)
 }
 
 async function previewFile(entry) {
@@ -856,29 +973,81 @@ function formatSize(size) {
       </div>
 
       <main class="malt-app__main">
-        <p v-if="error" class="malt-app__error">{{ error }}</p>
-        <p v-if="uploadStatus" class="malt-app__status-line">{{ uploadStatus }}</p>
-
-        <div class="malt-app__repo-bar malt-app__pathbar">
-          <nav class="malt-app__breadcrumb" aria-label="breadcrumb">
-            <button
-              v-for="crumb in breadcrumbs"
-              :key="crumb.path"
-              type="button"
-              :disabled="busy || crumb.path === currentPath"
-              @click="loadRoot(crumb.path)"
+        <aside class="malt-app__sidebar" aria-label="File tree">
+          <div class="malt-app__sidebar-head">
+            <span class="malt-app__sidebar-icon" aria-hidden="true">[]</span>
+            <strong>Files</strong>
+          </div>
+          <div class="malt-app__sidebar-controls">
+            <button type="button" :disabled="busy || !root" @click="loadRoot('')">root</button>
+          </div>
+          <div class="malt-app__tree">
+            <p v-if="treeRows.length === 0" class="malt-app__tree-empty">
+              {{ root ? 'No files' : 'Set a root' }}
+            </p>
+            <div
+              v-for="node in treeRows"
+              v-else
+              :key="node.entry.path"
+              class="malt-app__tree-row"
+              :class="{
+                'is-active': node.entry.path === currentPath,
+                'is-dir': node.entry.kind === 'dir',
+                'is-file': node.entry.kind === 'file'
+              }"
+              :style="{ '--tree-depth': node.depth }"
             >
-              {{ crumb.label }}
+              <button
+                type="button"
+                class="malt-app__tree-toggle"
+                :disabled="busy || node.entry.kind !== 'dir'"
+                :aria-label="node.expanded ? 'Collapse directory' : 'Expand directory'"
+                @click="toggleTreeDirectory(node.entry)"
+              >
+                {{ node.entry.kind === 'dir' ? (node.expanded ? 'v' : '>') : '' }}
+              </button>
+              <button
+                type="button"
+                class="malt-app__tree-link"
+                :disabled="busy || node.entry.kind === 'unknown'"
+                @click="node.entry.kind === 'dir' ? openDirectory(node.entry) : previewFile(node.entry)"
+              >
+                <span
+                  class="malt-app__file-icon"
+                  :class="{ 'is-dir': node.entry.kind === 'dir', 'is-file': node.entry.kind === 'file' }"
+                  aria-hidden="true"
+                ></span>
+                <span class="malt-app__tree-name">{{ node.entry.name }}</span>
+              </button>
+            </div>
+          </div>
+        </aside>
+
+        <section class="malt-app__content" aria-label="Current directory">
+          <p v-if="error" class="malt-app__error">{{ error }}</p>
+          <p v-if="uploadStatus" class="malt-app__status-line">{{ uploadStatus }}</p>
+
+          <div class="malt-app__repo-bar malt-app__crumbbar">
+            <nav class="malt-app__breadcrumb" aria-label="breadcrumb">
+              <template v-for="crumb in breadcrumbs" :key="crumb.path">
+                <button
+                  type="button"
+                  :disabled="busy || crumb.path === currentPath"
+                  @click="loadRoot(crumb.path)"
+                >
+                  {{ crumb.label }}
+                </button>
+                <span aria-hidden="true">/</span>
+              </template>
+            </nav>
+            <button
+              type="button"
+              :disabled="busy || !root"
+              @click="showProof({ path: currentPath, kind: 'dir' })"
+            >
+              Current proof
             </button>
-          </nav>
-          <button
-            type="button"
-            :disabled="busy || !root"
-            @click="showProof({ path: currentPath, kind: 'dir' })"
-          >
-            Current proof
-          </button>
-        </div>
+          </div>
 
         <section v-if="previewView && preview" class="malt-app__preview" aria-label="File preview">
           <div class="malt-app__preview-head">
@@ -952,6 +1121,21 @@ function formatSize(size) {
         <section v-else class="malt-app__browser malt-app__file-list" aria-label="File browser">
           <div v-if="entries.length === 0" class="malt-app__empty">
             {{ root ? 'No entries' : 'Drop files or set a root' }}
+          </div>
+          <div v-if="currentPath" class="malt-app__row">
+            <button
+              type="button"
+              class="malt-app__name"
+              :disabled="busy"
+              title="Parent directory"
+              @click="openParentDirectory"
+            >
+              <span class="malt-app__file-icon is-dir" aria-hidden="true"></span>
+              <span class="malt-app__name-text">..</span>
+            </button>
+            <span class="malt-app__row-spacer" aria-hidden="true"></span>
+            <span class="malt-app__size"></span>
+            <span class="malt-app__row-menu"></span>
           </div>
           <div v-for="entry in entries" :key="entry.path" class="malt-app__row">
             <button
@@ -1036,6 +1220,7 @@ function formatSize(size) {
             <h2>ProofList</h2>
             <pre>{{ proofText }}</pre>
           </div>
+        </section>
         </section>
       </main>
     </template>
