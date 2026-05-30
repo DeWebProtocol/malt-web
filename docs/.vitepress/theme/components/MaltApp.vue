@@ -73,9 +73,13 @@ const proofText = computed(() =>
 const treeIndentBasePx = 12
 const treeIndentStepPx = 18
 
+const displayPath = computed(() =>
+  previewView.value && preview.value?.path ? preview.value.path : currentPath.value
+)
+
 const breadcrumbs = computed(() => {
   const crumbs = [{ label: 'root', path: '' }]
-  const segments = currentPath.value ? currentPath.value.split('/').filter(Boolean) : []
+  const segments = displayPath.value ? displayPath.value.split('/').filter(Boolean) : []
   let cursor = ''
   for (const segment of segments) {
     cursor = joinMaltPath(cursor, segment)
@@ -477,6 +481,13 @@ async function openParentDirectory() {
     return
   }
   await loadRoot(pathParent(currentPath.value))
+}
+
+async function openBreadcrumbPath(crumb) {
+  if (crumb.path === displayPath.value) {
+    return
+  }
+  await loadRoot(crumb.path)
 }
 
 function beginPageDrag(event) {
@@ -1035,12 +1046,6 @@ function clearPreview() {
   previewView.value = false
 }
 
-function backToBrowser() {
-  clearPreview()
-  proofView.value = null
-  syncBrowserLocation('push')
-}
-
 function sendToVerifier() {
   if (!proofText.value || typeof window === 'undefined') {
     return
@@ -1198,7 +1203,7 @@ function formatSize(size) {
               :key="node.entry.path"
               class="malt-app__tree-row"
               :class="{
-                'is-active': node.entry.path === currentPath,
+                'is-active': node.entry.path === displayPath,
                 'is-dir': node.entry.kind === 'dir',
                 'is-file': node.entry.kind === 'file'
               }"
@@ -1268,8 +1273,8 @@ function formatSize(size) {
               <template v-for="(crumb, index) in breadcrumbs" :key="crumb.path">
                 <button
                   type="button"
-                  :disabled="busy || crumb.path === currentPath"
-                  @click="loadRoot(crumb.path)"
+                  :disabled="busy || crumb.path === displayPath"
+                  @click="openBreadcrumbPath(crumb)"
                 >
                   {{ crumb.label }}
                 </button>
@@ -1280,11 +1285,6 @@ function formatSize(size) {
 
         <section v-if="previewView && preview" class="malt-app__preview" aria-label="File preview">
           <div class="malt-app__preview-head">
-            <button type="button" :disabled="busy" @click="backToBrowser">Back</button>
-            <div>
-              <span>Preview</span>
-              <h2>{{ preview.path }}</h2>
-            </div>
             <div class="malt-app__preview-actions">
               <button
                 type="button"

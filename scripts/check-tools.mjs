@@ -87,8 +87,9 @@ for (const pattern of [
   /malt-app__preview-body/,
   /malt-app__proof-sidebar/,
   /malt-app__proof-json/,
-  /backToBrowser/,
   /previewView/,
+  /displayPath/,
+  /openBreadcrumbPath/,
   /settingsOpen/,
   /malt-app__settings/,
   /Daemon URL/,
@@ -149,6 +150,17 @@ assert.doesNotMatch(appSource, />\[\]<|>\[\]/)
 assert.doesNotMatch(appSource, /\? \(node\.expanded \? 'v' : '>'\)/)
 assert.match(appSource, /v-for="\(?crumb, index\)? in breadcrumbs"/)
 assert.match(appSource, /v-if="index < breadcrumbs\.length - 1"/)
+assert.match(appSource, /const displayPath = computed/)
+assert.match(appSource, /previewView\.value && preview\.value\?\.path/)
+assert.match(appSource, /const segments = displayPath\.value/)
+assert.match(appSource, /async function openBreadcrumbPath\(crumb\)/)
+assert.match(appSource, /crumb\.path === displayPath\.value/)
+assert.match(appSource, /@click="openBreadcrumbPath\(crumb\)"/)
+assert.doesNotMatch(appSource, /function backToBrowser\(/)
+assert.doesNotMatch(appSource, /@click="backToBrowser"/)
+assert.doesNotMatch(appSource, />Back<\/button>/)
+assert.doesNotMatch(appSource, />Preview<\/span>/)
+assert.doesNotMatch(appSource, /<h2>\{\{ preview\.path \}\}<\/h2>/)
 assert.match(appSource, /payload:\s*entry\.payload/)
 assert.match(appSource, /:style="treeRowStyle\(node\.depth\)"/)
 assert.match(appSource, /document\.title\s*=\s*'App \| MALT'/)
@@ -211,6 +223,19 @@ assert.ok(
 assert.ok(
   crumbbarCSSRules.every((rule) => !/justify-content:\s*space-between/.test(rule)),
   'crumbbar must not space breadcrumb content against a right-side action'
+)
+const previewHeadCSSRules = [...customCSS.matchAll(/\.malt-app__preview-head\s*\{[\s\S]*?\n\}/g)]
+  .map((match) => match[0])
+assert.ok(previewHeadCSSRules.length > 0, 'preview head CSS rule is missing')
+assert.ok(
+  previewHeadCSSRules.some(
+    (rule) => /display:\s*flex/.test(rule) && /justify-content:\s*flex-end/.test(rule)
+  ),
+  'preview head must collapse to right-aligned file actions'
+)
+assert.ok(
+  previewHeadCSSRules.every((rule) => !/grid-template-columns/.test(rule)),
+  'preview head must not reserve columns for removed title or back controls'
 )
 
 const notFoundPage = fs.readFileSync(path.join(docsRoot, '404.md'), 'utf8')

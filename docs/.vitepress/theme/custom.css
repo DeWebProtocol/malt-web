@@ -1048,36 +1048,10 @@ body.malt-app-page .malt-app {
 }
 
 .malt-app__preview-head {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  display: flex;
+  justify-content: flex-end;
   gap: 12px;
   align-items: center;
-}
-
-.malt-app__preview-head div {
-  min-width: 0;
-}
-
-.malt-app__preview-head span {
-  display: block;
-  margin-bottom: 3px;
-  color: var(--malt-gh-muted);
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.malt-app__preview-head h2 {
-  min-width: 0;
-  margin: 0;
-  overflow: hidden;
-  border: 0;
-  padding: 0;
-  color: var(--vp-c-text-1);
-  font: 15px/1.35 var(--vp-font-family-mono);
-  letter-spacing: 0;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .malt-app__preview-actions {
@@ -1347,10 +1321,6 @@ body.malt-app-page .malt-app {
 
   .malt-app__content {
     padding: 14px 14px 26px;
-  }
-
-  .malt-app__preview-head {
-    grid-template-columns: 1fr;
   }
 
   .malt-app__preview-layout {
