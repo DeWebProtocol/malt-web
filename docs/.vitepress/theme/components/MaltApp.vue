@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { withBase } from 'vitepress'
 import {
   activeProfileStorageKey,
+  ancestorDirectoryPaths,
   appFallbackStorageKey,
   buildAppStatePath,
   defaultCASURL,
@@ -32,6 +33,7 @@ const currentPath = ref('')
 const prefix = ref('')
 const entries = ref([])
 const directoryCache = ref({})
+const loadedTreeDirectories = ref({})
 const treeExpanded = ref({ '': true })
 const busy = ref(false)
 const error = ref('')
@@ -95,6 +97,7 @@ const uploadText = computed(() => {
 
 onMounted(() => {
   document.body.classList.add('malt-app-page')
+  document.title = 'App | MALT'
   window.addEventListener('dragenter', beginPageDrag)
   window.addEventListener('dragover', handlePageDragOver)
   window.addEventListener('dragleave', handlePageDragLeave)
@@ -235,6 +238,7 @@ async function loadRoot(nextPath = '', options = {}) {
   if (options.syncURL !== false) {
     syncBrowserLocation(options.history || 'push')
   }
+  await loadTreeAncestors(currentPath.value)
   await refreshDirectory({ payload: options.payload })
 }
 
@@ -382,6 +386,7 @@ async function loadDirectoryEntries(path, payload) {
 
 function resetTreeState() {
   directoryCache.value = {}
+  loadedTreeDirectories.value = {}
   treeExpanded.value = { '': true }
 }
 
@@ -390,6 +395,10 @@ function cacheDirectoryEntries(path, nextEntries) {
   directoryCache.value = {
     ...directoryCache.value,
     [cleanPath]: nextEntries
+  }
+  loadedTreeDirectories.value = {
+    ...loadedTreeDirectories.value,
+    [cleanPath]: true
   }
   treeExpanded.value = {
     ...treeExpanded.value,
@@ -784,7 +793,7 @@ async function toggleTreeDirectory(entry) {
     }
     return
   }
-  if (directoryCache.value[entry.path]) {
+  if (loadedTreeDirectories.value[entry.path]) {
     treeExpanded.value = {
       ...treeExpanded.value,
       [entry.path]: true
@@ -806,6 +815,16 @@ async function loadTreeDirectory(entry) {
   const path = normalizeOptionalPath(entry.path)
   const { loadedEntries } = await loadDirectoryEntries(path, entry.payload)
   cacheDirectoryEntries(path, loadedEntries)
+}
+
+async function loadTreeAncestors(path) {
+  for (const ancestorPath of ancestorDirectoryPaths(path)) {
+    if (loadedTreeDirectories.value[ancestorPath]) {
+      continue
+    }
+    const { loadedEntries } = await loadDirectoryEntries(ancestorPath)
+    cacheDirectoryEntries(ancestorPath, loadedEntries)
+  }
 }
 
 async function previewFile(entry, options = {}) {

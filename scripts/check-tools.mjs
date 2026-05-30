@@ -4,6 +4,7 @@ import path from 'node:path'
 
 import {
   appFallbackStorageKey,
+  ancestorDirectoryPaths,
   buildAppStatePath,
   buildContentURL,
   buildUnixFSWriteURL,
@@ -94,12 +95,15 @@ for (const pattern of [
   /compareEntries/,
   /entryKindOrder/,
   /directoryCache/,
+  /loadedTreeDirectories/,
   /treeExpanded/,
   /treeRows/,
   /treeRowStyle/,
   /treeIndentBasePx/,
   /treeIndentStepPx/,
+  /ancestorDirectoryPaths/,
   /cacheDirectoryEntries/,
+  /loadTreeAncestors/,
   /seedTreePath/,
   /toggleTreeDirectory/,
   /loadTreeDirectory/,
@@ -131,11 +135,21 @@ const toggleTreeDirectorySource = appSource.match(
 )?.[0]
 assert.ok(toggleTreeDirectorySource, 'toggleTreeDirectory function is missing')
 assert.match(toggleTreeDirectorySource, /loadTreeDirectory\(entry\)/)
+assert.match(toggleTreeDirectorySource, /loadedTreeDirectories\.value\[entry\.path\]/)
 assert.doesNotMatch(toggleTreeDirectorySource, /openDirectory\(entry\)/)
+const loadTreeAncestorsSource = appSource.match(
+  /async function loadTreeAncestors\(path\) \{[\s\S]*?\n\}\n\nasync function previewFile/
+)?.[0]
+assert.ok(loadTreeAncestorsSource, 'loadTreeAncestors function is missing')
+assert.match(loadTreeAncestorsSource, /ancestorDirectoryPaths\(path\)/)
+assert.match(loadTreeAncestorsSource, /loadedTreeDirectories\.value\[ancestorPath\]/)
+assert.doesNotMatch(loadTreeAncestorsSource, /directoryCache\.value\[ancestorPath\]/)
 assert.doesNotMatch(appSource, />\[\]<|>\[\]/)
 assert.doesNotMatch(appSource, /\? \(node\.expanded \? 'v' : '>'\)/)
 assert.match(appSource, /payload:\s*entry\.payload/)
 assert.match(appSource, /:style="treeRowStyle\(node\.depth\)"/)
+assert.match(appSource, /document\.title\s*=\s*'App \| MALT'/)
+assert.match(appSource, /await loadTreeAncestors\(currentPath\.value\)/)
 assert.doesNotMatch(appSource, /runEntryAction\('preview'/)
 assert.doesNotMatch(appSource, /malt-app__browser-head/)
 assert.doesNotMatch(appSource, /type="file" multiple/)
@@ -152,6 +166,7 @@ assert.match(clientSource, /X-Malt-Proof['"],\s*['"]omit/)
 assert.match(clientSource, /appFallbackStorageKey/)
 assert.match(clientSource, /parseAppFallbackRoute/)
 assert.match(clientSource, /isAppStateRoute/)
+assert.match(clientSource, /ancestorDirectoryPaths/)
 
 const customCSS = fs.readFileSync(path.join(docsRoot, '.vitepress/theme/custom.css'), 'utf8')
 for (const pattern of [
@@ -230,6 +245,15 @@ assert.equal(isAppStateRoute('/app', '/app/bafkqaaa'), true)
 assert.equal(isAppStateRoute('/app', '/app/bafkqaaa/docs/read%20me'), true)
 assert.equal(isAppStateRoute('/app', '/app'), false)
 assert.equal(isAppStateRoute('/app', '/docs/runtime'), false)
+assert.deepEqual(ancestorDirectoryPaths('malt/layout/unixfs/internal/format'), [
+  '',
+  'malt',
+  'malt/layout',
+  'malt/layout/unixfs',
+  'malt/layout/unixfs/internal'
+])
+assert.deepEqual(ancestorDirectoryPaths('malt'), [''])
+assert.deepEqual(ancestorDirectoryPaths(''), [])
 assert.equal(appFallbackStorageKey, 'malt-app-fallback-path')
 assert.deepEqual(
   parseAppFallbackRoute('/app', JSON.stringify({ pathname: '/app/bafkqaaa/docs/read%20me' })),

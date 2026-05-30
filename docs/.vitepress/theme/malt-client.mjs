@@ -72,6 +72,20 @@ export function isAppStateRoute(appBasePath, pathname) {
   return Boolean(routeState?.root)
 }
 
+export function ancestorDirectoryPaths(rawPath = '') {
+  const segments = pathSegments(rawPath)
+  if (segments.length === 0) {
+    return []
+  }
+  const ancestors = ['']
+  let cursor = ''
+  for (const segment of segments.slice(0, -1)) {
+    cursor = joinMaltPath(cursor, segment)
+    ancestors.push(cursor)
+  }
+  return ancestors
+}
+
 export function decodeProofListHeader(raw) {
   if (!raw) {
     throw new Error('missing X-Malt-ProofList header')
