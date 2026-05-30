@@ -67,6 +67,11 @@ export function parseAppFallbackRoute(appBasePath, raw) {
   }
 }
 
+export function isAppStateRoute(appBasePath, pathname) {
+  const routeState = parseAppStatePath(appBasePath, pathname)
+  return Boolean(routeState?.root)
+}
+
 export function decodeProofListHeader(raw) {
   if (!raw) {
     throw new Error('missing X-Malt-ProofList header')

@@ -10,6 +10,7 @@ import {
   buildResolveURL,
   decodeProofListHeader,
   extractProofListInput,
+  isAppStateRoute,
   joinMaltPath,
   parseAppFallbackRoute,
   parseAppStatePath,
@@ -95,6 +96,9 @@ for (const pattern of [
   /directoryCache/,
   /treeExpanded/,
   /treeRows/,
+  /treeRowStyle/,
+  /treeIndentBasePx/,
+  /treeIndentStepPx/,
   /cacheDirectoryEntries/,
   /seedTreePath/,
   /toggleTreeDirectory/,
@@ -131,16 +135,23 @@ assert.doesNotMatch(toggleTreeDirectorySource, /openDirectory\(entry\)/)
 assert.doesNotMatch(appSource, />\[\]<|>\[\]/)
 assert.doesNotMatch(appSource, /\? \(node\.expanded \? 'v' : '>'\)/)
 assert.match(appSource, /payload:\s*entry\.payload/)
+assert.match(appSource, /:style="treeRowStyle\(node\.depth\)"/)
 assert.doesNotMatch(appSource, /runEntryAction\('preview'/)
 assert.doesNotMatch(appSource, /malt-app__browser-head/)
 assert.doesNotMatch(appSource, /type="file" multiple/)
 assert.doesNotMatch(appSource, /webkitdirectory directory/)
+
+const themeSource = fs.readFileSync(path.join(docsRoot, '.vitepress/theme/index.ts'), 'utf8')
+assert.match(themeSource, /MaltApp/)
+assert.match(themeSource, /isAppStateRoute/)
+assert.match(themeSource, /DefaultTheme\.Layout/)
 
 const clientSource = fs.readFileSync(path.join(docsRoot, '.vitepress/theme/malt-client.mjs'), 'utf8')
 assert.match(clientSource, /readDirectoryByPayload/)
 assert.match(clientSource, /X-Malt-Proof['"],\s*['"]omit/)
 assert.match(clientSource, /appFallbackStorageKey/)
 assert.match(clientSource, /parseAppFallbackRoute/)
+assert.match(clientSource, /isAppStateRoute/)
 
 const customCSS = fs.readFileSync(path.join(docsRoot, '.vitepress/theme/custom.css'), 'utf8')
 for (const pattern of [
@@ -167,6 +178,8 @@ assert.match(customCSS, /\.malt-app \.malt-app__tree-toggle,\s*\n\.malt-app \.ma
 assert.match(customCSS, /\.malt-app \.malt-app__tree-toggle,\s*\n\.malt-app \.malt-app__tree-link\s*\{[\s\S]*?border:\s*0 !important/)
 assert.doesNotMatch(customCSS, /\.malt-app__row button,\s*\n\.malt-app__name/)
 assert.doesNotMatch(customCSS, /malt-app__sidebar-controls/)
+assert.match(customCSS, /padding-left:\s*var\(--tree-indent,\s*12px\)/)
+assert.doesNotMatch(customCSS, /var\(--tree-depth[\s\S]*\*/)
 
 const notFoundPage = fs.readFileSync(path.join(docsRoot, '404.md'), 'utf8')
 assert.match(notFoundPage, /^# 404/m)
@@ -211,6 +224,10 @@ assert.deepEqual(parseAppStatePath('/malt/app', '/malt/app/bafkqaaa/docs/read%20
 })
 assert.deepEqual(parseAppStatePath('/app', '/app'), { root: '', path: '' })
 assert.equal(parseAppStatePath('/app', '/docs/runtime'), null)
+assert.equal(isAppStateRoute('/app', '/app/bafkqaaa'), true)
+assert.equal(isAppStateRoute('/app', '/app/bafkqaaa/docs/read%20me'), true)
+assert.equal(isAppStateRoute('/app', '/app'), false)
+assert.equal(isAppStateRoute('/app', '/docs/runtime'), false)
 assert.equal(appFallbackStorageKey, 'malt-app-fallback-path')
 assert.deepEqual(
   parseAppFallbackRoute('/app', JSON.stringify({ pathname: '/app/bafkqaaa/docs/read%20me' })),

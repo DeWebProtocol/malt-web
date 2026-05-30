@@ -721,7 +721,7 @@ body.malt-app-page .malt-app {
   min-width: 0;
   min-height: var(--malt-tree-row-height);
   border-radius: 6px;
-  padding-left: calc(12px + var(--tree-depth, 0) * var(--malt-tree-indent));
+  padding-left: var(--tree-indent, 12px);
 }
 
 .malt-app__tree-row.is-active {

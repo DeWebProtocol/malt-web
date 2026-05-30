@@ -68,6 +68,8 @@ const statusText = computed(() => {
 const proofText = computed(() =>
   proofView.value?.proofList ? JSON.stringify(proofView.value.proofList, null, 2) : ''
 )
+const treeIndentBasePx = 12
+const treeIndentStepPx = 18
 
 const breadcrumbs = computed(() => {
   const crumbs = [{ label: 'root', path: '' }]
@@ -452,6 +454,13 @@ function buildTreeRows(parentEntries, depth) {
     }
   }
   return rows
+}
+
+function treeRowStyle(depth) {
+  const level = Number.isFinite(depth) ? Math.max(0, depth) : 0
+  return {
+    '--tree-indent': `${treeIndentBasePx + level * treeIndentStepPx}px`
+  }
 }
 
 async function openParentDirectory() {
@@ -1174,7 +1183,7 @@ function formatSize(size) {
                 'is-dir': node.entry.kind === 'dir',
                 'is-file': node.entry.kind === 'file'
               }"
-              :style="{ '--tree-depth': node.depth }"
+              :style="treeRowStyle(node.depth)"
             >
               <button
                 v-if="node.entry.kind === 'dir'"
