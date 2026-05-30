@@ -843,6 +843,38 @@ body.malt-app-page .malt-app {
   font-size: 15px;
 }
 
+.malt-app__breadcrumb-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  margin-left: 8px;
+}
+
+.malt-app .malt-app__icon-button {
+  width: 32px;
+  min-height: 32px;
+  border-color: var(--malt-gh-border);
+  border-radius: 6px;
+  padding: 0;
+  color: var(--malt-gh-muted);
+  background: var(--malt-gh-panel);
+}
+
+.malt-app__breadcrumb-actions .malt-app__icon-button:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.malt-app__breadcrumb-actions .malt-app__icon-button + .malt-app__icon-button {
+  margin-left: -1px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.malt-app .malt-app__icon-button:hover:not(:disabled) {
+  color: var(--vp-c-text-1);
+}
+
 .malt-app__dropzone {
   position: fixed;
   z-index: 80;
@@ -1045,19 +1077,6 @@ body.malt-app-page .malt-app {
   border-radius: 6px;
   padding: 14px;
   background: var(--malt-gh-panel);
-}
-
-.malt-app__preview-head {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  align-items: center;
-}
-
-.malt-app__preview-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
 }
 
 .malt-app__preview-layout {

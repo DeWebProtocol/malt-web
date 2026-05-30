@@ -89,7 +89,10 @@ for (const pattern of [
   /malt-app__proof-json/,
   /previewView/,
   /displayPath/,
+  /copyPreviewPath/,
   /openBreadcrumbPath/,
+  /malt-app__breadcrumb-actions/,
+  /malt-app__icon-button/,
   /settingsOpen/,
   /malt-app__settings/,
   /Daemon URL/,
@@ -156,11 +159,22 @@ assert.match(appSource, /const segments = displayPath\.value/)
 assert.match(appSource, /async function openBreadcrumbPath\(crumb\)/)
 assert.match(appSource, /crumb\.path === displayPath\.value/)
 assert.match(appSource, /@click="openBreadcrumbPath\(crumb\)"/)
+assert.match(appSource, /async function copyPreviewPath\(\)/)
+assert.match(appSource, /navigator\.clipboard\.writeText\(preview\.value\.path\)/)
+assert.match(appSource, /v-if="previewView && preview"\s+class="malt-app__breadcrumb-actions"/)
+assert.match(appSource, /aria-label="Copy file path"/)
+assert.match(appSource, /aria-label="Download file"/)
+assert.match(appSource, /@click="copyPreviewPath"/)
+assert.match(appSource, /@click="downloadFile\(\{ name: preview\.name, path: preview\.path, kind: 'file' \}\)"/)
 assert.doesNotMatch(appSource, /function backToBrowser\(/)
 assert.doesNotMatch(appSource, /@click="backToBrowser"/)
 assert.doesNotMatch(appSource, />Back<\/button>/)
 assert.doesNotMatch(appSource, />Preview<\/span>/)
 assert.doesNotMatch(appSource, /<h2>\{\{ preview\.path \}\}<\/h2>/)
+assert.doesNotMatch(appSource, /malt-app__preview-head/)
+assert.doesNotMatch(appSource, /malt-app__preview-actions/)
+assert.doesNotMatch(appSource, /@click="showProof\(\{ path: preview\.path, kind: 'file' \}\)"/)
+assert.doesNotMatch(appSource, /Use Proof to load the current file proof/)
 assert.match(appSource, /payload:\s*entry\.payload/)
 assert.match(appSource, /:style="treeRowStyle\(node\.depth\)"/)
 assert.match(appSource, /document\.title\s*=\s*'App \| MALT'/)
@@ -224,18 +238,13 @@ assert.ok(
   crumbbarCSSRules.every((rule) => !/justify-content:\s*space-between/.test(rule)),
   'crumbbar must not space breadcrumb content against a right-side action'
 )
-const previewHeadCSSRules = [...customCSS.matchAll(/\.malt-app__preview-head\s*\{[\s\S]*?\n\}/g)]
-  .map((match) => match[0])
-assert.ok(previewHeadCSSRules.length > 0, 'preview head CSS rule is missing')
+assert.doesNotMatch(customCSS, /malt-app__preview-head/)
+assert.doesNotMatch(customCSS, /malt-app__preview-actions/)
+assert.match(customCSS, /\.malt-app__breadcrumb-actions\s*\{[\s\S]*?display:\s*inline-flex/)
+assert.match(customCSS, /\.malt-app \.malt-app__icon-button\s*\{[\s\S]*?width:\s*32px;[\s\S]*?padding:\s*0;/)
 assert.ok(
-  previewHeadCSSRules.some(
-    (rule) => /display:\s*flex/.test(rule) && /justify-content:\s*flex-end/.test(rule)
-  ),
-  'preview head must collapse to right-aligned file actions'
-)
-assert.ok(
-  previewHeadCSSRules.every((rule) => !/grid-template-columns/.test(rule)),
-  'preview head must not reserve columns for removed title or back controls'
+  /\.malt-app__breadcrumb-actions\s*\{[\s\S]*?margin-left:\s*8px;/.test(customCSS),
+  'file action buttons must sit next to the breadcrumb path'
 )
 
 const notFoundPage = fs.readFileSync(path.join(docsRoot, '404.md'), 'utf8')
