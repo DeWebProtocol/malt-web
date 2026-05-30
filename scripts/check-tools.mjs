@@ -176,6 +176,8 @@ assert.match(customCSS, /\.malt-app__tree-row\s*\{[\s\S]*?grid-template-columns:
 assert.match(customCSS, /\.malt-app__tree-row\.is-active::before/)
 assert.match(customCSS, /\.malt-app \.malt-app__tree-toggle,\s*\n\.malt-app \.malt-app__tree-link\s*\{[\s\S]*?appearance:\s*none/)
 assert.match(customCSS, /\.malt-app \.malt-app__tree-toggle,\s*\n\.malt-app \.malt-app__tree-link\s*\{[\s\S]*?border:\s*0 !important/)
+assert.match(customCSS, /\.malt-app \.malt-app__tree-toggle\s*\{[\s\S]*?width:\s*16px;[\s\S]*?padding:\s*0;/)
+assert.match(customCSS, /\.malt-app \.malt-app__tree-link\s*\{[\s\S]*?display:\s*grid;[\s\S]*?grid-template-columns:\s*20px minmax\(0, 1fr\);[\s\S]*?justify-content:\s*flex-start;[\s\S]*?padding:\s*0 8px 0 2px;/)
 assert.doesNotMatch(customCSS, /\.malt-app__row button,\s*\n\.malt-app__name/)
 assert.doesNotMatch(customCSS, /malt-app__sidebar-controls/)
 assert.match(customCSS, /padding-left:\s*var\(--tree-indent,\s*12px\)/)

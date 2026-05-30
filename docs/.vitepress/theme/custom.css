@@ -752,7 +752,7 @@ body.malt-app-page .malt-app {
   font: inherit;
 }
 
-.malt-app__tree-toggle {
+.malt-app .malt-app__tree-toggle {
   width: 16px;
   min-height: var(--malt-tree-row-height);
   padding: 0;
@@ -764,7 +764,7 @@ body.malt-app-page .malt-app {
   height: var(--malt-tree-row-height);
 }
 
-.malt-app__tree-link {
+.malt-app .malt-app__tree-link {
   display: grid;
   grid-template-columns: 20px minmax(0, 1fr);
   column-gap: 8px;
@@ -780,7 +780,7 @@ body.malt-app-page .malt-app {
   text-align: left;
 }
 
-.malt-app__tree-link:hover:not(:disabled) {
+.malt-app .malt-app__tree-link:hover:not(:disabled) {
   color: var(--malt-gh-link);
 }
 
