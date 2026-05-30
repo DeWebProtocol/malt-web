@@ -79,6 +79,7 @@ for (const pattern of [
   /malt-app__tree-row/,
   /malt-app__content/,
   /malt-app__crumbbar/,
+  /malt-app__browser-toolbar/,
   /malt-app__file-list/,
   /malt-app__row-spacer/,
   /malt-app__preview/,
@@ -146,6 +147,8 @@ assert.match(loadTreeAncestorsSource, /loadedTreeDirectories\.value\[ancestorPat
 assert.doesNotMatch(loadTreeAncestorsSource, /directoryCache\.value\[ancestorPath\]/)
 assert.doesNotMatch(appSource, />\[\]<|>\[\]/)
 assert.doesNotMatch(appSource, /\? \(node\.expanded \? 'v' : '>'\)/)
+assert.match(appSource, /v-for="\(?crumb, index\)? in breadcrumbs"/)
+assert.match(appSource, /v-if="index < breadcrumbs\.length - 1"/)
 assert.match(appSource, /payload:\s*entry\.payload/)
 assert.match(appSource, /:style="treeRowStyle\(node\.depth\)"/)
 assert.match(appSource, /document\.title\s*=\s*'App \| MALT'/)
@@ -182,6 +185,7 @@ for (const pattern of [
   /font-family:\s*-apple-system,\s*BlinkMacSystemFont,\s*"Segoe UI",\s*sans-serif/,
   /grid-template-columns:\s*296px minmax\(0, 1fr\)/,
   /\.malt-app__file-list/,
+  /\.malt-app__browser-toolbar/,
   /\.malt-app__proof-sidebar/,
   /malt-app__dropzone/
 ]) {
@@ -197,6 +201,17 @@ assert.doesNotMatch(customCSS, /\.malt-app__row button,\s*\n\.malt-app__name/)
 assert.doesNotMatch(customCSS, /malt-app__sidebar-controls/)
 assert.match(customCSS, /padding-left:\s*var\(--tree-indent,\s*12px\)/)
 assert.doesNotMatch(customCSS, /var\(--tree-depth[\s\S]*\*/)
+const crumbbarCSSRules = [...customCSS.matchAll(/\.malt-app__crumbbar\s*\{[\s\S]*?\n\}/g)]
+  .map((match) => match[0])
+assert.ok(crumbbarCSSRules.length > 0, 'crumbbar CSS rule is missing')
+assert.ok(
+  crumbbarCSSRules.some((rule) => /justify-content:\s*flex-start/.test(rule)),
+  'crumbbar must align breadcrumb content to the left'
+)
+assert.ok(
+  crumbbarCSSRules.every((rule) => !/justify-content:\s*space-between/.test(rule)),
+  'crumbbar must not space breadcrumb content against a right-side action'
+)
 
 const notFoundPage = fs.readFileSync(path.join(docsRoot, '404.md'), 'utf8')
 assert.match(notFoundPage, /^# 404/m)

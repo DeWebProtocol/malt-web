@@ -797,8 +797,15 @@ body.malt-app-page .malt-app {
 
 .malt-app__pathbar,
 .malt-app__crumbbar {
-  justify-content: space-between;
   min-height: 36px;
+}
+
+.malt-app__pathbar {
+  justify-content: space-between;
+}
+
+.malt-app__crumbbar {
+  justify-content: flex-start;
 }
 
 .malt-app__repo-bar {
@@ -873,6 +880,15 @@ body.malt-app-page .malt-app {
 
 .malt-app__file-list {
   overflow: visible;
+}
+
+.malt-app__browser-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-height: 40px;
+  border-bottom: 1px solid var(--malt-gh-border);
+  padding: 6px 8px;
 }
 
 .malt-app__row {

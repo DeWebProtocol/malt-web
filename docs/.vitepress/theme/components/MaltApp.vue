@@ -1265,7 +1265,7 @@ function formatSize(size) {
 
           <div class="malt-app__repo-bar malt-app__crumbbar">
             <nav class="malt-app__breadcrumb" aria-label="breadcrumb">
-              <template v-for="crumb in breadcrumbs" :key="crumb.path">
+              <template v-for="(crumb, index) in breadcrumbs" :key="crumb.path">
                 <button
                   type="button"
                   :disabled="busy || crumb.path === currentPath"
@@ -1273,16 +1273,9 @@ function formatSize(size) {
                 >
                   {{ crumb.label }}
                 </button>
-                <span aria-hidden="true">/</span>
+                <span v-if="index < breadcrumbs.length - 1" aria-hidden="true">/</span>
               </template>
             </nav>
-            <button
-              type="button"
-              :disabled="busy || !root"
-              @click="showProof({ path: currentPath, kind: 'dir' })"
-            >
-              Current proof
-            </button>
           </div>
 
         <section v-if="previewView && preview" class="malt-app__preview" aria-label="File preview">
@@ -1355,6 +1348,15 @@ function formatSize(size) {
         </section>
 
         <section v-else class="malt-app__browser malt-app__file-list" aria-label="File browser">
+          <div class="malt-app__browser-toolbar">
+            <button
+              type="button"
+              :disabled="busy || !root"
+              @click="showProof({ path: currentPath, kind: 'dir' })"
+            >
+              Current proof
+            </button>
+          </div>
           <div v-if="entries.length === 0" class="malt-app__empty">
             {{ root ? 'No entries' : 'Drop files or set a root' }}
           </div>
