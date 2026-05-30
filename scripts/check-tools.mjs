@@ -85,13 +85,14 @@ for (const pattern of [
   /malt-app__preview/,
   /malt-app__preview-layout/,
   /malt-app__preview-body/,
+  /malt-app__preview-toolbar/,
+  /malt-app__file-actions/,
   /malt-app__proof-sidebar/,
   /malt-app__proof-json/,
   /previewView/,
   /displayPath/,
   /copyPreviewPath/,
   /openBreadcrumbPath/,
-  /malt-app__breadcrumb-actions/,
   /malt-app__icon-button/,
   /settingsOpen/,
   /malt-app__settings/,
@@ -161,11 +162,13 @@ assert.match(appSource, /crumb\.path === displayPath\.value/)
 assert.match(appSource, /@click="openBreadcrumbPath\(crumb\)"/)
 assert.match(appSource, /async function copyPreviewPath\(\)/)
 assert.match(appSource, /navigator\.clipboard\.writeText\(preview\.value\.path\)/)
-assert.match(appSource, /v-if="previewView && preview"\s+class="malt-app__breadcrumb-actions"/)
+assert.match(appSource, /<div class="malt-app__preview-body">[\s\S]*?<div class="malt-app__preview-toolbar"/)
+assert.match(appSource, /<div class="malt-app__file-actions" aria-label="File actions">/)
 assert.match(appSource, /aria-label="Copy file path"/)
 assert.match(appSource, /aria-label="Download file"/)
 assert.match(appSource, /@click="copyPreviewPath"/)
 assert.match(appSource, /@click="downloadFile\(\{ name: preview\.name, path: preview\.path, kind: 'file' \}\)"/)
+assert.doesNotMatch(appSource, /malt-app__breadcrumb-actions/)
 assert.doesNotMatch(appSource, /function backToBrowser\(/)
 assert.doesNotMatch(appSource, /@click="backToBrowser"/)
 assert.doesNotMatch(appSource, />Back<\/button>/)
@@ -240,12 +243,17 @@ assert.ok(
 )
 assert.doesNotMatch(customCSS, /malt-app__preview-head/)
 assert.doesNotMatch(customCSS, /malt-app__preview-actions/)
-assert.match(customCSS, /\.malt-app__breadcrumb-actions\s*\{[\s\S]*?display:\s*inline-flex/)
+assert.doesNotMatch(customCSS, /malt-app__breadcrumb-actions/)
+assert.match(customCSS, /\.malt-app__preview-toolbar\s*\{[\s\S]*?display:\s*flex/)
+assert.match(customCSS, /\.malt-app__file-actions\s*\{[\s\S]*?display:\s*inline-flex/)
 assert.match(customCSS, /\.malt-app \.malt-app__icon-button\s*\{[\s\S]*?width:\s*32px;[\s\S]*?padding:\s*0;/)
-assert.ok(
-  /\.malt-app__breadcrumb-actions\s*\{[\s\S]*?margin-left:\s*8px;/.test(customCSS),
-  'file action buttons must sit next to the breadcrumb path'
-)
+assert.doesNotMatch(customCSS, /\.malt-app__preview-body pre,\s*\n\.malt-app__proof-json/)
+const previewPreRule = customCSS.match(/\.malt-app__preview-body pre\s*\{[\s\S]*?\n\}/)?.[0]
+assert.ok(previewPreRule, 'file preview pre CSS rule is missing')
+assert.doesNotMatch(previewPreRule, /max-height/)
+assert.doesNotMatch(previewPreRule, /overflow:\s*auto/)
+assert.match(customCSS, /\.malt-app__proof-json\s*\{[\s\S]*?max-height:/)
+assert.match(customCSS, /\.malt-app__proof-json\s*\{[\s\S]*?overflow:\s*auto/)
 
 const notFoundPage = fs.readFileSync(path.join(docsRoot, '404.md'), 'utf8')
 assert.match(notFoundPage, /^# 404/m)

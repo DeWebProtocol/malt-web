@@ -843,13 +843,6 @@ body.malt-app-page .malt-app {
   font-size: 15px;
 }
 
-.malt-app__breadcrumb-actions {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  margin-left: 8px;
-}
-
 .malt-app .malt-app__icon-button {
   width: 32px;
   min-height: 32px;
@@ -860,12 +853,12 @@ body.malt-app-page .malt-app {
   background: var(--malt-gh-panel);
 }
 
-.malt-app__breadcrumb-actions .malt-app__icon-button:first-child {
+.malt-app__file-actions .malt-app__icon-button:first-child {
   border-top-right-radius: 0;
   border-bottom-right-radius: 0;
 }
 
-.malt-app__breadcrumb-actions .malt-app__icon-button + .malt-app__icon-button {
+.malt-app__file-actions .malt-app__icon-button + .malt-app__icon-button {
   margin-left: -1px;
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
@@ -1073,10 +1066,6 @@ body.malt-app-page .malt-app {
   display: grid;
   gap: 14px;
   min-height: min(560px, calc(100vh - 220px));
-  border: 1px solid var(--malt-gh-border);
-  border-radius: 6px;
-  padding: 14px;
-  background: var(--malt-gh-panel);
 }
 
 .malt-app__preview-layout {
@@ -1088,15 +1077,42 @@ body.malt-app-page .malt-app {
 
 .malt-app__preview-body {
   min-width: 0;
-}
-
-.malt-app__preview-body pre,
-.malt-app__proof-json {
-  max-height: calc(100vh - 300px);
-  margin: 0;
-  overflow: auto;
   border: 1px solid var(--malt-gh-border);
   border-radius: 6px;
+  background: var(--malt-gh-bg);
+}
+
+.malt-app__preview-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  min-height: 40px;
+  border-bottom: 1px solid var(--malt-gh-border);
+  border-radius: 6px 6px 0 0;
+  padding: 6px 10px;
+  background: var(--malt-gh-panel);
+}
+
+.malt-app__preview-tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  color: var(--vp-c-text-1);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.malt-app__file-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+}
+
+.malt-app__preview-body pre {
+  margin: 0;
+  border: 0;
+  border-radius: 0 0 6px 6px;
   padding: 12px;
   background: var(--malt-gh-bg);
   font-size: 12px;
@@ -1174,7 +1190,16 @@ body.malt-app-page .malt-app {
 
 .malt-app__proof-json {
   max-height: calc(100vh - 420px);
+  margin: 0;
+  overflow: auto;
+  border: 1px solid var(--malt-gh-border);
+  border-radius: 6px;
+  padding: 12px;
   background: var(--malt-gh-panel);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .verified-dot {
