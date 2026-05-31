@@ -87,10 +87,13 @@ for (const pattern of [
   /malt-app__preview-layout/,
   /malt-app__preview-body/,
   /malt-app__preview-toolbar/,
+  /malt-app__preview-tabs/,
   /malt-app__file-actions/,
   /malt-app__proof-sidebar/,
   /malt-app__proof-json/,
   /previewView/,
+  /previewMode/,
+  /previewTabs/,
   /displayPath/,
   /copyPreviewPath/,
   /openBreadcrumbPath/,
@@ -117,6 +120,12 @@ for (const pattern of [
   /readDirectoryByPayload/,
   /openDirectory/,
   /previewFile/,
+  /renderMarkdown/,
+  /renderInlineMarkdown/,
+  /isMarkdownPreview/,
+  /isVideoPreview/,
+  /isAudioPreview/,
+  /isPDFPreview/,
   /downloadFile/,
   /proofViewMatches/,
   /proofStatusLabel/,
@@ -187,6 +196,19 @@ assert.match(appSource, /aria-label="Copy file path"/)
 assert.match(appSource, /aria-label="Download file"/)
 assert.match(appSource, /@click="copyPreviewPath"/)
 assert.match(appSource, /@click="downloadFile\(\{ name: preview\.name, path: preview\.path, kind: 'file' \}\)"/)
+assert.match(appSource, /v-for="tab in previewTabs"/)
+assert.match(appSource, /previewMode = tab\.id/)
+assert.match(appSource, /label:\s*'Preview'/)
+assert.match(appSource, /label:\s*'Code'/)
+assert.match(appSource, /v-if="preview\.kind === 'markdown' && previewMode === 'preview'"/)
+assert.match(appSource, /class="malt-app__markdown"[\s\S]*v-html="preview\.markup"/)
+assert.match(appSource, /preview\.kind === 'markdown' && previewMode === 'code'/)
+assert.match(appSource, /v-else-if="preview\.kind === 'video'"/)
+assert.match(appSource, /<video[\s\S]*controls[\s\S]*class="malt-app__media"/)
+assert.match(appSource, /v-else-if="preview\.kind === 'audio'"/)
+assert.match(appSource, /<audio[\s\S]*controls[\s\S]*class="malt-app__audio"/)
+assert.match(appSource, /v-else-if="preview\.kind === 'pdf'"/)
+assert.match(appSource, /class="malt-app__pdf"/)
 assert.doesNotMatch(appSource, /malt-app__breadcrumb-actions/)
 assert.doesNotMatch(appSource, /function backToBrowser\(/)
 assert.doesNotMatch(appSource, /@click="backToBrowser"/)
@@ -235,6 +257,11 @@ for (const pattern of [
   /\.malt-app__file-list/,
   /\.malt-app__browser-layout/,
   /\.malt-app__proof-sidebar/,
+  /\.malt-app__preview-tabs/,
+  /\.malt-app__markdown/,
+  /\.malt-app__media/,
+  /\.malt-app__audio/,
+  /\.malt-app__pdf/,
   /malt-app__dropzone/
 ]) {
   assert.match(customCSS, pattern)
@@ -267,6 +294,7 @@ assert.doesNotMatch(customCSS, /\.malt-app__status\s*\{/)
 assert.doesNotMatch(customCSS, /\.malt-app__status\.is-valid/)
 assert.doesNotMatch(customCSS, /\.malt-app__browser-toolbar/)
 assert.match(customCSS, /\.malt-app__preview-toolbar\s*\{[\s\S]*?display:\s*flex/)
+assert.match(customCSS, /\.malt-app__preview-tabs button\.is-active\s*\{[\s\S]*?background:\s*var\(--malt-gh-bg\)/)
 assert.match(customCSS, /\.malt-app__file-actions\s*\{[\s\S]*?display:\s*inline-flex/)
 assert.match(customCSS, /\.malt-app \.malt-app__icon-button\s*\{[\s\S]*?width:\s*32px;[\s\S]*?padding:\s*0;/)
 assert.doesNotMatch(customCSS, /\.malt-app__preview-body pre,\s*\n\.malt-app__proof-json/)

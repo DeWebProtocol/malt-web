@@ -39,6 +39,7 @@ const busy = ref(false)
 const error = ref('')
 const uploadResult = ref(null)
 const preview = ref(null)
+const previewMode = ref('code')
 const previewView = ref(false)
 const proofView = ref(null)
 const verifiedPaths = ref({})
@@ -76,6 +77,22 @@ const breadcrumbs = computed(() => {
 })
 
 const treeRows = computed(() => buildTreeRows(directoryCache.value[''] || [], 0))
+
+const previewTabs = computed(() => {
+  if (!preview.value) {
+    return []
+  }
+  if (preview.value.kind === 'markdown') {
+    return [
+      { id: 'preview', label: 'Preview' },
+      { id: 'code', label: 'Code' }
+    ]
+  }
+  if (['image', 'video', 'audio', 'pdf', 'binary'].includes(preview.value.kind)) {
+    return [{ id: 'preview', label: 'Preview' }]
+  }
+  return [{ id: 'code', label: 'Code' }]
+})
 
 const uploadText = computed(() => {
   if (!uploadResult.value) {
@@ -875,38 +892,81 @@ async function previewFile(entry, options = {}) {
     }
     const blob = payload.blob
     const contentType = payload.contentType || blob.type || ''
+    if (isMarkdownPreview(entry.name, contentType, blob.size)) {
+      const body = await blob.text()
+      showPreview({
+        path: entry.path,
+        name: entry.name,
+        kind: 'markdown',
+        contentType,
+        size: blob.size,
+        body,
+        markup: renderMarkdown(body)
+      })
+      return
+    }
     if (isImagePreview(entry.name, contentType)) {
-      preview.value = {
+      showPreview({
         path: entry.path,
         name: entry.name,
         kind: 'image',
         contentType,
         size: blob.size,
         url: URL.createObjectURL(blob)
-      }
-      previewView.value = true
+      })
+      return
+    }
+    if (isVideoPreview(entry.name, contentType)) {
+      showPreview({
+        path: entry.path,
+        name: entry.name,
+        kind: 'video',
+        contentType,
+        size: blob.size,
+        url: URL.createObjectURL(blob)
+      })
+      return
+    }
+    if (isAudioPreview(entry.name, contentType)) {
+      showPreview({
+        path: entry.path,
+        name: entry.name,
+        kind: 'audio',
+        contentType,
+        size: blob.size,
+        url: URL.createObjectURL(blob)
+      })
+      return
+    }
+    if (isPDFPreview(entry.name, contentType)) {
+      showPreview({
+        path: entry.path,
+        name: entry.name,
+        kind: 'pdf',
+        contentType,
+        size: blob.size,
+        url: URL.createObjectURL(blob)
+      })
       return
     }
     if (isTextPreview(entry.name, contentType, blob.size)) {
-      preview.value = {
+      showPreview({
         path: entry.path,
         name: entry.name,
         kind: 'text',
         contentType,
         size: blob.size,
         body: await blob.text()
-      }
-      previewView.value = true
+      })
       return
     }
-    preview.value = {
+    showPreview({
       path: entry.path,
       name: entry.name,
       kind: 'binary',
       contentType,
       size: blob.size
-    }
-    previewView.value = true
+    })
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
   } finally {
@@ -1043,6 +1103,12 @@ function verificationKey(rootValue, path) {
   return `${rootValue || ''}\n${normalizeOptionalPath(path)}`
 }
 
+function showPreview(nextPreview) {
+  preview.value = nextPreview
+  previewMode.value = nextPreview.kind === 'text' ? 'code' : 'preview'
+  previewView.value = true
+}
+
 function proofViewMatches(path) {
   return proofView.value?.path === normalizeOptionalPath(path)
 }
@@ -1059,6 +1125,7 @@ function clearPreview() {
     URL.revokeObjectURL(preview.value.url)
   }
   preview.value = null
+  previewMode.value = 'code'
   previewView.value = false
 }
 
@@ -1078,6 +1145,140 @@ function normalizeOptionalPath(path) {
     .join('/')
 }
 
+function renderMarkdown(source) {
+  const lines = String(source || '').replace(/\r\n/g, '\n').split('\n')
+  const blocks = []
+  let paragraph = []
+  let listType = ''
+  let listItems = []
+  let fence = null
+
+  const flushParagraph = () => {
+    if (paragraph.length === 0) {
+      return
+    }
+    blocks.push(`<p>${renderInlineMarkdown(paragraph.join(' '))}</p>`)
+    paragraph = []
+  }
+  const flushList = () => {
+    if (!listType) {
+      return
+    }
+    blocks.push(`<${listType}>${listItems.join('')}</${listType}>`)
+    listType = ''
+    listItems = []
+  }
+  const flushFlow = () => {
+    flushParagraph()
+    flushList()
+  }
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (fence) {
+      if (/^```/.test(trimmed)) {
+        blocks.push(`<pre><code>${escapeHtml(fence.lines.join('\n'))}</code></pre>`)
+        fence = null
+      } else {
+        fence.lines.push(line)
+      }
+      continue
+    }
+    if (/^```/.test(trimmed)) {
+      flushFlow()
+      fence = { lines: [] }
+      continue
+    }
+    if (!trimmed) {
+      flushFlow()
+      continue
+    }
+    const heading = trimmed.match(/^(#{1,6})\s+(.+)$/)
+    if (heading) {
+      flushFlow()
+      const level = heading[1].length
+      blocks.push(`<h${level}>${renderInlineMarkdown(heading[2])}</h${level}>`)
+      continue
+    }
+    if (/^[-*_]{3,}$/.test(trimmed)) {
+      flushFlow()
+      blocks.push('<hr>')
+      continue
+    }
+    const unordered = trimmed.match(/^[-*+]\s+(.+)$/)
+    if (unordered) {
+      flushParagraph()
+      if (listType && listType !== 'ul') {
+        flushList()
+      }
+      listType = 'ul'
+      listItems.push(`<li>${renderInlineMarkdown(unordered[1])}</li>`)
+      continue
+    }
+    const ordered = trimmed.match(/^\d+\.\s+(.+)$/)
+    if (ordered) {
+      flushParagraph()
+      if (listType && listType !== 'ol') {
+        flushList()
+      }
+      listType = 'ol'
+      listItems.push(`<li>${renderInlineMarkdown(ordered[1])}</li>`)
+      continue
+    }
+    const quote = trimmed.match(/^>\s?(.+)$/)
+    if (quote) {
+      flushFlow()
+      blocks.push(`<blockquote><p>${renderInlineMarkdown(quote[1])}</p></blockquote>`)
+      continue
+    }
+    flushList()
+    paragraph.push(line)
+  }
+  if (fence) {
+    blocks.push(`<pre><code>${escapeHtml(fence.lines.join('\n'))}</code></pre>`)
+  }
+  flushFlow()
+  return blocks.join('\n')
+}
+
+function renderInlineMarkdown(value) {
+  return escapeHtml(value)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_match, label, href) => {
+      const safeHref = safeMarkdownHref(href)
+      if (!safeHref) {
+        return label
+      }
+      return `<a href="${safeHref}" target="_blank" rel="noopener noreferrer">${label}</a>`
+    })
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function safeMarkdownHref(href) {
+  const clean = String(href || '').trim()
+  if (!/^(https?:|mailto:|#|\/|\.\/|\.\.\/)/i.test(clean)) {
+    return ''
+  }
+  return clean.replace(/"/g, '&quot;')
+}
+
+function isMarkdownPreview(name, contentType, size) {
+  if (size > 1024 * 1024) {
+    return false
+  }
+  return /markdown/i.test(contentType) || /\.(md|markdown)$/i.test(name)
+}
+
 function isTextPreview(name, contentType, size) {
   if (size > 512 * 1024) {
     return false
@@ -1090,6 +1291,18 @@ function isTextPreview(name, contentType, size) {
 
 function isImagePreview(name, contentType) {
   return contentType.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/i.test(name)
+}
+
+function isVideoPreview(name, contentType) {
+  return contentType.startsWith('video/') || /\.(mp4|webm|ogv|mov|m4v)$/i.test(name)
+}
+
+function isAudioPreview(name, contentType) {
+  return contentType.startsWith('audio/') || /\.(mp3|wav|ogg|oga|m4a|flac)$/i.test(name)
+}
+
+function isPDFPreview(name, contentType) {
+  return contentType === 'application/pdf' || /\.pdf$/i.test(name)
 }
 
 function kindLabel(entry) {
@@ -1300,7 +1513,19 @@ function formatSize(size) {
           <div class="malt-app__preview-layout">
             <div class="malt-app__preview-body">
               <div class="malt-app__preview-toolbar">
-                <span class="malt-app__preview-tab">Code</span>
+                <div class="malt-app__preview-tabs" role="tablist" aria-label="File preview modes">
+                  <button
+                    v-for="tab in previewTabs"
+                    :key="tab.id"
+                    type="button"
+                    role="tab"
+                    :aria-selected="previewMode === tab.id"
+                    :class="{ 'is-active': previewMode === tab.id }"
+                    @click="previewMode = tab.id"
+                  >
+                    {{ tab.label }}
+                  </button>
+                </div>
                 <div class="malt-app__file-actions" aria-label="File actions">
                   <button
                     type="button"
@@ -1338,12 +1563,36 @@ function formatSize(size) {
                   </button>
                 </div>
               </div>
+              <div
+                v-if="preview.kind === 'markdown' && previewMode === 'preview'"
+                class="malt-app__markdown"
+                v-html="preview.markup"
+              ></div>
+              <pre v-else-if="preview.kind === 'markdown' && previewMode === 'code'">{{ preview.body }}</pre>
               <img
-                v-if="preview.kind === 'image'"
+                v-else-if="preview.kind === 'image'"
                 class="malt-app__image"
                 :src="preview.url"
                 :alt="preview.name"
               />
+              <video
+                v-else-if="preview.kind === 'video'"
+                controls
+                class="malt-app__media"
+                :src="preview.url"
+              ></video>
+              <audio
+                v-else-if="preview.kind === 'audio'"
+                controls
+                class="malt-app__audio"
+                :src="preview.url"
+              ></audio>
+              <iframe
+                v-else-if="preview.kind === 'pdf'"
+                class="malt-app__pdf"
+                :src="preview.url"
+                :title="preview.name"
+              ></iframe>
               <pre v-else-if="preview.kind === 'text'">{{ preview.body }}</pre>
               <p v-else class="malt-app__empty">Binary preview is not available. Use Download.</p>
             </div>
