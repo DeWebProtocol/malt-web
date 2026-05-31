@@ -101,7 +101,7 @@ for (const pattern of [
   /previewMode/,
   /previewTabs/,
   /displayPath/,
-  /copyPreviewPath/,
+  /copyPreviewContent/,
   /openBreadcrumbPath/,
   /malt-app__icon-button/,
   /settingsOpen/,
@@ -200,13 +200,16 @@ assert.match(appSource, /const segments = displayPath\.value/)
 assert.match(appSource, /async function openBreadcrumbPath\(crumb\)/)
 assert.match(appSource, /crumb\.path === displayPath\.value/)
 assert.match(appSource, /@click="openBreadcrumbPath\(crumb\)"/)
-assert.match(appSource, /async function copyPreviewPath\(\)/)
-assert.match(appSource, /navigator\.clipboard\.writeText\(preview\.value\.path\)/)
+assert.match(appSource, /const canCopyPreviewContent = computed\(\(\) =>/)
+assert.match(appSource, /async function copyPreviewContent\(\)/)
+assert.match(appSource, /navigator\.clipboard\.writeText\(preview\.value\.body\)/)
+assert.doesNotMatch(appSource, /navigator\.clipboard\.writeText\(preview\.value\.path\)/)
 assert.match(appSource, /<div class="malt-app__preview-body">[\s\S]*?<div class="malt-app__preview-toolbar"/)
 assert.match(appSource, /<div class="malt-app__file-actions" aria-label="File actions">/)
-assert.match(appSource, /aria-label="Copy file path"/)
+assert.match(appSource, /:disabled="busy \|\| !canCopyPreviewContent"/)
+assert.match(appSource, /aria-label="Copy file content"/)
 assert.match(appSource, /aria-label="Download file"/)
-assert.match(appSource, /@click="copyPreviewPath"/)
+assert.match(appSource, /@click="copyPreviewContent"/)
 assert.match(appSource, /@click="downloadFile\(\{ name: preview\.name, path: preview\.path, kind: 'file' \}\)"/)
 assert.match(appSource, /v-for="tab in previewTabs"/)
 assert.match(appSource, /previewMode = tab\.id/)

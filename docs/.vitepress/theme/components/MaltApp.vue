@@ -103,6 +103,8 @@ const codeLines = computed(() => {
   return preview.value.body.replace(/\r\n/g, '\n').split('\n')
 })
 
+const canCopyPreviewContent = computed(() => typeof preview.value?.body === 'string')
+
 const uploadText = computed(() => {
   if (!uploadResult.value) {
     return ''
@@ -506,13 +508,13 @@ async function openBreadcrumbPath(crumb) {
   await loadRoot(crumb.path)
 }
 
-async function copyPreviewPath() {
-  if (!preview.value?.path || typeof navigator === 'undefined' || !navigator.clipboard) {
+async function copyPreviewContent() {
+  if (!canCopyPreviewContent.value || typeof navigator === 'undefined' || !navigator.clipboard) {
     return
   }
   error.value = ''
   try {
-    await navigator.clipboard.writeText(preview.value.path)
+    await navigator.clipboard.writeText(preview.value.body)
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
   }
@@ -1431,10 +1433,10 @@ function formatSize(size) {
                   <button
                     type="button"
                     class="malt-app__icon-button"
-                    :disabled="busy"
-                    title="Copy file path"
-                    aria-label="Copy file path"
-                    @click="copyPreviewPath"
+                    :disabled="busy || !canCopyPreviewContent"
+                    title="Copy file content"
+                    aria-label="Copy file content"
+                    @click="copyPreviewContent"
                   >
                     <svg class="malt-app__octicon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
                       <path
