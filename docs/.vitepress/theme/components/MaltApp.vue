@@ -54,19 +54,6 @@ let dragResetTimer = 0
 
 const signedIn = computed(() => activeProfile.value !== '')
 const currentLabel = computed(() => (currentPath.value ? `/${currentPath.value}` : '/'))
-const currentDirectoryVerified = computed(() => verificationState(currentPath.value) === true)
-const statusText = computed(() => {
-  if (!signedIn.value) {
-    return 'signed out'
-  }
-  if (busy.value) {
-    return 'working'
-  }
-  if (currentDirectoryVerified.value) {
-    return 'verified'
-  }
-  return root.value ? 'ready' : 'no root'
-})
 const proofText = computed(() =>
   proofView.value?.proofList ? JSON.stringify(proofView.value.proofList, null, 2) : ''
 )
@@ -321,7 +308,13 @@ async function refreshDirectory(options = {}) {
       options.payload
     )
     if (manifest.proofList) {
-      await verifyAndMark(currentPath.value, manifest.proofList)
+      const verification = await verifyAndMark(currentPath.value, manifest.proofList)
+      proofView.value = {
+        path: currentPath.value,
+        kind: 'dir',
+        proofList: manifest.proofList,
+        verification
+      }
     }
     entries.value = loadedEntries
     cacheDirectoryEntries(currentPath.value, entries.value)
@@ -1050,6 +1043,17 @@ function verificationKey(rootValue, path) {
   return `${rootValue || ''}\n${normalizeOptionalPath(path)}`
 }
 
+function proofViewMatches(path) {
+  return proofView.value?.path === normalizeOptionalPath(path)
+}
+
+function proofStatusLabel(path) {
+  if (!proofViewMatches(path)) {
+    return 'not loaded'
+  }
+  return proofView.value?.verification?.valid ? 'valid' : 'invalid'
+}
+
 function clearPreview() {
   if (preview.value?.url) {
     URL.revokeObjectURL(preview.value.url)
@@ -1058,11 +1062,10 @@ function clearPreview() {
   previewView.value = false
 }
 
-function sendToVerifier() {
-  if (!proofText.value || typeof window === 'undefined') {
+function openVerifierPage() {
+  if (typeof window === 'undefined') {
     return
   }
-  window.sessionStorage.setItem('malt-prooflist', proofText.value)
   window.location.href = withBase('/tools/verify')
 }
 
@@ -1155,9 +1158,7 @@ function formatSize(size) {
           <span>{{ activeProfile }}</span>
         </div>
         <div class="malt-app__top-actions">
-          <span class="malt-app__status" :class="{ 'is-valid': currentDirectoryVerified }">
-            {{ statusText }}
-          </span>
+          <button type="button" :disabled="busy" @click="openVerifierPage">Verify page</button>
           <button type="button" :disabled="busy" @click="settingsOpen = !settingsOpen">Settings</button>
           <button type="button" :disabled="busy" @click="signOut">Sign out</button>
         </div>
@@ -1346,33 +1347,20 @@ function formatSize(size) {
               <pre v-else-if="preview.kind === 'text'">{{ preview.body }}</pre>
               <p v-else class="malt-app__empty">Binary preview is not available. Use Download.</p>
             </div>
-            <aside class="malt-app__proof-sidebar" aria-label="ProofList">
+            <aside class="malt-app__proof-sidebar" aria-label="File ProofList">
               <div class="malt-app__proof-head">
                 <h2>ProofList</h2>
-                <span :class="{ 'is-valid': proofView?.path === preview.path && proofView?.verification?.valid }">
-                  {{
-                    proofView?.path === preview.path
-                      ? proofView.verification?.valid
-                        ? 'valid'
-                        : 'invalid'
-                      : 'not loaded'
-                  }}
+                <span :class="{ 'is-valid': proofViewMatches(preview.path) && proofView?.verification?.valid }">
+                  {{ proofStatusLabel(preview.path) }}
                 </span>
               </div>
-              <template v-if="proofView?.path === preview.path">
+              <template v-if="proofViewMatches(preview.path)">
                 <dl>
                   <div>
                     <dt>Path</dt>
                     <dd>{{ proofView.path || '/' }}</dd>
                   </div>
-                  <div>
-                    <dt>Verify</dt>
-                    <dd>{{ proofView.verification?.valid ? 'valid: true' : 'valid: false' }}</dd>
-                  </div>
                 </dl>
-                <div class="malt-app__button-row">
-                  <button type="button" :disabled="!proofText" @click="sendToVerifier">Verify page</button>
-                </div>
                 <pre class="malt-app__proof-json">{{ proofText }}</pre>
               </template>
               <p v-else class="malt-app__empty">ProofList is not available for this file preview.</p>
@@ -1380,108 +1368,120 @@ function formatSize(size) {
           </div>
         </section>
 
-        <section v-else class="malt-app__browser malt-app__file-list" aria-label="File browser">
-          <div class="malt-app__browser-toolbar">
-            <button
-              type="button"
-              :disabled="busy || !root"
-              @click="showProof({ path: currentPath, kind: 'dir' })"
-            >
-              Current proof
-            </button>
-          </div>
-          <div v-if="entries.length === 0" class="malt-app__empty">
-            {{ root ? 'No entries' : 'Drop files or set a root' }}
-          </div>
-          <div v-if="currentPath" class="malt-app__row">
-            <button
-              type="button"
-              class="malt-app__name"
-              :disabled="busy"
-              title="Parent directory"
-              @click="openParentDirectory"
-            >
-              <span class="malt-app__file-icon is-dir" aria-hidden="true">
-                <svg class="malt-app__octicon" viewBox="0 0 16 16" width="16" height="16">
-                  <path
-                    d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2A1.75 1.75 0 0 0 5 1Zm0 1.5H5c.079 0 .153.037.2.1l.9 1.2c.331.441.85.7 1.4.7h6.75a.25.25 0 0 1 .25.25v8.5a.25.25 0 0 1-.25.25H1.75a.25.25 0 0 1-.25-.25V2.75a.25.25 0 0 1 .25-.25Z"
-                  />
-                </svg>
-              </span>
-              <span class="malt-app__name-text">..</span>
-            </button>
-            <span class="malt-app__row-spacer" aria-hidden="true"></span>
-            <span class="malt-app__size"></span>
-            <span class="malt-app__row-menu"></span>
-          </div>
-          <div v-for="entry in entries" :key="entry.path" class="malt-app__row">
-            <button
-              type="button"
-              class="malt-app__name"
-              :disabled="busy || entry.kind === 'unknown'"
-              :title="kindLabel(entry)"
-              @click="entry.kind === 'dir' ? openDirectory(entry) : previewFile(entry)"
-            >
-              <span
-                class="malt-app__file-icon"
-                :class="{ 'is-dir': entry.kind === 'dir', 'is-file': entry.kind === 'file' }"
-                aria-hidden="true"
-              >
-                <svg
-                  v-if="entry.kind === 'dir'"
-                  class="malt-app__octicon"
-                  viewBox="0 0 16 16"
-                  width="16"
-                  height="16"
-                >
-                  <path
-                    d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2A1.75 1.75 0 0 0 5 1Zm0 1.5H5c.079 0 .153.037.2.1l.9 1.2c.331.441.85.7 1.4.7h6.75a.25.25 0 0 1 .25.25v8.5a.25.25 0 0 1-.25.25H1.75a.25.25 0 0 1-.25-.25V2.75a.25.25 0 0 1 .25-.25Z"
-                  />
-                </svg>
-                <svg v-else class="malt-app__octicon" viewBox="0 0 16 16" width="16" height="16">
-                  <path
-                    d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688Z"
-                  />
-                </svg>
-              </span>
-              <span class="malt-app__name-text">{{ entry.name }}</span>
-              <span
-                class="verified-dot"
-                :class="{
-                  'is-valid': verificationState(entry.path) === true,
-                  'is-invalid': verificationState(entry.path) === false
-                }"
-              ></span>
-            </button>
-            <span class="malt-app__row-spacer" aria-hidden="true"></span>
-            <span class="malt-app__size">{{ formatSize(entry.size) }}</span>
-            <span class="malt-app__row-menu">
+        <div v-else class="malt-app__browser-layout">
+          <section class="malt-app__browser malt-app__file-list" aria-label="File browser">
+            <div v-if="entries.length === 0" class="malt-app__empty">
+              {{ root ? 'No entries' : 'Drop files or set a root' }}
+            </div>
+            <div v-if="currentPath" class="malt-app__row">
               <button
                 type="button"
-                class="malt-app__more"
-                :disabled="busy || entry.kind === 'unknown'"
-                :aria-expanded="openMenuPath === entry.path"
-                aria-label="Actions"
-                @click="toggleEntryMenu(entry)"
+                class="malt-app__name"
+                :disabled="busy"
+                title="Parent directory"
+                @click="openParentDirectory"
               >
-                <svg class="malt-app__octicon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-                  <path
-                    d="M8 3a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm0 6.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3ZM9.5 14.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z"
-                  />
-                </svg>
+                <span class="malt-app__file-icon is-dir" aria-hidden="true">
+                  <svg class="malt-app__octicon" viewBox="0 0 16 16" width="16" height="16">
+                    <path
+                      d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2A1.75 1.75 0 0 0 5 1Zm0 1.5H5c.079 0 .153.037.2.1l.9 1.2c.331.441.85.7 1.4.7h6.75a.25.25 0 0 1 .25.25v8.5a.25.25 0 0 1-.25.25H1.75a.25.25 0 0 1-.25-.25V2.75a.25.25 0 0 1 .25-.25Z"
+                    />
+                  </svg>
+                </span>
+                <span class="malt-app__name-text">..</span>
               </button>
-              <span v-if="openMenuPath === entry.path" class="malt-app__menu">
-                <button v-if="entry.kind === 'dir'" type="button" @click="runEntryAction('open', entry)">
-                  Open
+              <span class="malt-app__row-spacer" aria-hidden="true"></span>
+              <span class="malt-app__size"></span>
+              <span class="malt-app__row-menu"></span>
+            </div>
+            <div v-for="entry in entries" :key="entry.path" class="malt-app__row">
+              <button
+                type="button"
+                class="malt-app__name"
+                :disabled="busy || entry.kind === 'unknown'"
+                :title="kindLabel(entry)"
+                @click="entry.kind === 'dir' ? openDirectory(entry) : previewFile(entry)"
+              >
+                <span
+                  class="malt-app__file-icon"
+                  :class="{ 'is-dir': entry.kind === 'dir', 'is-file': entry.kind === 'file' }"
+                  aria-hidden="true"
+                >
+                  <svg
+                    v-if="entry.kind === 'dir'"
+                    class="malt-app__octicon"
+                    viewBox="0 0 16 16"
+                    width="16"
+                    height="16"
+                  >
+                    <path
+                      d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2A1.75 1.75 0 0 0 5 1Zm0 1.5H5c.079 0 .153.037.2.1l.9 1.2c.331.441.85.7 1.4.7h6.75a.25.25 0 0 1 .25.25v8.5a.25.25 0 0 1-.25.25H1.75a.25.25 0 0 1-.25-.25V2.75a.25.25 0 0 1 .25-.25Z"
+                    />
+                  </svg>
+                  <svg v-else class="malt-app__octicon" viewBox="0 0 16 16" width="16" height="16">
+                    <path
+                      d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688Z"
+                    />
+                  </svg>
+                </span>
+                <span class="malt-app__name-text">{{ entry.name }}</span>
+                <span
+                  class="verified-dot"
+                  :class="{
+                    'is-valid': verificationState(entry.path) === true,
+                    'is-invalid': verificationState(entry.path) === false
+                  }"
+                ></span>
+              </button>
+              <span class="malt-app__row-spacer" aria-hidden="true"></span>
+              <span class="malt-app__size">{{ formatSize(entry.size) }}</span>
+              <span class="malt-app__row-menu">
+                <button
+                  type="button"
+                  class="malt-app__more"
+                  :disabled="busy || entry.kind === 'unknown'"
+                  :aria-expanded="openMenuPath === entry.path"
+                  aria-label="Actions"
+                  @click="toggleEntryMenu(entry)"
+                >
+                  <svg class="malt-app__octicon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                    <path
+                      d="M8 3a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm0 6.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3ZM9.5 14.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z"
+                    />
+                  </svg>
                 </button>
-                <button v-if="entry.kind === 'file'" type="button" @click="runEntryAction('download', entry)">
-                  Download
-                </button>
-                <button type="button" @click="runEntryAction('proof', entry)">Proof</button>
+                <span v-if="openMenuPath === entry.path" class="malt-app__menu">
+                  <button v-if="entry.kind === 'dir'" type="button" @click="runEntryAction('open', entry)">
+                    Open
+                  </button>
+                  <button v-if="entry.kind === 'file'" type="button" @click="runEntryAction('download', entry)">
+                    Download
+                  </button>
+                  <button type="button" @click="runEntryAction('proof', entry)">Proof</button>
+                </span>
               </span>
-            </span>
-          </div>
-        </section>
+            </div>
+          </section>
+
+          <aside class="malt-app__proof-sidebar" aria-label="Directory ProofList">
+            <div class="malt-app__proof-head">
+              <h2>ProofList</h2>
+              <span :class="{ 'is-valid': proofView?.verification?.valid }">
+                {{ proofView ? (proofView.verification?.valid ? 'valid' : 'invalid') : 'not loaded' }}
+              </span>
+            </div>
+            <template v-if="proofView">
+              <dl>
+                <div>
+                  <dt>Path</dt>
+                  <dd>{{ proofView.path || '/' }}</dd>
+                </div>
+              </dl>
+              <pre class="malt-app__proof-json">{{ proofText }}</pre>
+            </template>
+            <p v-else class="malt-app__empty">ProofList is not available for this directory.</p>
+          </aside>
+        </div>
 
         <section v-if="uploadResult" class="malt-app__result">
           <dl>
@@ -1497,26 +1497,6 @@ function formatSize(size) {
           <div class="malt-app__panel">
             <h2>Uploads</h2>
             <pre>{{ uploadText }}</pre>
-          </div>
-        </section>
-
-        <section v-if="proofView && !previewView" class="malt-app__result">
-          <dl>
-            <div>
-              <dt>Path</dt>
-              <dd>{{ proofView.path || '/' }}</dd>
-            </div>
-            <div>
-              <dt>Verify</dt>
-              <dd>{{ proofView.verification?.valid ? 'valid: true' : 'valid: false' }}</dd>
-            </div>
-          </dl>
-          <div class="malt-app__button-row">
-            <button type="button" :disabled="!proofText" @click="sendToVerifier">Verify page</button>
-          </div>
-          <div class="malt-app__panel">
-            <h2>ProofList</h2>
-            <pre>{{ proofText }}</pre>
           </div>
         </section>
         </section>

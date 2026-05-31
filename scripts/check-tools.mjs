@@ -73,13 +73,14 @@ for (const pattern of [
   /withDaemonTimeout/,
   /AbortController/,
   /malt-app__status-line/,
+  /openVerifierPage/,
   /malt-app__repo-bar/,
   /malt-app__sidebar/,
   /malt-app__tree/,
   /malt-app__tree-row/,
   /malt-app__content/,
   /malt-app__crumbbar/,
-  /malt-app__browser-toolbar/,
+  /malt-app__browser-layout/,
   /malt-app__file-list/,
   /malt-app__row-spacer/,
   /malt-app__preview/,
@@ -117,6 +118,8 @@ for (const pattern of [
   /openDirectory/,
   /previewFile/,
   /downloadFile/,
+  /proofViewMatches/,
+  /proofStatusLabel/,
   /showProof/,
   /openMenuPath/,
   /parseAppStatePath/,
@@ -134,6 +137,22 @@ for (const pattern of [
 ]) {
   assert.match(appSource, pattern)
 }
+assert.match(
+  appSource,
+  /<div class="malt-app__top-actions">[\s\S]*@click="openVerifierPage"[\s\S]*>Verify page<\/button>[\s\S]*@click="settingsOpen = !settingsOpen"[\s\S]*>Settings<\/button>/
+)
+assert.match(appSource, /class="malt-app__proof-sidebar" aria-label="Directory ProofList"/)
+assert.match(appSource, /class="malt-app__proof-sidebar" aria-label="File ProofList"/)
+assert.match(appSource, /aria-label="Directory ProofList"[\s\S]*<template v-if="proofView">/)
+assert.match(appSource, /proofViewMatches\(preview\.path\)/)
+assert.doesNotMatch(appSource, /class="malt-app__status"/)
+assert.doesNotMatch(appSource, /currentDirectoryVerified/)
+assert.doesNotMatch(appSource, /const statusText = computed/)
+assert.doesNotMatch(appSource, />Current proof<\/button>/)
+assert.doesNotMatch(appSource, /@click="sendToVerifier"/)
+assert.doesNotMatch(appSource, /function sendToVerifier\(/)
+assert.doesNotMatch(appSource, /v-if="proofView && !previewView"/)
+assert.doesNotMatch(appSource, /<dt>Verify<\/dt>/)
 assert.doesNotMatch(appSource, /malt-app__sidebar-controls/)
 assert.doesNotMatch(appSource, />root<\/button>/)
 const toggleTreeDirectorySource = appSource.match(
@@ -214,7 +233,7 @@ for (const pattern of [
   /font-family:\s*-apple-system,\s*BlinkMacSystemFont,\s*"Segoe UI",\s*sans-serif/,
   /grid-template-columns:\s*296px minmax\(0, 1fr\)/,
   /\.malt-app__file-list/,
-  /\.malt-app__browser-toolbar/,
+  /\.malt-app__browser-layout/,
   /\.malt-app__proof-sidebar/,
   /malt-app__dropzone/
 ]) {
@@ -244,6 +263,9 @@ assert.ok(
 assert.doesNotMatch(customCSS, /malt-app__preview-head/)
 assert.doesNotMatch(customCSS, /malt-app__preview-actions/)
 assert.doesNotMatch(customCSS, /malt-app__breadcrumb-actions/)
+assert.doesNotMatch(customCSS, /\.malt-app__status\s*\{/)
+assert.doesNotMatch(customCSS, /\.malt-app__status\.is-valid/)
+assert.doesNotMatch(customCSS, /\.malt-app__browser-toolbar/)
 assert.match(customCSS, /\.malt-app__preview-toolbar\s*\{[\s\S]*?display:\s*flex/)
 assert.match(customCSS, /\.malt-app__file-actions\s*\{[\s\S]*?display:\s*inline-flex/)
 assert.match(customCSS, /\.malt-app \.malt-app__icon-button\s*\{[\s\S]*?width:\s*32px;[\s\S]*?padding:\s*0;/)

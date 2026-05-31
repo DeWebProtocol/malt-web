@@ -609,25 +609,6 @@ body.malt-app-page .malt-app {
   align-items: center;
 }
 
-.malt-app__status {
-  min-width: 78px;
-  border: 1px solid var(--malt-gh-border);
-  border-radius: 999px;
-  padding: 6px 9px;
-  color: var(--malt-gh-muted);
-  background: var(--malt-gh-subtle);
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.2;
-  text-align: center;
-}
-
-.malt-app__status.is-valid {
-  border-color: color-mix(in srgb, var(--malt-gh-success) 35%, transparent);
-  color: var(--malt-gh-success);
-  background: color-mix(in srgb, var(--malt-gh-success) 12%, transparent);
-}
-
 .malt-app__settings {
   flex: 0 0 auto;
   display: grid;
@@ -895,6 +876,13 @@ body.malt-app-page .malt-app {
   font: 12px/1.4 var(--vp-font-family-mono);
 }
 
+.malt-app__browser-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 14px;
+  align-items: start;
+}
+
 .malt-app__browser {
   display: grid;
   border: 1px solid var(--malt-gh-border);
@@ -905,15 +893,6 @@ body.malt-app-page .malt-app {
 
 .malt-app__file-list {
   overflow: visible;
-}
-
-.malt-app__browser-toolbar {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  min-height: 40px;
-  border-bottom: 1px solid var(--malt-gh-border);
-  padding: 6px 8px;
 }
 
 .malt-app__row {
@@ -1368,6 +1347,10 @@ body.malt-app-page .malt-app {
   }
 
   .malt-app__preview-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .malt-app__browser-layout {
     grid-template-columns: 1fr;
   }
 
