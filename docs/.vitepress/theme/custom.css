@@ -1103,15 +1103,39 @@ body.malt-app-page .malt-app {
   align-items: center;
 }
 
-.malt-app__preview-body pre {
+.malt-app__code-view {
+  display: grid;
   margin: 0;
   border: 0;
   border-radius: 0 0 6px 6px;
-  padding: 12px;
   background: var(--malt-gh-bg);
-  font-size: 12px;
-  line-height: 1.55;
-  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+.malt-app__code-line {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  min-width: max-content;
+  min-height: 20px;
+  font: 12px/20px var(--vp-font-family-mono);
+}
+
+.malt-app__code-line-number {
+  user-select: none;
+  border-right: 1px solid var(--malt-gh-border);
+  padding: 0 12px;
+  color: var(--malt-gh-muted);
+  background: var(--malt-gh-panel);
+  text-align: right;
+}
+
+.malt-app__code-line code {
+  display: block;
+  min-width: 0;
+  padding: 0 12px;
+  color: var(--vp-c-text-1);
+  background: transparent;
+  white-space: pre;
   overflow-wrap: anywhere;
 }
 
@@ -1402,11 +1426,42 @@ body.malt-app-page .malt-app {
 .malt-app__image {
   display: block;
   max-width: 100%;
-  max-height: 460px;
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 7px;
+  max-height: min(640px, calc(100vh - 260px));
+  border: 0;
+  border-radius: 0;
   object-fit: contain;
-  background: var(--vp-c-bg-alt);
+  background: var(--malt-gh-bg);
+}
+
+.malt-app__media-stage {
+  display: grid;
+  place-items: center;
+  min-height: min(420px, calc(100vh - 300px));
+  padding: 24px;
+  background: var(--malt-gh-panel);
+}
+
+.malt-app__media-stage.is-image {
+  background:
+    linear-gradient(45deg, var(--malt-gh-panel) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--malt-gh-panel) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--malt-gh-panel) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--malt-gh-panel) 75%);
+  background-color: var(--malt-gh-bg);
+  background-position:
+    0 0,
+    0 8px,
+    8px -8px,
+    -8px 0;
+  background-size: 16px 16px;
+}
+
+.malt-app__media-stage.is-video {
+  background: #0d1117;
+}
+
+.malt-app__media-stage.is-audio {
+  min-height: 180px;
 }
 
 .malt-app__media,
@@ -1419,11 +1474,11 @@ body.malt-app-page .malt-app {
 
 .malt-app__media {
   max-height: 560px;
+  background: #000000;
 }
 
 .malt-app__audio {
-  margin: 28px auto;
-  max-width: calc(100% - 56px);
+  max-width: 680px;
 }
 
 .malt-app__pdf {

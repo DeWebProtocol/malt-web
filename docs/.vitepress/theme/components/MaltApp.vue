@@ -1,4 +1,5 @@
 <script setup>
+import MarkdownIt from 'markdown-it'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { withBase } from 'vitepress'
 import {
@@ -51,6 +52,7 @@ const uploadStatus = ref('')
 const entryNameCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
 const daemonRequestTimeoutMs = 120_000
 const uploadRequestTimeoutMs = 600_000
+const markdownRenderer = createMarkdownRenderer()
 let dragResetTimer = 0
 
 const signedIn = computed(() => activeProfile.value !== '')
@@ -92,6 +94,13 @@ const previewTabs = computed(() => {
     return [{ id: 'preview', label: 'Preview' }]
   }
   return [{ id: 'code', label: 'Code' }]
+})
+
+const codeLines = computed(() => {
+  if (!preview.value?.body) {
+    return []
+  }
+  return preview.value.body.replace(/\r\n/g, '\n').split('\n')
 })
 
 const uploadText = computed(() => {
@@ -1145,131 +1154,26 @@ function normalizeOptionalPath(path) {
     .join('/')
 }
 
+function createMarkdownRenderer() {
+  const renderer = new MarkdownIt({
+    html: false,
+    linkify: true,
+    typographer: false
+  })
+  const defaultLinkOpen =
+    renderer.renderer.rules.link_open ||
+    ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options))
+  renderer.renderer.rules.link_open = (tokens, idx, options, env, self) => {
+    const token = tokens[idx]
+    token.attrSet('target', '_blank')
+    token.attrSet('rel', 'noopener noreferrer')
+    return defaultLinkOpen(tokens, idx, options, env, self)
+  }
+  return renderer
+}
+
 function renderMarkdown(source) {
-  const lines = String(source || '').replace(/\r\n/g, '\n').split('\n')
-  const blocks = []
-  let paragraph = []
-  let listType = ''
-  let listItems = []
-  let fence = null
-
-  const flushParagraph = () => {
-    if (paragraph.length === 0) {
-      return
-    }
-    blocks.push(`<p>${renderInlineMarkdown(paragraph.join(' '))}</p>`)
-    paragraph = []
-  }
-  const flushList = () => {
-    if (!listType) {
-      return
-    }
-    blocks.push(`<${listType}>${listItems.join('')}</${listType}>`)
-    listType = ''
-    listItems = []
-  }
-  const flushFlow = () => {
-    flushParagraph()
-    flushList()
-  }
-
-  for (const line of lines) {
-    const trimmed = line.trim()
-    if (fence) {
-      if (/^```/.test(trimmed)) {
-        blocks.push(`<pre><code>${escapeHtml(fence.lines.join('\n'))}</code></pre>`)
-        fence = null
-      } else {
-        fence.lines.push(line)
-      }
-      continue
-    }
-    if (/^```/.test(trimmed)) {
-      flushFlow()
-      fence = { lines: [] }
-      continue
-    }
-    if (!trimmed) {
-      flushFlow()
-      continue
-    }
-    const heading = trimmed.match(/^(#{1,6})\s+(.+)$/)
-    if (heading) {
-      flushFlow()
-      const level = heading[1].length
-      blocks.push(`<h${level}>${renderInlineMarkdown(heading[2])}</h${level}>`)
-      continue
-    }
-    if (/^[-*_]{3,}$/.test(trimmed)) {
-      flushFlow()
-      blocks.push('<hr>')
-      continue
-    }
-    const unordered = trimmed.match(/^[-*+]\s+(.+)$/)
-    if (unordered) {
-      flushParagraph()
-      if (listType && listType !== 'ul') {
-        flushList()
-      }
-      listType = 'ul'
-      listItems.push(`<li>${renderInlineMarkdown(unordered[1])}</li>`)
-      continue
-    }
-    const ordered = trimmed.match(/^\d+\.\s+(.+)$/)
-    if (ordered) {
-      flushParagraph()
-      if (listType && listType !== 'ol') {
-        flushList()
-      }
-      listType = 'ol'
-      listItems.push(`<li>${renderInlineMarkdown(ordered[1])}</li>`)
-      continue
-    }
-    const quote = trimmed.match(/^>\s?(.+)$/)
-    if (quote) {
-      flushFlow()
-      blocks.push(`<blockquote><p>${renderInlineMarkdown(quote[1])}</p></blockquote>`)
-      continue
-    }
-    flushList()
-    paragraph.push(line)
-  }
-  if (fence) {
-    blocks.push(`<pre><code>${escapeHtml(fence.lines.join('\n'))}</code></pre>`)
-  }
-  flushFlow()
-  return blocks.join('\n')
-}
-
-function renderInlineMarkdown(value) {
-  return escapeHtml(value)
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_match, label, href) => {
-      const safeHref = safeMarkdownHref(href)
-      if (!safeHref) {
-        return label
-      }
-      return `<a href="${safeHref}" target="_blank" rel="noopener noreferrer">${label}</a>`
-    })
-}
-
-function escapeHtml(value) {
-  return String(value || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
-
-function safeMarkdownHref(href) {
-  const clean = String(href || '').trim()
-  if (!/^(https?:|mailto:|#|\/|\.\/|\.\.\/)/i.test(clean)) {
-    return ''
-  }
-  return clean.replace(/"/g, '&quot;')
+  return markdownRenderer.render(String(source || ''))
 }
 
 function isMarkdownPreview(name, contentType, size) {
@@ -1568,32 +1472,32 @@ function formatSize(size) {
                 class="malt-app__markdown"
                 v-html="preview.markup"
               ></div>
-              <pre v-else-if="preview.kind === 'markdown' && previewMode === 'code'">{{ preview.body }}</pre>
-              <img
-                v-else-if="preview.kind === 'image'"
-                class="malt-app__image"
-                :src="preview.url"
-                :alt="preview.name"
-              />
-              <video
-                v-else-if="preview.kind === 'video'"
-                controls
-                class="malt-app__media"
-                :src="preview.url"
-              ></video>
-              <audio
-                v-else-if="preview.kind === 'audio'"
-                controls
-                class="malt-app__audio"
-                :src="preview.url"
-              ></audio>
-              <iframe
-                v-else-if="preview.kind === 'pdf'"
-                class="malt-app__pdf"
-                :src="preview.url"
-                :title="preview.name"
-              ></iframe>
-              <pre v-else-if="preview.kind === 'text'">{{ preview.body }}</pre>
+              <div
+                v-else-if="
+                  (preview.kind === 'markdown' && previewMode === 'code') ||
+                  preview.kind === 'text'
+                "
+                class="malt-app__code-view"
+                role="table"
+                aria-label="Code preview"
+              >
+                <div v-for="(line, index) in codeLines" :key="index" class="malt-app__code-line" role="row">
+                  <span class="malt-app__code-line-number" role="cell">{{ index + 1 }}</span>
+                  <code role="cell">{{ line || ' ' }}</code>
+                </div>
+              </div>
+              <div v-else-if="preview.kind === 'image'" class="malt-app__media-stage is-image">
+                <img class="malt-app__image" :src="preview.url" :alt="preview.name" />
+              </div>
+              <div v-else-if="preview.kind === 'video'" class="malt-app__media-stage is-video">
+                <video controls class="malt-app__media" :src="preview.url"></video>
+              </div>
+              <div v-else-if="preview.kind === 'audio'" class="malt-app__media-stage is-audio">
+                <audio controls class="malt-app__audio" :src="preview.url"></audio>
+              </div>
+              <div v-else-if="preview.kind === 'pdf'" class="malt-app__media-stage is-pdf">
+                <iframe class="malt-app__pdf" :src="preview.url" :title="preview.name"></iframe>
+              </div>
               <p v-else class="malt-app__empty">Binary preview is not available. Use Download.</p>
             </div>
             <aside class="malt-app__proof-sidebar" aria-label="File ProofList">

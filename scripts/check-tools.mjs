@@ -22,6 +22,9 @@ import {
 
 const root = new URL('..', import.meta.url)
 const docsRoot = path.join(root.pathname, 'docs')
+const packageManifest = JSON.parse(fs.readFileSync(path.join(root.pathname, 'package.json'), 'utf8'))
+
+assert.match(packageManifest.dependencies?.['markdown-it'] || '', /\^?\d+\.\d+\.\d+/)
 
 const requiredFiles = [
   '404.md',
@@ -88,6 +91,9 @@ for (const pattern of [
   /malt-app__preview-body/,
   /malt-app__preview-toolbar/,
   /malt-app__preview-tabs/,
+  /malt-app__code-view/,
+  /codeLines/,
+  /MarkdownIt/,
   /malt-app__file-actions/,
   /malt-app__proof-sidebar/,
   /malt-app__proof-json/,
@@ -121,7 +127,7 @@ for (const pattern of [
   /openDirectory/,
   /previewFile/,
   /renderMarkdown/,
-  /renderInlineMarkdown/,
+  /createMarkdownRenderer/,
   /isMarkdownPreview/,
   /isVideoPreview/,
   /isAudioPreview/,
@@ -203,12 +209,25 @@ assert.match(appSource, /label:\s*'Code'/)
 assert.match(appSource, /v-if="preview\.kind === 'markdown' && previewMode === 'preview'"/)
 assert.match(appSource, /class="malt-app__markdown"[\s\S]*v-html="preview\.markup"/)
 assert.match(appSource, /preview\.kind === 'markdown' && previewMode === 'code'/)
+assert.match(appSource, /v-for="\(?line, index\)? in codeLines"/)
+assert.match(appSource, /\{\{ index \+ 1 \}\}/)
+assert.match(appSource, /<code[\s\S]*>\{\{ line \|\| ' ' \}\}<\/code>/)
+assert.match(appSource, /const markdownRenderer = createMarkdownRenderer\(\)/)
+assert.match(appSource, /html:\s*false/)
+assert.match(appSource, /linkify:\s*true/)
 assert.match(appSource, /v-else-if="preview\.kind === 'video'"/)
 assert.match(appSource, /<video[\s\S]*controls[\s\S]*class="malt-app__media"/)
 assert.match(appSource, /v-else-if="preview\.kind === 'audio'"/)
 assert.match(appSource, /<audio[\s\S]*controls[\s\S]*class="malt-app__audio"/)
 assert.match(appSource, /v-else-if="preview\.kind === 'pdf'"/)
 assert.match(appSource, /class="malt-app__pdf"/)
+assert.match(appSource, /class="malt-app__media-stage is-image"/)
+assert.match(appSource, /class="malt-app__media-stage is-video"/)
+assert.match(appSource, /class="malt-app__media-stage is-audio"/)
+assert.match(appSource, /class="malt-app__media-stage is-pdf"/)
+assert.doesNotMatch(appSource, /function renderInlineMarkdown\(/)
+assert.doesNotMatch(appSource, /function escapeHtml\(/)
+assert.doesNotMatch(appSource, /function safeMarkdownHref\(/)
 assert.doesNotMatch(appSource, /malt-app__breadcrumb-actions/)
 assert.doesNotMatch(appSource, /function backToBrowser\(/)
 assert.doesNotMatch(appSource, /@click="backToBrowser"/)
@@ -258,7 +277,11 @@ for (const pattern of [
   /\.malt-app__browser-layout/,
   /\.malt-app__proof-sidebar/,
   /\.malt-app__preview-tabs/,
+  /\.malt-app__code-view/,
+  /\.malt-app__code-line/,
+  /\.malt-app__code-line-number/,
   /\.malt-app__markdown/,
+  /\.malt-app__media-stage/,
   /\.malt-app__media/,
   /\.malt-app__audio/,
   /\.malt-app__pdf/,
@@ -296,12 +319,25 @@ assert.doesNotMatch(customCSS, /\.malt-app__browser-toolbar/)
 assert.match(customCSS, /\.malt-app__preview-toolbar\s*\{[\s\S]*?display:\s*flex/)
 assert.match(customCSS, /\.malt-app__preview-tabs button\.is-active\s*\{[\s\S]*?background:\s*var\(--malt-gh-bg\)/)
 assert.match(customCSS, /\.malt-app__file-actions\s*\{[\s\S]*?display:\s*inline-flex/)
+assert.match(customCSS, /\.malt-app__code-line\s*\{[\s\S]*?grid-template-columns:\s*64px minmax\(0, 1fr\)/)
+assert.match(customCSS, /\.malt-app__code-line-number\s*\{[\s\S]*?user-select:\s*none/)
 assert.match(customCSS, /\.malt-app \.malt-app__icon-button\s*\{[\s\S]*?width:\s*32px;[\s\S]*?padding:\s*0;/)
 assert.doesNotMatch(customCSS, /\.malt-app__preview-body pre,\s*\n\.malt-app__proof-json/)
-const previewPreRule = customCSS.match(/\.malt-app__preview-body pre\s*\{[\s\S]*?\n\}/)?.[0]
-assert.ok(previewPreRule, 'file preview pre CSS rule is missing')
-assert.doesNotMatch(previewPreRule, /max-height/)
-assert.doesNotMatch(previewPreRule, /overflow:\s*auto/)
+assert.doesNotMatch(customCSS, /\.malt-app__preview-body pre\s*\{/)
+const codeViewRule = customCSS.match(/\.malt-app__code-view\s*\{[\s\S]*?\n\}/)?.[0]
+assert.ok(codeViewRule, 'code preview CSS rule is missing')
+assert.match(codeViewRule, /overflow-x:\s*auto/)
+assert.doesNotMatch(codeViewRule, /max-height/)
+const codeLineCodeRule = customCSS.match(/\.malt-app__code-line code\s*\{[\s\S]*?\n\}/)?.[0]
+assert.ok(codeLineCodeRule, 'code line CSS rule is missing')
+assert.match(codeLineCodeRule, /white-space:\s*pre/)
+assert.match(codeLineCodeRule, /overflow-wrap:\s*anywhere/)
+const mediaStageRule = customCSS.match(/\.malt-app__media-stage\s*\{[\s\S]*?\n\}/)?.[0]
+assert.ok(mediaStageRule, 'media preview stage CSS rule is missing')
+assert.match(mediaStageRule, /place-items:\s*center/)
+assert.match(customCSS, /\.malt-app__media-stage\.is-image\s*\{[\s\S]*?background-color:\s*var\(--malt-gh-bg\)/)
+assert.match(customCSS, /\.malt-app__media-stage\.is-video\s*\{[\s\S]*?background:\s*#0d1117/)
+assert.match(customCSS, /\.malt-app__media-stage\.is-audio\s*\{[\s\S]*?min-height:\s*180px/)
 assert.match(customCSS, /\.malt-app__proof-json\s*\{[\s\S]*?max-height:/)
 assert.match(customCSS, /\.malt-app__proof-json\s*\{[\s\S]*?overflow:\s*auto/)
 
