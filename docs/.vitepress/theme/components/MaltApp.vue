@@ -1,6 +1,6 @@
 <script setup>
 import MarkdownIt from 'markdown-it'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import { withBase } from 'vitepress'
 import {
   activeProfileStorageKey,
@@ -50,11 +50,93 @@ const dropActive = ref(false)
 const dragDepth = ref(0)
 const uploadStatus = ref('')
 const copyFeedbackVisible = ref(false)
+const syntaxHighlighter = shallowRef(null)
 const entryNameCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
 const daemonRequestTimeoutMs = 120_000
 const uploadRequestTimeoutMs = 600_000
 const copyFeedbackDurationMs = 1500
 const markdownRenderer = createMarkdownRenderer()
+const syntaxThemes = {
+  light: 'github-light',
+  dark: 'github-dark'
+}
+const syntaxLanguages = [
+  'go',
+  'rust',
+  'c',
+  'cpp',
+  'javascript',
+  'typescript',
+  'jsx',
+  'tsx',
+  'python',
+  'json',
+  'jsonl',
+  'yaml',
+  'toml',
+  'shellscript',
+  'docker',
+  'make',
+  'markdown',
+  'html',
+  'css',
+  'xml'
+]
+const syntaxLanguageSet = new Set(syntaxLanguages)
+const previewLanguageByFilename = new Map([
+  ['go.mod', 'shellscript'],
+  ['go.sum', 'shellscript'],
+  ['dockerfile', 'docker'],
+  ['makefile', 'make']
+])
+const previewLanguageByExtension = new Map([
+  ['go', 'go'],
+  ['rs', 'rust'],
+  ['c', 'c'],
+  ['h', 'c'],
+  ['cpp', 'cpp'],
+  ['cc', 'cpp'],
+  ['cxx', 'cpp'],
+  ['hpp', 'cpp'],
+  ['js', 'javascript'],
+  ['mjs', 'javascript'],
+  ['cjs', 'javascript'],
+  ['ts', 'typescript'],
+  ['jsx', 'jsx'],
+  ['tsx', 'tsx'],
+  ['py', 'python'],
+  ['json', 'json'],
+  ['jsonl', 'jsonl'],
+  ['yaml', 'yaml'],
+  ['yml', 'yaml'],
+  ['toml', 'toml'],
+  ['sh', 'shellscript'],
+  ['bash', 'shellscript'],
+  ['zsh', 'shellscript'],
+  ['md', 'markdown'],
+  ['markdown', 'markdown'],
+  ['html', 'html'],
+  ['css', 'css'],
+  ['xml', 'xml']
+])
+const previewLanguageAliases = new Map([
+  ['bash', 'shellscript'],
+  ['shell', 'shellscript'],
+  ['sh', 'shellscript'],
+  ['zsh', 'shellscript'],
+  ['yml', 'yaml'],
+  ['dockerfile', 'docker'],
+  ['makefile', 'make'],
+  ['md', 'markdown'],
+  ['c++', 'cpp'],
+  ['cc', 'cpp'],
+  ['cxx', 'cpp'],
+  ['hpp', 'cpp'],
+  ['rs', 'rust'],
+  ['py', 'python'],
+  ['go.mod', 'shellscript'],
+  ['go.sum', 'shellscript']
+])
 let dragResetTimer = 0
 let copyFeedbackTimer = 0
 
@@ -100,10 +182,15 @@ const previewTabs = computed(() => {
 })
 
 const codeLines = computed(() => {
-  if (!preview.value?.body) {
+  if (!preview.value?.body && !preview.value?.codeMarkup) {
     return []
   }
-  return preview.value.body.replace(/\r\n/g, '\n').split('\n')
+  const markup = preview.value.codeMarkup?.length
+    ? preview.value.codeMarkup
+    : plainCodeLineMarkup(preview.value.body)
+  return markup.map((line) => ({
+    markup: line || '&nbsp;'
+  }))
 })
 
 const canCopyPreviewContent = computed(() => typeof preview.value?.body === 'string')
@@ -126,6 +213,7 @@ onMounted(() => {
   window.addEventListener('drop', handlePageDrop)
   window.addEventListener('dragend', cancelPageDrag)
   window.addEventListener('popstate', handleAppPopState)
+  void initializeSyntaxHighlighter()
   const stored = window.localStorage.getItem(activeProfileStorageKey())
   if (stored) {
     profileInput.value = stored
@@ -922,14 +1010,17 @@ async function previewFile(entry, options = {}) {
     const contentType = payload.contentType || blob.type || ''
     if (isMarkdownPreview(entry.name, contentType, blob.size)) {
       const body = await blob.text()
+      const language = inferPreviewLanguage(entry.name, contentType) || 'markdown'
       showPreview({
         path: entry.path,
         name: entry.name,
         kind: 'markdown',
+        language,
         contentType,
         size: blob.size,
         body,
-        markup: renderMarkdown(body)
+        markup: renderMarkdown(body),
+        codeMarkup: highlightCode(body, language)
       })
       return
     }
@@ -978,13 +1069,17 @@ async function previewFile(entry, options = {}) {
       return
     }
     if (isTextPreview(entry.name, contentType, blob.size)) {
+      const body = await blob.text()
+      const language = inferPreviewLanguage(entry.name, contentType)
       showPreview({
         path: entry.path,
         name: entry.name,
         kind: 'text',
+        language,
         contentType,
         size: blob.size,
-        body: await blob.text()
+        body,
+        codeMarkup: highlightCode(body, language)
       })
       return
     }
@@ -1175,11 +1270,50 @@ function normalizeOptionalPath(path) {
     .join('/')
 }
 
+async function initializeSyntaxHighlighter() {
+  try {
+    const { createHighlighter } = await import('shiki')
+    syntaxHighlighter.value = await createHighlighter({
+      themes: Object.values(syntaxThemes),
+      langs: syntaxLanguages
+    })
+    refreshPreviewRendering()
+  } catch (err) {
+    console.warn('MALT syntax highlighting is unavailable', err)
+  }
+}
+
+function refreshPreviewRendering() {
+  if (!preview.value?.body) {
+    return
+  }
+  const language =
+    preview.value.language || inferPreviewLanguage(preview.value.name, preview.value.contentType)
+  if (preview.value.kind === 'markdown') {
+    preview.value = {
+      ...preview.value,
+      language: language || 'markdown',
+      markup: renderMarkdown(preview.value.body),
+      codeMarkup: highlightCode(preview.value.body, language || 'markdown')
+    }
+    return
+  }
+  if (preview.value.kind === 'text') {
+    preview.value = {
+      ...preview.value,
+      language,
+      codeMarkup: highlightCode(preview.value.body, language)
+    }
+  }
+}
+
 function createMarkdownRenderer() {
   const renderer = new MarkdownIt({
+    breaks: false,
     html: false,
     linkify: true,
-    typographer: false
+    typographer: false,
+    highlight: highlightMarkdownFence
   })
   const defaultLinkOpen =
     renderer.renderer.rules.link_open ||
@@ -1197,6 +1331,116 @@ function renderMarkdown(source) {
   return markdownRenderer.render(String(source || ''))
 }
 
+function inferPreviewLanguage(name = '', contentType = '') {
+  const cleanName = pathBasename(name).toLowerCase()
+  const cleanContentType = String(contentType || '').toLowerCase()
+  if (previewLanguageByFilename.has(cleanName)) {
+    return previewLanguageByFilename.get(cleanName)
+  }
+  if (cleanContentType.includes('json')) {
+    return 'json'
+  }
+  if (cleanContentType.includes('yaml') || cleanContentType.includes('yml')) {
+    return 'yaml'
+  }
+  if (cleanContentType.includes('toml')) {
+    return 'toml'
+  }
+  if (cleanContentType.includes('javascript')) {
+    return 'javascript'
+  }
+  if (cleanContentType.includes('typescript')) {
+    return 'typescript'
+  }
+  const extension = cleanName.includes('.') ? cleanName.split('.').pop() : ''
+  return previewLanguageByExtension.get(extension) || ''
+}
+
+function highlightCode(source, language) {
+  const text = String(source || '').replace(/\r\n/g, '\n')
+  const normalizedLanguage = normalizePreviewLanguage(language)
+  if (!syntaxHighlighter.value || !normalizedLanguage) {
+    return plainCodeLineMarkup(text)
+  }
+  try {
+    const html = syntaxHighlighter.value.codeToHtml(text, {
+      lang: normalizedLanguage,
+      themes: syntaxThemes,
+      defaultColor: false
+    })
+    return extractShikiLines(html)
+  } catch {
+    return plainCodeLineMarkup(text)
+  }
+}
+
+function highlightMarkdownFence(source, info) {
+  const text = String(source || '').replace(/\r\n/g, '\n')
+  const language = normalizePreviewLanguage(String(info || '').trim().split(/\s+/)[0])
+  if (!syntaxHighlighter.value || !language) {
+    return `<pre class="malt-app__markdown-code malt-app__plain-code"><code>${escapeHTML(text)}</code></pre>`
+  }
+  try {
+    return syntaxHighlighter.value
+      .codeToHtml(text, {
+        lang: language,
+        themes: syntaxThemes,
+        defaultColor: false
+      })
+      .replace('<pre class="shiki', '<pre class="shiki malt-app__markdown-code')
+  } catch {
+    return `<pre class="malt-app__markdown-code malt-app__plain-code"><code>${escapeHTML(text)}</code></pre>`
+  }
+}
+
+function normalizePreviewLanguage(language) {
+  const raw = String(language || '')
+    .replace(/^language-/, '')
+    .trim()
+    .toLowerCase()
+  if (!raw) {
+    return ''
+  }
+  const aliased = previewLanguageAliases.get(raw) || raw
+  return syntaxLanguageSet.has(aliased) ? aliased : ''
+}
+
+function extractShikiLines(html) {
+  if (typeof DOMParser !== 'undefined') {
+    const document = new DOMParser().parseFromString(html, 'text/html')
+    const lines = Array.from(document.querySelectorAll('.line')).map(
+      (line) => line.innerHTML || '&nbsp;'
+    )
+    if (lines.length > 0) {
+      return lines
+    }
+  }
+  const code = String(html).match(/<code>([\s\S]*)<\/code>/)?.[1] || ''
+  if (!code) {
+    return []
+  }
+  return code.split('\n').map((line) => {
+    const content = line.replace(/^<span class="line">/, '').replace(/<\/span>$/, '')
+    return content || '&nbsp;'
+  })
+}
+
+function plainCodeLineMarkup(source) {
+  return String(source || '')
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((line) => escapeHTML(line) || '&nbsp;')
+}
+
+function escapeHTML(source) {
+  return String(source || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 function isMarkdownPreview(name, contentType, size) {
   if (size > 1024 * 1024) {
     return false
@@ -1208,10 +1452,15 @@ function isTextPreview(name, contentType, size) {
   if (size > 512 * 1024) {
     return false
   }
-  if (contentType.startsWith('text/') || contentType.includes('json')) {
+  const cleanName = pathBasename(name)
+  const cleanContentType = String(contentType || '').toLowerCase()
+  if (/^(go\.mod|go\.sum|Dockerfile|Makefile)$/i.test(cleanName)) {
     return true
   }
-  return /\.(txt|md|json|js|ts|tsx|jsx|go|rs|py|css|html|xml|yaml|yml|toml|sh)$/i.test(name)
+  if (cleanContentType.startsWith('text/') || cleanContentType.includes('json')) {
+    return true
+  }
+  return /\.(txt|md|json|js|ts|tsx|jsx|go|rs|c|h|cc|cpp|cxx|hpp|py|css|html|xml|yaml|yml|toml|sh|bash|zsh)$/i.test(name)
 }
 
 function isImagePreview(name, contentType) {
@@ -1525,7 +1774,7 @@ function formatSize(size) {
               >
                 <div v-for="(line, index) in codeLines" :key="index" class="malt-app__code-line" role="row">
                   <span class="malt-app__code-line-number" role="cell">{{ index + 1 }}</span>
-                  <code role="cell">{{ line || ' ' }}</code>
+                  <code role="cell" v-html="line.markup"></code>
                 </div>
               </div>
               <div v-else-if="preview.kind === 'image'" class="malt-app__media-stage is-image">

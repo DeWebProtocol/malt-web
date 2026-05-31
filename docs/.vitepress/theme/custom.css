@@ -1172,8 +1172,19 @@ body.malt-app-page .malt-app {
   padding: 0 12px;
   color: var(--vp-c-text-1);
   background: transparent;
+  tab-size: 2;
   white-space: pre;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+}
+
+.malt-app__code-line code span,
+.malt-app__markdown .shiki span {
+  color: var(--shiki-light, var(--vp-c-text-1));
+}
+
+.dark .malt-app__code-line code span,
+.dark .malt-app__markdown .shiki span {
+  color: var(--shiki-dark, var(--vp-c-text-1));
 }
 
 .malt-app__markdown {
@@ -1215,17 +1226,34 @@ body.malt-app-page .malt-app {
   letter-spacing: 0;
 }
 
+.malt-app__markdown h4 {
+  margin: 18px 0 10px;
+  font-size: 16px;
+  letter-spacing: 0;
+}
+
 .malt-app__markdown p,
 .malt-app__markdown ul,
 .malt-app__markdown ol,
 .malt-app__markdown blockquote,
-.malt-app__markdown pre {
+.malt-app__markdown pre,
+.malt-app__markdown table {
   margin: 0 0 16px;
 }
 
 .malt-app__markdown ul,
 .malt-app__markdown ol {
   padding-left: 24px;
+}
+
+.malt-app__markdown li + li {
+  margin-top: 4px;
+}
+
+.malt-app__markdown li > ul,
+.malt-app__markdown li > ol {
+  margin-top: 6px;
+  margin-bottom: 6px;
 }
 
 .malt-app__markdown code {
@@ -1237,21 +1265,63 @@ body.malt-app-page .malt-app {
 
 .malt-app__markdown pre {
   overflow: auto;
+  border: 1px solid var(--malt-gh-border);
   border-radius: 6px;
   padding: 14px;
   background: var(--malt-gh-panel);
+}
+
+.malt-app__markdown .shiki,
+.malt-app__markdown .malt-app__plain-code {
+  background: var(--malt-gh-panel) !important;
 }
 
 .malt-app__markdown pre code {
   padding: 0;
   background: transparent;
   font-size: 12px;
+  white-space: pre;
+}
+
+.malt-app__markdown table {
+  display: block;
+  width: 100%;
+  overflow: auto;
+  border-spacing: 0;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.malt-app__markdown th,
+.malt-app__markdown td {
+  border: 1px solid var(--malt-gh-border);
+  padding: 7px 11px;
+  vertical-align: top;
+}
+
+.malt-app__markdown th {
+  background: var(--malt-gh-panel);
+  font-weight: 700;
+  text-align: left;
+}
+
+.malt-app__markdown tr:nth-child(2n) td {
+  background: var(--malt-gh-subtle);
+}
+
+.malt-app__markdown input[type='checkbox'] {
+  margin: 0 6px 0 0;
+  vertical-align: middle;
 }
 
 .malt-app__markdown blockquote {
   border-left: 4px solid var(--malt-gh-border);
   padding-left: 12px;
   color: var(--malt-gh-muted);
+}
+
+.malt-app__markdown blockquote > :last-child {
+  margin-bottom: 0;
 }
 
 .malt-app__markdown a {

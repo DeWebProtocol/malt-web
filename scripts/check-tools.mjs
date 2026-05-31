@@ -25,6 +25,7 @@ const docsRoot = path.join(root.pathname, 'docs')
 const packageManifest = JSON.parse(fs.readFileSync(path.join(root.pathname, 'package.json'), 'utf8'))
 
 assert.match(packageManifest.dependencies?.['markdown-it'] || '', /\^?\d+\.\d+\.\d+/)
+assert.match(packageManifest.dependencies?.shiki || '', /\^?\d+\.\d+\.\d+/)
 
 const requiredFiles = [
   '404.md',
@@ -61,6 +62,7 @@ const appSource = fs.readFileSync(
 )
 for (const pattern of [
   /localStorage/,
+  /import\('shiki'\)/,
   /profileStorageKey/,
   /is-login/,
   /malt-app-page/,
@@ -128,6 +130,13 @@ for (const pattern of [
   /previewFile/,
   /renderMarkdown/,
   /createMarkdownRenderer/,
+  /inferPreviewLanguage/,
+  /previewLanguageByFilename/,
+  /previewLanguageByExtension/,
+  /highlightCode/,
+  /highlightMarkdownFence/,
+  /extractShikiLines/,
+  /escapeHTML/,
   /isMarkdownPreview/,
   /isVideoPreview/,
   /isAudioPreview/,
@@ -152,6 +161,22 @@ for (const pattern of [
 ]) {
   assert.match(appSource, pattern)
 }
+for (const pattern of [
+  /'go\.mod',\s*'shellscript'/,
+  /'go\.sum',\s*'shellscript'/,
+  /'dockerfile',\s*'docker'/,
+  /'makefile',\s*'make'/,
+  /'go',\s*'go'/,
+  /'rs',\s*'rust'/,
+  /'c',\s*'c'/,
+  /'h',\s*'c'/,
+  /'toml',\s*'toml'/,
+  /'yaml',\s*'yaml'/
+]) {
+  assert.match(appSource, pattern)
+}
+assert.match(appSource, /\^\(go\\\.mod\|go\\\.sum\|Dockerfile\|Makefile\)\$/)
+assert.match(appSource, /c\|h\|cc\|cpp\|cxx\|hpp/)
 assert.match(
   appSource,
   /<div class="malt-app__top-actions">[\s\S]*@click="openVerifierPage"[\s\S]*>Verify page<\/button>[\s\S]*@click="settingsOpen = !settingsOpen"[\s\S]*>Settings<\/button>/
@@ -234,10 +259,11 @@ assert.match(appSource, /class="malt-app__markdown"[\s\S]*v-html="preview\.marku
 assert.match(appSource, /preview\.kind === 'markdown' && previewMode === 'code'/)
 assert.match(appSource, /v-for="\(?line, index\)? in codeLines"/)
 assert.match(appSource, /\{\{ index \+ 1 \}\}/)
-assert.match(appSource, /<code[\s\S]*>\{\{ line \|\| ' ' \}\}<\/code>/)
+assert.match(appSource, /<code role="cell" v-html="line\.markup"><\/code>/)
 assert.match(appSource, /const markdownRenderer = createMarkdownRenderer\(\)/)
 assert.match(appSource, /html:\s*false/)
 assert.match(appSource, /linkify:\s*true/)
+assert.match(appSource, /highlight:\s*highlightMarkdownFence/)
 assert.match(appSource, /v-else-if="preview\.kind === 'video'"/)
 assert.match(appSource, /<video[\s\S]*controls[\s\S]*class="malt-app__media"/)
 assert.match(appSource, /v-else-if="preview\.kind === 'audio'"/)
@@ -367,7 +393,12 @@ assert.doesNotMatch(codeViewRule, /max-height/)
 const codeLineCodeRule = customCSS.match(/\.malt-app__code-line code\s*\{[\s\S]*?\n\}/)?.[0]
 assert.ok(codeLineCodeRule, 'code line CSS rule is missing')
 assert.match(codeLineCodeRule, /white-space:\s*pre/)
-assert.match(codeLineCodeRule, /overflow-wrap:\s*anywhere/)
+assert.match(codeLineCodeRule, /tab-size:\s*2/)
+assert.match(codeLineCodeRule, /overflow-wrap:\s*normal/)
+assert.match(customCSS, /\.malt-app__code-line code span,[\s\S]*?\.malt-app__markdown \.shiki span\s*\{[\s\S]*?--shiki-light/)
+assert.match(customCSS, /\.dark \.malt-app__code-line code span,[\s\S]*?\.dark \.malt-app__markdown \.shiki span\s*\{[\s\S]*?--shiki-dark/)
+assert.match(customCSS, /\.malt-app__markdown table\s*\{[\s\S]*?border-collapse:\s*collapse/)
+assert.match(customCSS, /\.malt-app__markdown th,[\s\S]*?\.malt-app__markdown td\s*\{[\s\S]*?border:\s*1px solid var\(--malt-gh-border\)/)
 const mediaStageRule = customCSS.match(/\.malt-app__media-stage\s*\{[\s\S]*?\n\}/)?.[0]
 assert.ok(mediaStageRule, 'media preview stage CSS rule is missing')
 assert.match(mediaStageRule, /place-items:\s*center/)
