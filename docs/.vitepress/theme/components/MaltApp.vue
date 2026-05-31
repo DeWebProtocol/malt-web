@@ -256,7 +256,7 @@ async function loadRoot(nextPath = '', options = {}) {
     syncBrowserLocation(options.history || 'push')
   }
   await loadTreeAncestors(currentPath.value)
-  await refreshDirectory({ payload: options.payload })
+  await refreshDirectory()
 }
 
 async function openAppRouteState(routeState, options = {}) {
@@ -316,23 +316,20 @@ async function openAppRouteState(routeState, options = {}) {
       { syncURL: false }
     )
   } else {
-    await loadRoot(routePath, { payload: stat.payload, syncURL: false })
+    await loadRoot(routePath, { syncURL: false })
   }
   if (options.syncURL !== false) {
     syncBrowserLocation(options.history || 'replace', routePath)
   }
 }
 
-async function refreshDirectory(options = {}) {
+async function refreshDirectory() {
   error.value = ''
   clearPreview()
   proofView.value = null
   busy.value = true
   try {
-    const { manifest, loadedEntries } = await loadDirectoryEntries(
-      currentPath.value,
-      options.payload
-    )
+    const { manifest, loadedEntries } = await loadDirectoryEntries(currentPath.value)
     if (manifest.proofList) {
       const verification = await verifyAndMark(currentPath.value, manifest.proofList)
       proofView.value = {
@@ -820,7 +817,7 @@ async function openDirectory(entry) {
   if (entry.kind !== 'dir') {
     return
   }
-  await loadRoot(entry.path, { payload: entry.payload })
+  await loadRoot(entry.path)
 }
 
 async function toggleTreeDirectory(entry) {

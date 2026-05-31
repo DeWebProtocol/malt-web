@@ -177,6 +177,12 @@ assert.ok(toggleTreeDirectorySource, 'toggleTreeDirectory function is missing')
 assert.match(toggleTreeDirectorySource, /loadTreeDirectory\(entry\)/)
 assert.match(toggleTreeDirectorySource, /loadedTreeDirectories\.value\[entry\.path\]/)
 assert.doesNotMatch(toggleTreeDirectorySource, /openDirectory\(entry\)/)
+const openAppRouteStateSource = appSource.match(
+  /async function openAppRouteState\(routeState, options = \{\}\) \{[\s\S]*?\n\}\n\nasync function refreshDirectory/
+)?.[0]
+assert.ok(openAppRouteStateSource, 'openAppRouteState function is missing')
+assert.match(openAppRouteStateSource, /await loadRoot\(routePath, \{ syncURL: false \}\)/)
+assert.doesNotMatch(openAppRouteStateSource, /loadRoot\(routePath,\s*\{[^}]*payload:\s*stat\.payload/)
 const loadTreeAncestorsSource = appSource.match(
   /async function loadTreeAncestors\(path\) \{[\s\S]*?\n\}\n\nasync function previewFile/
 )?.[0]
@@ -238,7 +244,17 @@ assert.doesNotMatch(appSource, /malt-app__preview-head/)
 assert.doesNotMatch(appSource, /malt-app__preview-actions/)
 assert.doesNotMatch(appSource, /@click="showProof\(\{ path: preview\.path, kind: 'file' \}\)"/)
 assert.doesNotMatch(appSource, /Use Proof to load the current file proof/)
-assert.match(appSource, /payload:\s*entry\.payload/)
+const openDirectorySource = appSource.match(
+  /async function openDirectory\(entry\) \{[\s\S]*?\n\}\n\nasync function toggleTreeDirectory/
+)?.[0]
+assert.ok(openDirectorySource, 'openDirectory function is missing')
+assert.match(openDirectorySource, /await loadRoot\(entry\.path\)/)
+assert.doesNotMatch(openDirectorySource, /payload:\s*entry\.payload/)
+const loadTreeDirectorySource = appSource.match(
+  /async function loadTreeDirectory\(entry\) \{[\s\S]*?\n\}\n\nasync function loadTreeAncestors/
+)?.[0]
+assert.ok(loadTreeDirectorySource, 'loadTreeDirectory function is missing')
+assert.match(loadTreeDirectorySource, /loadDirectoryEntries\(path,\s*entry\.payload\)/)
 assert.match(appSource, /:style="treeRowStyle\(node\.depth\)"/)
 assert.match(appSource, /document\.title\s*=\s*'App \| MALT'/)
 assert.match(appSource, /await loadTreeAncestors\(currentPath\.value\)/)
