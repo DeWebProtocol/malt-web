@@ -49,11 +49,14 @@ const openMenuPath = ref('')
 const dropActive = ref(false)
 const dragDepth = ref(0)
 const uploadStatus = ref('')
+const copyFeedbackVisible = ref(false)
 const entryNameCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
 const daemonRequestTimeoutMs = 120_000
 const uploadRequestTimeoutMs = 600_000
+const copyFeedbackDurationMs = 1500
 const markdownRenderer = createMarkdownRenderer()
 let dragResetTimer = 0
+let copyFeedbackTimer = 0
 
 const signedIn = computed(() => activeProfile.value !== '')
 const currentLabel = computed(() => (currentPath.value ? `/${currentPath.value}` : '/'))
@@ -139,6 +142,7 @@ onUnmounted(() => {
   window.removeEventListener('dragend', cancelPageDrag)
   window.removeEventListener('popstate', handleAppPopState)
   window.clearTimeout(dragResetTimer)
+  resetCopyFeedback()
   clearPreview()
 })
 
@@ -515,9 +519,25 @@ async function copyPreviewContent() {
   error.value = ''
   try {
     await navigator.clipboard.writeText(preview.value.body)
+    showCopyFeedback()
   } catch (err) {
+    resetCopyFeedback()
     error.value = err instanceof Error ? err.message : String(err)
   }
+}
+
+function showCopyFeedback() {
+  window.clearTimeout(copyFeedbackTimer)
+  copyFeedbackVisible.value = true
+  copyFeedbackTimer = window.setTimeout(() => {
+    copyFeedbackVisible.value = false
+  }, copyFeedbackDurationMs)
+}
+
+function resetCopyFeedback() {
+  window.clearTimeout(copyFeedbackTimer)
+  copyFeedbackTimer = 0
+  copyFeedbackVisible.value = false
 }
 
 function beginPageDrag(event) {
@@ -1112,6 +1132,7 @@ function verificationKey(rootValue, path) {
 }
 
 function showPreview(nextPreview) {
+  resetCopyFeedback()
   preview.value = nextPreview
   previewMode.value = nextPreview.kind === 'text' ? 'code' : 'preview'
   previewView.value = true
@@ -1129,6 +1150,7 @@ function proofStatusLabel(path) {
 }
 
 function clearPreview() {
+  resetCopyFeedback()
   if (preview.value?.url) {
     URL.revokeObjectURL(preview.value.url)
   }
@@ -1433,17 +1455,38 @@ function formatSize(size) {
                   <button
                     type="button"
                     class="malt-app__icon-button"
+                    :class="{ 'is-copied': copyFeedbackVisible }"
                     :disabled="busy || !canCopyPreviewContent"
-                    title="Copy file content"
-                    aria-label="Copy file content"
+                    :title="copyFeedbackVisible ? 'Copied!' : 'Copy file content'"
+                    :aria-label="copyFeedbackVisible ? 'Copied!' : 'Copy file content'"
                     @click="copyPreviewContent"
                   >
-                    <svg class="malt-app__octicon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                    <span v-if="copyFeedbackVisible" class="malt-app__copy-toast" role="status">Copied!</span>
+                    <svg
+                      v-if="!copyFeedbackVisible"
+                      class="malt-app__octicon"
+                      viewBox="0 0 16 16"
+                      width="16"
+                      height="16"
+                      aria-hidden="true"
+                    >
                       <path
                         d="M0 6.75C0 5.784.784 5 1.75 5h1a.75.75 0 0 1 0 1.5h-1a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1a.75.75 0 0 1 1.5 0v1A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"
                       />
                       <path
                         d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"
+                      />
+                    </svg>
+                    <svg
+                      v-else
+                      class="malt-app__octicon"
+                      viewBox="0 0 16 16"
+                      width="16"
+                      height="16"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"
                       />
                     </svg>
                   </button>

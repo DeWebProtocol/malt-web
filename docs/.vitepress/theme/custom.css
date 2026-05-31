@@ -825,6 +825,9 @@ body.malt-app-page .malt-app {
 }
 
 .malt-app .malt-app__icon-button {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
   width: 32px;
   min-height: 32px;
   border-color: var(--malt-gh-border);
@@ -847,6 +850,40 @@ body.malt-app-page .malt-app {
 
 .malt-app .malt-app__icon-button:hover:not(:disabled) {
   color: var(--vp-c-text-1);
+}
+
+.malt-app .malt-app__icon-button.is-copied {
+  color: var(--malt-gh-success);
+}
+
+.malt-app__copy-toast {
+  position: absolute;
+  z-index: 20;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 6px;
+  padding: 5px 8px;
+  color: #ffffff;
+  background: #24292f;
+  box-shadow: 0 8px 24px rgba(140, 149, 159, 0.2);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.malt-app__copy-toast::after {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #24292f;
+  content: "";
 }
 
 .malt-app__dropzone {
