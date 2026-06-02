@@ -1,8 +1,9 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const root = new URL('..', import.meta.url)
-const docsRoot = path.join(root.pathname, 'docs')
+const root = path.dirname(fileURLToPath(import.meta.url))
+const docsRoot = path.join(root, '..', 'docs')
 
 const requiredFiles = [
   'narrative/problem.md',

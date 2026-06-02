@@ -1,4 +1,4 @@
-name: Build VitePress site
+name: Build and Deploy VitePress site
 
 on:
   push:
@@ -7,9 +7,11 @@ on:
 
 permissions:
   contents: read
+  pages: write
+  id-token: write
 
 concurrency:
-  group: vitepress-build
+  group: pages
   cancel-in-progress: false
 
 jobs:
@@ -25,6 +27,17 @@ jobs:
       - run: npm run build
         env:
           BASE_PATH: /malt-web/
-      # This repository is currently private on a plan that does not support
-      # GitHub Pages. Restore configure-pages, upload-pages-artifact, and
-      # deploy-pages when the repository becomes public or Pages-supported.
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/.vitepress/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

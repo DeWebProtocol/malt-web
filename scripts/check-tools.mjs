@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import {
   appFallbackStorageKey,
@@ -20,9 +21,9 @@ import {
   profileStorageKey
 } from '../docs/.vitepress/theme/malt-client.mjs'
 
-const root = new URL('..', import.meta.url)
-const docsRoot = path.join(root.pathname, 'docs')
-const packageManifest = JSON.parse(fs.readFileSync(path.join(root.pathname, 'package.json'), 'utf8'))
+const root = path.dirname(fileURLToPath(import.meta.url))
+const docsRoot = path.join(root, '..', 'docs')
+const packageManifest = JSON.parse(fs.readFileSync(path.join(root, '..', 'package.json'), 'utf8'))
 
 assert.match(packageManifest.dependencies?.['markdown-it'] || '', /\^?\d+\.\d+\.\d+/)
 assert.match(packageManifest.dependencies?.shiki || '', /\^?\d+\.\d+\.\d+/)

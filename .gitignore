@@ -15,3 +15,6 @@ pnpm-workspace.yaml
 
 # Claude Code
 .claude/
+
+# Internal planning/spec docs (not for public repo)
+docs/superpowers/
