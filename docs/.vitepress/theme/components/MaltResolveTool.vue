@@ -62,7 +62,7 @@ function sendToVerifier() {
     return
   }
   window.sessionStorage.setItem('malt-prooflist', proofText.value)
-  window.location.href = withBase('/tools/verify')
+  window.location.href = withBase('/verify')
 }
 </script>
 

@@ -1258,7 +1258,7 @@ function openVerifierPage() {
   if (typeof window === 'undefined') {
     return
   }
-  window.location.href = withBase('/tools/verify')
+  window.location.href = withBase('/verify')
 }
 
 function normalizeOptionalPath(path) {

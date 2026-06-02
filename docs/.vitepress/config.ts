@@ -54,9 +54,9 @@ export default defineConfig({
     nav: [
       { text: 'Overview', link: '/overview' },
       { text: 'App', link: '/app' },
+      { text: 'Verify', link: '/verify' },
       { text: 'Narrative', link: '/narrative/problem' },
       { text: 'Docs', link: '/docs/runtime' },
-      { text: 'Tools', link: '/tools/resolve' },
       { text: 'Runtime', link: '/runtime' },
       { text: 'Service', link: '/service' }
     ],
@@ -68,6 +68,10 @@ export default defineConfig({
       {
         text: 'App',
         items: [{ text: 'Browser App', link: '/app' }]
+      },
+      {
+        text: 'Verify',
+        items: [{ text: 'Verify ProofList', link: '/verify' }]
       },
       {
         text: 'Research Narrative',
@@ -94,13 +98,6 @@ export default defineConfig({
           { text: 'Roots and Proofs', link: '/concepts/roots' },
           { text: 'List and Map Semantics', link: '/concepts/list-map' },
           { text: 'ArcTable and Commitments', link: '/concepts/arctable' }
-        ]
-      },
-      {
-        text: 'Tools',
-        items: [
-          { text: 'Resolve Tool', link: '/tools/resolve' },
-          { text: 'Verify Tool', link: '/tools/verify' }
         ]
       },
       {
