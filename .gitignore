@@ -8,3 +8,10 @@ docs/.vitepress/dist/
 .DS_Store
 Thumbs.db
 *.log
+
+# pnpm (project uses npm)
+pnpm-lock.yaml
+pnpm-workspace.yaml
+
+# Claude Code
+.claude/

@@ -54,7 +54,7 @@ export default defineConfig({
     nav: [
       { text: 'Overview', link: '/overview' },
       { text: 'App', link: '/app' },
-      { text: 'Verify', link: '/verify' },
+      { text: 'Tools', link: '/tools/verify' },
       { text: 'Narrative', link: '/narrative/problem' },
       { text: 'Docs', link: '/docs/runtime' },
       { text: 'Runtime', link: '/runtime' },
@@ -70,8 +70,11 @@ export default defineConfig({
         items: [{ text: 'Browser App', link: '/app' }]
       },
       {
-        text: 'Verify',
-        items: [{ text: 'Verify ProofList', link: '/verify' }]
+        text: 'Tools',
+        items: [
+          { text: 'Verify ProofList', link: '/tools/verify' },
+          { text: 'Resolve Content', link: '/tools/resolve' }
+        ]
       },
       {
         text: 'Research Narrative',
