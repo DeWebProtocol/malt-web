@@ -25,8 +25,9 @@ KV state + CAS payloads
 
 Application layout translates source-domain data into semantic mutations. The
 semantic layer defines list and map behavior. ArcTable persists and
-materializes arcsets. The stateless commitment backend authenticates
-semantic-layer representations.
+materializes arcsets. The stateless commitment backend authenticates primitive
+cell vectors, while the semantic packages expose storage-free single-step
+commitment facades for list/map slot proofs.
 
 ## Semantic Layer
 
@@ -58,7 +59,7 @@ An incorrect ArcTable result is rejected by root-relative verification.
 ## Commitment Backend
 
 The commitment backend is a stateless commitment and proof primitive over
-semantic-layer representations.
+cell vectors. It is semantic-neutral.
 
 It is responsible for:
 
@@ -69,6 +70,16 @@ It is responsible for:
 
 It is not responsible for map key semantics, list range semantics, resolver
 policy, application layout, root publication, or freshness.
+
+The current implementation separates that primitive layer from semantic
+single-step facades:
+
+- `auth/semantic/list.Commitment`
+- `auth/semantic/mapping.Commitment`
+
+Those facades expose storage-free `Commit`, `ProveSlot`, and `VerifySlot`
+operations. `runtime/semantic/list/tree` and `runtime/semantic/mapping/radix`
+compose them with ArcTable access and multi-step traversal.
 
 ## Graph Ports and Layouts
 

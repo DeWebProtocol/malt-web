@@ -80,14 +80,14 @@ prototype modules mapped to the semantic model:
 
 | Package | Role |
 |---|---|
-| `auth/commitment` | Stateless commitment backends for commit/prove/verify/update. |
+| `auth/commitment` | Stateless primitive commitment backends for cell-vector commit/prove/verify/update. |
 | `auth/arcset` | Canonical path and arcset representation. |
 | `runtime/arctable` | Root-recoverable arcset persistence and materialization. |
 | `runtime/arctable/bloom` | Optional negative-lookup optimization hook, disabled unless configured with a BloomCache. |
-| `auth/semantic/list` | Public list semantic abstraction and shared types. |
-| `runtime/semantic/list/tree` | Primary list implementation. |
-| `auth/semantic/mapping` | Public map semantic abstraction and shared types. |
-| `runtime/semantic/mapping/radix` | Primary map implementation. |
+| `auth/semantic/list` | Public list semantic abstraction, shared types, and storage-free single-step `Commitment` primitives. |
+| `runtime/semantic/list/tree` | Primary list runtime implementation, composing auth/list slot proofs with ArcTable-backed tree traversal. |
+| `auth/semantic/mapping` | Public map semantic abstraction, shared types, binding CID encoding, and storage-free single-step `Commitment` primitives. |
+| `runtime/semantic/mapping/radix` | Primary map runtime implementation, composing auth/mapping slot proofs with ArcTable-backed radix traversal. |
 | `cmd/eval/internal/baseline/indexedmap` | Baseline comparison map implementation, not the current runtime map path. |
 | `layout/unixfs` | Current list/map/CAS-blob UnixFS layout. |
 | `layout/unixfs/internal/manifest` | UnixFS directory-manifest helper used by the application layout. |

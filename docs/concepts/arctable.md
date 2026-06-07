@@ -23,8 +23,9 @@ Incorrect materialized state is rejected by verification or root recomputation.
 
 ## Commitments
 
-Commitment backends are stateless proof primitives over semantic-layer
-representations.
+Commitment backends are stateless primitive proof engines over cell vectors.
+They do not know whether a cell vector came from a list node, a map binding
+vector, a radix node, or a bucket.
 
 They are responsible for:
 
@@ -35,6 +36,12 @@ They are responsible for:
 
 They are not responsible for map key semantics, list range semantics, path
 resolution, application layout, or root publication policy.
+
+The semantic packages add a narrow storage-free layer above those primitives:
+`auth/semantic/list.Commitment` and `auth/semantic/mapping.Commitment` expose
+`Commit`, `ProveSlot`, and `VerifySlot` for semantic slot representations.
+Runtime implementations then compose those single-step primitives with ArcTable
+materialization and tree/radix traversal.
 
 ## Canonical ArcSets
 
