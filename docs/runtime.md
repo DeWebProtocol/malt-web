@@ -40,6 +40,14 @@ The server runtime does:
 - return `result + ProofList`
 - support local client verification
 
+## Local CAS Boundary
+
+The daemon uses an external CAS endpoint from `cas.base_url`; the current
+prototype no longer embeds mock CAS inside the `malt` daemon. For local
+development, build the standalone `cas` binary from `cmd/cas` and run it as the
+local Kubo-compatible mock CAS service, usually at `http://127.0.0.1:4318`.
+`cas` is its own CLI, not a `malt` subcommand.
+
 ## HTTP Shape
 
 The current prototype exposes root-centric HTTP reads such as:

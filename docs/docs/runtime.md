@@ -22,6 +22,11 @@ The current public `malt` CLI is intentionally small:
 The product path goes through daemon-client APIs. Removed direct in-process
 helpers are not part of the public command surface.
 
+The local mock CAS is not a `malt` subcommand. It is a separate `cas` binary
+built from `cmd/cas`; local development normally runs it at
+`http://127.0.0.1:4318` and points daemon `cas.base_url` at that external CAS
+endpoint.
+
 The website App uses the same local daemon boundary from the browser. It can
 upload files or browser-selected folders through the UnixFS write routes, then
 resolve from the resulting root and verify the returned ProofList response.
@@ -94,6 +99,7 @@ prototype modules mapped to the semantic model:
 | `layout/unixfs/internal/format` | UnixFS persisted-format helpers for manifest CID codecs, storage-kind projection, and directory-root bindings. |
 | `wire/maltcid` | Typed MALT map/list root CID helpers. |
 | `storage/cas` | Content-addressed storage interfaces and adapters. |
+| `cmd/cas` | Standalone local mock CAS HTTP server for development and controlled-latency evaluation. |
 | `storage/kv` | Generic persistence adapters. |
 | `graph/resolver` | Resolver read/proof port and explicit MALT path. |
 | `graph/writer` | Mutation model and executor. |
