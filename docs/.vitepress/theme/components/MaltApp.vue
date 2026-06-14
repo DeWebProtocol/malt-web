@@ -55,6 +55,7 @@ const entryNameCollator = new Intl.Collator(undefined, { numeric: true, sensitiv
 const daemonRequestTimeoutMs = 120_000
 const uploadRequestTimeoutMs = 600_000
 const copyFeedbackDurationMs = 1500
+const directoryStatConcurrency = 6
 const markdownRenderer = createMarkdownRenderer()
 const syntaxThemes = {
   light: 'github-light',
@@ -423,16 +424,9 @@ async function refreshDirectory() {
   proofView.value = null
   busy.value = true
   try {
-    const { manifest, loadedEntries } = await loadDirectoryEntries(currentPath.value)
-    if (manifest.proofList) {
-      const verification = await verifyAndMark(currentPath.value, manifest.proofList)
-      proofView.value = {
-        path: currentPath.value,
-        kind: 'dir',
-        proofList: manifest.proofList,
-        verification
-      }
-    }
+    const { loadedEntries } = await loadDirectoryEntries(currentPath.value, '', {
+      omitProof: true
+    })
     entries.value = loadedEntries
     cacheDirectoryEntries(currentPath.value, entries.value)
     persistProfile()
@@ -444,9 +438,10 @@ async function refreshDirectory() {
   }
 }
 
-async function loadDirectoryEntries(path, payload) {
+async function loadDirectoryEntries(path, payload, options = {}) {
   const directoryPath = normalizeOptionalPath(path)
   const directoryPayload = String(payload || '').trim()
+  const omitProof = options.omitProof !== false
   const manifest = await withDaemonTimeout('read directory', (signal) =>
     directoryPayload
       ? readDirectoryByPayload({
@@ -458,43 +453,46 @@ async function loadDirectoryEntries(path, payload) {
           baseURL: baseURL.value,
           root: root.value,
           path: directoryPath,
-          signal
+          signal,
+          omitProof
         })
   )
-  const loadedEntries = await Promise.all(
-    manifest.entries.map(async (name) => {
-      const childPath = joinMaltPath(directoryPath, name)
-      try {
-        const stat = await withDaemonTimeout('stat path', (signal) =>
-          statPath({ baseURL: baseURL.value, root: root.value, path: childPath, signal })
-        )
-        return {
-          name,
-          path: childPath,
-          kind: stat.kind || 'unknown',
-          storageKind: stat.storageKind,
-          key: stat.key,
-          payload: stat.payload,
-          size: stat.size,
-          error: ''
-        }
-      } catch (err) {
-        return {
-          name,
-          path: childPath,
-          kind: 'unknown',
-          storageKind: '',
-          key: '',
-          payload: '',
-          size: null,
-          error: err instanceof Error ? err.message : String(err)
-        }
-      }
-    })
+  const loadedEntries = await mapWithConcurrency(manifest.entries, directoryStatConcurrency, async (name) =>
+    loadDirectoryEntryStat(directoryPath, name)
   )
   return {
     manifest,
     loadedEntries: loadedEntries.sort(compareEntries)
+  }
+}
+
+async function loadDirectoryEntryStat(directoryPath, name) {
+  const childPath = joinMaltPath(directoryPath, name)
+  try {
+    const stat = await withDaemonTimeout('stat path', (signal) =>
+      statPath({ baseURL: baseURL.value, root: root.value, path: childPath, signal })
+    )
+    return {
+      name,
+      path: childPath,
+      kind: stat.kind || 'unknown',
+      storageKind: stat.storageKind,
+      key: stat.key,
+      payload: stat.payload,
+      size: stat.size,
+      error: ''
+    }
+  } catch (err) {
+    return {
+      name,
+      path: childPath,
+      kind: 'unknown',
+      storageKind: '',
+      key: '',
+      payload: '',
+      size: null,
+      error: err instanceof Error ? err.message : String(err)
+    }
   }
 }
 
@@ -1162,6 +1160,30 @@ async function showProof(target) {
   } finally {
     busy.value = false
   }
+}
+
+async function mapWithConcurrency(items, limit, mapper) {
+  const source = Array.from(items || [])
+  if (source.length === 0) {
+    return []
+  }
+  const concurrency = Math.max(1, Math.min(Number(limit) || 1, source.length))
+  const results = new Array(source.length)
+  let cursor = 0
+
+  async function worker() {
+    for (;;) {
+      const index = cursor
+      cursor += 1
+      if (index >= source.length) {
+        return
+      }
+      results[index] = await mapper(source[index], index)
+    }
+  }
+
+  await Promise.all(Array.from({ length: concurrency }, () => worker()))
+  return results
 }
 
 function toggleEntryMenu(entry) {
