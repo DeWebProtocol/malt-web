@@ -55,7 +55,6 @@ const entryNameCollator = new Intl.Collator(undefined, { numeric: true, sensitiv
 const daemonRequestTimeoutMs = 120_000
 const uploadRequestTimeoutMs = 600_000
 const copyFeedbackDurationMs = 1500
-const directoryStatConcurrency = 6
 const markdownRenderer = createMarkdownRenderer()
 const syntaxThemes = {
   light: 'github-light',
@@ -140,6 +139,7 @@ const previewLanguageAliases = new Map([
 ])
 let dragResetTimer = 0
 let copyFeedbackTimer = 0
+let directoryHydrationGeneration = 0
 
 const signedIn = computed(() => activeProfile.value !== '')
 const currentLabel = computed(() => (currentPath.value ? `/${currentPath.value}` : '/'))
@@ -424,12 +424,21 @@ async function refreshDirectory() {
   proofView.value = null
   busy.value = true
   try {
-    const { loadedEntries } = await loadDirectoryEntries(currentPath.value, '', {
-      omitProof: true
+    const { manifest, loadedEntries } = await loadDirectoryEntries(currentPath.value, '', {
+      omitProof: false
     })
+    if (manifest.proofList) {
+      proofView.value = {
+        path: currentPath.value,
+        kind: 'dir',
+        proofList: manifest.proofList,
+        verification: null
+      }
+    }
     entries.value = loadedEntries
     cacheDirectoryEntries(currentPath.value, entries.value)
     persistProfile()
+    void hydrateDirectoryEntries(currentPath.value, loadedEntries)
   } catch (err) {
     entries.value = []
     error.value = err instanceof Error ? err.message : String(err)
@@ -457,43 +466,37 @@ async function loadDirectoryEntries(path, payload, options = {}) {
           omitProof
         })
   )
-  const loadedEntries = await mapWithConcurrency(manifest.entries, directoryStatConcurrency, async (name) =>
-    loadDirectoryEntryStat(directoryPath, name)
-  )
+  const loadedEntries = manifest.entries.map((name) => lazyDirectoryEntry(directoryPath, name))
   return {
     manifest,
     loadedEntries: loadedEntries.sort(compareEntries)
   }
 }
 
-async function loadDirectoryEntryStat(directoryPath, name) {
-  const childPath = joinMaltPath(directoryPath, name)
-  try {
-    const stat = await withDaemonTimeout('stat path', (signal) =>
-      statPath({ baseURL: baseURL.value, root: root.value, path: childPath, signal })
-    )
-    return {
-      name,
-      path: childPath,
-      kind: stat.kind || 'unknown',
-      storageKind: stat.storageKind,
-      key: stat.key,
-      payload: stat.payload,
-      size: stat.size,
-      error: ''
-    }
-  } catch (err) {
-    return {
-      name,
-      path: childPath,
-      kind: 'unknown',
-      storageKind: '',
-      key: '',
-      payload: '',
-      size: null,
-      error: err instanceof Error ? err.message : String(err)
-    }
+function lazyDirectoryEntry(directoryPath, name) {
+  return {
+    name,
+    path: joinMaltPath(directoryPath, name),
+    kind: 'unknown',
+    storageKind: '',
+    key: '',
+    payload: '',
+    size: null,
+    error: ''
   }
+}
+
+async function hydrateDirectoryEntries(directoryPath, sourceEntries) {
+  const generation = ++directoryHydrationGeneration
+  await mapWithConcurrency(sourceEntries, 6, async (entry) => {
+    if (generation !== directoryHydrationGeneration || currentPath.value !== directoryPath) {
+      return
+    }
+    if (!entry || entry.kind !== 'unknown') {
+      return
+    }
+    await statEntry(entry, { silent: true, generation, directoryPath })
+  })
 }
 
 function resetTreeState() {
@@ -928,8 +931,93 @@ async function openDirectory(entry) {
   await loadRoot(entry.path)
 }
 
+async function openEntry(entry) {
+  openMenuPath.value = ''
+  if (!entry || entry.kind === 'unknown') {
+    entry = await statEntry(entry)
+  }
+  if (!entry || entry.kind === 'unknown') {
+    return
+  }
+  if (entry.kind === 'dir') {
+    await openDirectory(entry)
+    return
+  }
+  await previewFile(entry)
+}
+
+async function statEntry(entry, options = {}) {
+  if (!entry) {
+    return null
+  }
+  if (entry.kind !== 'unknown') {
+    return entry
+  }
+  if (!options.silent) {
+    error.value = ''
+    busy.value = true
+  }
+  try {
+    const stat = await withDaemonTimeout('stat path', (signal) =>
+      statPath({ baseURL: baseURL.value, root: root.value, path: entry.path, signal })
+    )
+    const resolved = {
+      ...entry,
+      kind: stat.kind || 'unknown',
+      storageKind: stat.storageKind,
+      key: stat.key,
+      payload: stat.payload,
+      size: stat.size,
+      error: ''
+    }
+    if (
+      options.generation != null &&
+      (options.generation !== directoryHydrationGeneration || currentPath.value !== options.directoryPath)
+    ) {
+      return resolved
+    }
+    replaceCachedEntry(resolved)
+    return resolved
+  } catch (err) {
+    const failed = {
+      ...entry,
+      error: err instanceof Error ? err.message : String(err)
+    }
+    replaceCachedEntry(failed)
+    if (!options.silent) {
+      error.value = failed.error
+    }
+    return failed
+  } finally {
+    if (!options.silent) {
+      busy.value = false
+    }
+  }
+}
+
+function replaceCachedEntry(nextEntry) {
+  if (!nextEntry) {
+    return
+  }
+  const parentPath = pathParent(nextEntry.path)
+  const replace = (items) =>
+    (items || []).map((item) => (item.path === nextEntry.path ? nextEntry : item)).sort(compareEntries)
+  if (parentPath === currentPath.value) {
+    entries.value = replace(entries.value)
+  }
+  if (directoryCache.value[parentPath]) {
+    directoryCache.value = {
+      ...directoryCache.value,
+      [parentPath]: replace(directoryCache.value[parentPath])
+    }
+  }
+}
+
 async function toggleTreeDirectory(entry) {
-  if (entry.kind !== 'dir') {
+  if (entry.kind === 'unknown') {
+    entry = await statEntry(entry)
+  }
+  if (!entry || entry.kind !== 'dir') {
     return
   }
   const expanded = Boolean(treeExpanded.value[entry.path])
@@ -1168,22 +1256,12 @@ async function mapWithConcurrency(items, limit, mapper) {
     return []
   }
   const concurrency = Math.max(1, Math.min(Number(limit) || 1, source.length))
-  const results = new Array(source.length)
-  let cursor = 0
-
-  async function worker() {
-    for (;;) {
-      const index = cursor
-      cursor += 1
-      if (index >= source.length) {
-        return
-      }
-      results[index] = await mapper(source[index], index)
+  const workers = Array.from({ length: concurrency }, async (_, workerIndex) => {
+    for (let index = workerIndex; index < source.length; index += concurrency) {
+      await mapper(source[index], index)
     }
-  }
-
-  await Promise.all(Array.from({ length: concurrency }, () => worker()))
-  return results
+  })
+  await Promise.all(workers)
 }
 
 function toggleEntryMenu(entry) {
@@ -1192,6 +1270,12 @@ function toggleEntryMenu(entry) {
 
 async function runEntryAction(action, entry) {
   openMenuPath.value = ''
+  if (entry?.kind === 'unknown') {
+    entry = await statEntry(entry)
+    if (!entry || entry.kind === 'unknown') {
+      return
+    }
+  }
   if (action === 'open') {
     await openDirectory(entry)
   } else if (action === 'download') {
@@ -1263,7 +1347,20 @@ function proofStatusLabel(path) {
   if (!proofViewMatches(path)) {
     return 'not loaded'
   }
-  return proofView.value?.verification?.valid ? 'valid' : 'invalid'
+  if (!proofView.value?.verification) {
+    return 'loaded'
+  }
+  return proofView.value.verification.valid ? 'valid' : 'invalid'
+}
+
+function proofVerificationLabel(proof) {
+  if (!proof) {
+    return 'not loaded'
+  }
+  if (!proof.verification) {
+    return 'loaded'
+  }
+  return proof.verification.valid ? 'valid' : 'invalid'
 }
 
 function clearPreview() {
@@ -1502,6 +1599,9 @@ function isPDFPreview(name, contentType) {
 }
 
 function kindLabel(entry) {
+  if (entry.kind === 'unknown') {
+    return 'Load entry'
+  }
   if (entry.kind === 'dir') {
     return 'Folder'
   }
@@ -1655,8 +1755,8 @@ function formatSize(size) {
               <button
                 type="button"
                 class="malt-app__tree-link"
-                :disabled="busy || node.entry.kind === 'unknown'"
-                @click="node.entry.kind === 'dir' ? openDirectory(node.entry) : previewFile(node.entry)"
+                :disabled="busy"
+                @click="openEntry(node.entry)"
               >
                 <span
                   class="malt-app__file-icon"
@@ -1864,9 +1964,9 @@ function formatSize(size) {
               <button
                 type="button"
                 class="malt-app__name"
-                :disabled="busy || entry.kind === 'unknown'"
+                :disabled="busy"
                 :title="kindLabel(entry)"
-                @click="entry.kind === 'dir' ? openDirectory(entry) : previewFile(entry)"
+                @click="openEntry(entry)"
               >
                 <span
                   class="malt-app__file-icon"
@@ -1905,7 +2005,7 @@ function formatSize(size) {
                 <button
                   type="button"
                   class="malt-app__more"
-                  :disabled="busy || entry.kind === 'unknown'"
+                  :disabled="busy"
                   :aria-expanded="openMenuPath === entry.path"
                   aria-label="Actions"
                   @click="toggleEntryMenu(entry)"
@@ -1933,7 +2033,7 @@ function formatSize(size) {
             <div class="malt-app__proof-head">
               <h2>ProofList</h2>
               <span :class="{ 'is-valid': proofView?.verification?.valid }">
-                {{ proofView ? (proofView.verification?.valid ? 'valid' : 'invalid') : 'not loaded' }}
+                {{ proofVerificationLabel(proofView) }}
               </span>
             </div>
             <template v-if="proofView">
