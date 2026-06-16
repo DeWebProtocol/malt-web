@@ -1,7 +1,7 @@
 # Server Runtime Model
 
-The MALT server runtime exposes root-relative resolver and writer ports. It is
-a performance-critical component, not a correctness authority.
+The MALT server runtime composes root-relative resolver and writer ports. It is
+a performance-critical component, not a correctness authority or semantic owner.
 
 For concrete prototype routes, see [Root-Centric HTTP API](/docs/api). For
 verifier-facing evidence, see [ProofLists](/docs/prooflists).
@@ -39,6 +39,10 @@ The server runtime does:
 - answer root-relative queries
 - return `result + ProofList`
 - support local client verification
+
+The resolver owns traversal and `ProofList` assembly. The writer owns mutation
+application and receipts. List/map interfaces and authenticated operations stay
+under the semantic layer rather than being redefined as graph node interfaces.
 
 ## Local CAS Boundary
 

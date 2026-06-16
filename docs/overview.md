@@ -28,6 +28,8 @@ MALT changes the boundary:
 - ArcTable materializes root-relative structure state for efficient access
 - stateless commitment backends produce verifier-facing proofs
 - reads return `result + ProofList` for local verification
+- resolver and writer ports expose this runtime behavior without owning the
+  list/map semantics
 
 The claim is not that updates become free. The claim is that MALT replaces
 implicit ancestor-rewrite costs with explicit, verifiable structure maintenance.
@@ -49,6 +51,10 @@ Commitment backend: stateless proof primitive
     v
 KV state + CAS payloads
 ```
+
+The semantic interfaces live with `auth/semantic/list` and
+`auth/semantic/mapping`. The graph runtime is a composition boundary around
+resolver and writer ports, not a second node-interface hierarchy.
 
 ## Read Interface
 
