@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: MALT
-  text: Authenticated graph semantics over immutable CAS
-  tagline: MALT separates payload identity from list/map structure semantics so evolving graphs can be read, updated, and verified without encoding every relation as an embedded Merkle-DAG edge.
+  text: Authenticated graph-normalized structure
+  tagline: MALT authenticates structured data whose relationships can be normalized as graph-shaped nodes and relations, using list/map semantics and local ProofList verification without embedding every relation as a Merkle-DAG edge.
   actions:
     - theme: brand
       text: Research narrative
@@ -30,12 +30,17 @@ import { withBase } from 'vitepress'
   <div class="malt-band-inner">
     <div>
       <p class="malt-kicker">Design focus</p>
-      <h2>Move structure out of payload identity, keep verification local.</h2>
+      <h2>Authenticate structure as graph-shaped relations, keep verification local.</h2>
       <p>
-        Merkle DAGs bind traversal, authentication, and object identity through
-        parent hash links. MALT keeps immutable CAS payloads, but represents
-        evolving structure through list and map semantics, ArcTable
-        materialization, and stateless commitment proofs.
+        MALT starts from structured data whose relationships can be normalized
+        as graph-shaped nodes and relations. It authenticates those relations
+        through list and map semantics, ArcTable materialization, and stateless
+        commitment proofs.
+      </p>
+      <p>
+        Immutable payloads can still live naturally in CAS. MALT keeps their
+        storage separate from the structural authentication boundary, so reads
+        return results plus ProofLists that clients verify locally.
       </p>
       <p>
         A public MALT service can accelerate root-relative reads. It is not the

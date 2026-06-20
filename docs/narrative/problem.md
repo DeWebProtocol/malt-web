@@ -1,11 +1,11 @@
 # Problem: Structure Embedded in Identity
 
-MALT starts from a structural limit in Merkle-DAG content-addressed systems:
+MALT starts from a structural limit in Merkle-DAG-style authenticated data:
 the same parent hash links define traversal, authentication, and object
 identity.
 
-That coupling is useful for immutable content. It becomes expensive when the
-structure over immutable content evolves.
+That coupling is useful for immutable object graphs. It becomes expensive when
+the structure over stable payloads or independently meaningful objects evolves.
 
 ## Traversal, Authentication, and Identity
 
@@ -74,8 +74,10 @@ but they make verification application-specific.
 
 ## What MALT Changes
 
-MALT keeps immutable CAS payloads. It moves evolving structure into an
-authenticated graph semantic layer above those payloads.
+MALT treats evolving relationships as the primary authentication target. When a
+data structure can be normalized into graph-shaped nodes and relations, MALT
+authenticates those relations explicitly instead of relying on embedded parent
+links as the only verifier-facing structure.
 
 The cost does not disappear. MALT replaces implicit ancestor rewrite with
 explicit, verifiable structure maintenance:
@@ -84,6 +86,9 @@ explicit, verifiable structure maintenance:
 - ArcTable stores and materializes root-relative arcsets
 - commitment backends authenticate semantic-layer representations
 - server runtimes return `result + ProofList` for caller-supplied roots
+- immutable payload bytes can remain ordinary CAS objects
 
-The research question becomes whether this explicit structure layer gives a
-better cost and verification boundary for evolving CAS-backed data.
+The research question becomes whether this explicit structure authentication
+boundary gives a better cost and verification model for evolving data. CAS then
+enters naturally as a substrate for immutable payload objects, not as the
+entire problem definition.

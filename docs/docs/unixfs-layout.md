@@ -1,7 +1,7 @@
 # MALT UnixFS Layout
 
-UnixFS is an application layout above MALT list/map/CAS blob composition. It is
-not the core MALT abstraction.
+UnixFS is an application layout above MALT list/map semantics and immutable
+payload objects. It is not the core MALT abstraction.
 
 The layout demonstrates how practical file and directory semantics can be built
 without embedding every verifier-facing relation inside immutable parent

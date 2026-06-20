@@ -1,11 +1,12 @@
 # MALT Design Overview
 
-MALT is an authenticated graph semantic layer over immutable content-addressed
-storage.
+MALT targets authenticated structured data: data whose relationships can be
+normalized into graph-shaped nodes and relations.
 
-Payload remains ordinary CAS content identified by CIDs. MALT defines how the
-evolving structure above those payload CIDs is expressed, persisted,
-authenticated, read, written, and verified.
+MALT defines how those structural relationships are expressed, persisted,
+authenticated, read, written, and verified. Immutable payload objects can remain
+ordinary CAS content identified by CIDs, but CAS is introduced as a natural
+payload substrate rather than the first definition of the abstraction.
 
 The website has two main lanes:
 
@@ -22,7 +23,6 @@ force ancestor-dependent rewrites and retrieval-depth costs.
 
 MALT changes the boundary:
 
-- payload is still immutable CAS data
 - structure is authenticated by independent structure roots
 - `list` and `map` define typed semantic reads and writes
 - ArcTable materializes root-relative structure state for efficient access
@@ -30,6 +30,7 @@ MALT changes the boundary:
 - reads return `result + ProofList` for local verification
 - resolver and writer ports expose this runtime behavior without owning the
   list/map semantics
+- immutable payloads can remain ordinary CAS data
 
 The claim is not that updates become free. The claim is that MALT replaces
 implicit ancestor-rewrite costs with explicit, verifiable structure maintenance.

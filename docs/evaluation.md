@@ -16,7 +16,8 @@ claim.
 
 Primary systems:
 
-- `MALT-flat`: pure MALT structure UnixFS using list/map/CAS blob composition
+- `MALT-flat`: pure MALT structure UnixFS using list/map semantics plus
+  CAS-backed immutable payloads
 - `IPLD UnixFS`: implicit Merkle-DAG baseline
 - `IPLD UnixFS + HAMT`: strong large-directory authenticated-map baseline
 

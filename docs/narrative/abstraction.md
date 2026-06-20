@@ -1,18 +1,22 @@
 # MALT Abstraction
 
-MALT is an authenticated graph semantic layer over immutable CAS payloads.
+MALT targets authentication for structured data whose relationships can be
+normalized into graph-shaped nodes and relations.
 
-Payload remains ordinary content-addressed data identified by CIDs. MALT
-defines the authenticated structure above those payloads: graph nodes,
-relations, root computation, proof generation, and verification.
+MALT defines authenticated structure: graph-shaped nodes and relations, root
+computation, proof generation, and verification. Immutable payloads can still
+be represented as ordinary content-addressed data identified by CIDs, but
+payload storage is the engineering substrate rather than the abstraction's
+starting point.
 
-## Authenticated Graph Semantic Layer
+## Authenticated Graph-Normalized Structure
 
-The abstraction separates three concerns that are usually fused in a Merkle DAG:
+The abstraction separates three concerns that are often fused in Merkle-DAG
+systems:
 
-- immutable payload identity
 - graph-node and graph-relation semantics
 - verifier-facing authentication of those semantics
+- immutable payload identity and storage
 
 MALT roots authenticate semantic-layer state. A reader obtains a trusted root
 from an application publication layer, asks a server runtime or local runtime

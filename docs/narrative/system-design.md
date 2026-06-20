@@ -1,7 +1,9 @@
 # System Design
 
 MALT realizes the abstraction as a root-centric, server-assisted,
-client-verifiable structure layer over immutable CAS payloads.
+client-verifiable authentication system for graph-normalized structured data.
+Immutable payloads can be stored in CAS, while MALT authenticates the
+relationships that bind structure together.
 
 ## Layering
 
@@ -106,8 +108,8 @@ prototype's concrete write payload is documented in the
 
 ## UnixFS as a Layout
 
-UnixFS is an application layout built from list/map/CAS blob composition. It is
-not the core MALT abstraction.
+UnixFS is an application layout built from list/map semantics plus immutable
+payload objects. It is not the core MALT abstraction.
 
 In the current MALT UnixFS direction:
 

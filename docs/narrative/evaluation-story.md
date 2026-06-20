@@ -1,7 +1,9 @@
 # Evaluation Story
 
 MALT's evaluation should show that the system changes the structure-maintenance
-cost model for evolving CAS-backed data.
+cost model for evolving graph-normalized data. The current prototype stores
+immutable payloads in CAS, so the benchmark accounting still reports CAS
+payload and metadata costs explicitly.
 
 The claim is not that MALT is free. The claim is that MALT replaces
 ancestor-propagating Merkle-DAG costs with localized, verifiable semantic-layer

@@ -4,9 +4,10 @@
 
 Public website and design documentation for MALT.
 
-MALT is an authenticated mutable structure layer over immutable
-content-addressed storage. This site presents the public design narrative,
-root-centric resolver/writer model, service boundary, and evaluation plan.
+MALT targets authenticated structured data: data whose relationships can be
+normalized into graph-shaped nodes and relations. This site presents the public
+design narrative, root-centric resolver/writer model, service boundary, and
+evaluation plan.
 
 ## Prerequisites
 

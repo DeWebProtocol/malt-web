@@ -10,7 +10,8 @@ UnixFS+HAMT as the implementation and artifacts mature.
 
 Current readbench systems:
 
-- `maltflat`: pure MALT structure UnixFS over map/list/CAS blob composition
+- `maltflat`: pure MALT structure UnixFS over map/list semantics plus
+  CAS-backed immutable payloads
 - `merkledag`: IPLD UnixFS with basic directory materialization
 - `hamt`: IPLD UnixFS with HAMT directory materialization
 

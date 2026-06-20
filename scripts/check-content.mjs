@@ -24,7 +24,7 @@ const requiredPhrases = new Map([
   ],
   [
     'narrative/abstraction.md',
-    ['authenticated graph semantic layer', 'CanonicalArcSet', '@payload']
+    ['Authenticated Graph-Normalized Structure', 'CanonicalArcSet', '@payload']
   ],
   [
     'narrative/system-design.md',
