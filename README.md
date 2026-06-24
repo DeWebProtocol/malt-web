@@ -43,10 +43,19 @@ Run content and tool-link checks:
 npm test
 ```
 
+## Documentation Ownership
+
+Protocol behavior, verifier-facing schemas, wire-format notes, compatibility
+policy, evaluation rules, and MIPs live in
+[`DeWebProtocol/malt/docs`](https://github.com/dewebprotocol/malt/tree/main/docs).
+This site summarizes concepts, tutorials, and public narrative, and links back
+to the implementation repository for source-of-truth technical details.
+
 ## Related Repositories
 
-- [`DeWebProtocol/malt`](https://github.com/dewebprotocol/malt) — Go implementation
-- [`DeWebProtocol/malt-docs`](https://github.com/dewebprotocol/malt-docs) — Protocol specifications and MIPs (planned)
+- [`DeWebProtocol/malt`](https://github.com/dewebprotocol/malt) — Go implementation, implementation-bound docs, MIPs, benchmarks, and evaluation artifacts
+- [`DeWebProtocol/malt-web`](https://github.com/dewebprotocol/malt-web) — public website, conceptual docs, tutorials, and user-facing design narrative
+- [`DeWebProtocol/.github`](https://github.com/dewebprotocol/.github) — organization profile and community defaults
 
 ## License
 
