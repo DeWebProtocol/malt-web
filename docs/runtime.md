@@ -32,6 +32,7 @@ The server runtime does not:
 - guarantee freshness
 - arbitrate concurrent writers
 - define tenant, quota, ACL, pinning, or garbage-collection policy
+- act as the production managed gateway; that belongs in `DeWebProtocol/gateway`
 
 The server runtime does:
 

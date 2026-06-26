@@ -6,8 +6,8 @@ correctness.
 
 The current static documentation is split between the
 [research narrative](/narrative/problem) and [technical docs](/docs/runtime).
-This page describes what should stay outside MALT core if a managed service is
-added later.
+This page describes what stays outside MALT core now that managed gateway work
+has its own repository boundary.
 
 ## Recommended First Service
 
@@ -30,11 +30,30 @@ an application publication layer is added.
 
 For the current root-centric API surface, see [Root-Centric HTTP API](/docs/api).
 
-## Future Product Surface
+## Managed Gateway Repository
 
-If MALT later exposes accounts, API keys, dashboards, billing, private datasets,
-or managed publication channels, those should live in a separate application
-surface. The documentation site should remain static and verifiable.
+The managed gateway service belongs in `DeWebProtocol/gateway`, not in MALT
+core. That repository owns tenant policy, identity, authorization, root
+publication, backend orchestration, cache policy, S3/Filecoin/IPFS integration,
+quota, and product-level end-to-end tests.
+
+The `DeWebProtocol/malt` repository may keep a small reference/evaluation
+gateway so core behavior can be exercised end to end:
+
+```text
+client -> reference gateway -> MALT core -> CAS
+       <- result + ProofList <-
+client verifies locally
+```
+
+That reference surface should not become the production multi-tenant service.
+
+## Product Surface
+
+If MALT exposes accounts, API keys, dashboards, billing, private datasets, or
+managed publication channels, those should live in the gateway product surface
+or a private deployment overlay. The documentation site should remain static
+and verifiable.
 
 Suggested split when that happens:
 

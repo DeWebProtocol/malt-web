@@ -90,7 +90,8 @@ deltas; see the [Semantic Mutation Contract](/docs/api#semantic-mutation-contrac
 MALT core does not choose the latest root, publish authoritative heads,
 guarantee freshness, arbitrate multi-writer conflicts, provide global
 availability, or define tenant and quota policy. Those are application or
-deployment concerns built around MALT.
+deployment concerns built around MALT. Managed gateway service behavior belongs
+in the separate `DeWebProtocol/gateway` repository.
 
 ## Where to Go Next
 

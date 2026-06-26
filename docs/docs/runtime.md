@@ -122,4 +122,6 @@ accepted correctness comes from local verification against a trusted root.
 MALT core does not define root freshness, latest-root discovery, global
 availability, tenant policy, quota, ACL, pinning, garbage collection, or
 multi-writer merge policy. Those belong to applications or deployments built
-around MALT.
+around MALT. Managed gateway service behavior now belongs in the separate
+`DeWebProtocol/gateway` repository; this repository's daemon/server remains a
+reference runtime and evaluation surface for explicit-root behavior.
