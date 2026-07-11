@@ -10,7 +10,9 @@ VerifyRead(root, query, result, ProofList) -> valid / invalid
 ```
 
 The root is supplied by the caller. The server runtime may assemble the
-`ProofList`, but the reader verifies the result locally.
+`ProofList`, but the reader verifies the result locally with the portable
+`auth/verifier` kernel. Verification does not require ArcTable, CAS, a graph
+runtime, a layout, a server, a daemon, or network access.
 
 ## What a ProofList Covers
 
@@ -29,8 +31,11 @@ For list-backed byte ranges, the current implementation resolves the path and
 terminal `@payload` binding, then appends one measured-list `list_range` step.
 That step carries authenticated fixed chunk metadata, the segment CIDs covering
 the requested range, and a proof payload composed from metadata and index
-proofs. Response-body range binding remains a ProofList-schema item to
-formalize.
+proofs. The ProofList authenticates the metadata and ordered segment CIDs. A
+UnixFS caller that accepts returned bytes must additionally call
+`layout/unixfs.VerifyRangeBody` (or perform an equivalent binding check) to
+fetch/check those CIDs and bind the exact response body to the authenticated
+range.
 
 The server runtime is not trusted for correctness. If it returns an
 inconsistent result, stale materialization, or a forged transcript, verification
@@ -53,14 +58,21 @@ Vary: X-Malt-Proof
 `malt verify --prooflist` accepts either a bare ProofList JSON object or a
 resolve response containing a `prooflist` field.
 
-## Schema Status
+## Artifact Profile Status
 
-The current implementation exposes a compatibility `ProofList` transport for
-the prototype. The paper-facing concrete step schema remains intentionally deferred
-while the benchmark-facing read/result schema stabilizes.
+[`v0.0.3`](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.3) publishes
+the current ProofList contract as the experimental `v0alpha1` artifact profile.
+The envelope is verifier-facing and implementation-bound, but it has no embedded
+version discriminator and no stable named JSON Schema.
 
-Public documentation should therefore depend on the verifier-facing contract
-and the current transport headers, not on an unstable internal step layout.
+Consumers should pin the MALT release and bind the ProofList to the expected
+typed root, query, target, and range segments. They should not treat the current
+JSON fields as a stable cross-release wire contract.
+
+`@payload` is reserved but optional for generic maps. UnixFS requires it for its
+file and directory maps, so UnixFS proof paths include the terminal
+`payload_binding` step described above; relation-only generic maps do not need
+one.
 
 ## Freshness Boundary
 

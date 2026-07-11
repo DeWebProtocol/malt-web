@@ -5,31 +5,25 @@ client-verifiable authentication system for graph-normalized structured data.
 Immutable payloads can be stored in CAS, while MALT authenticates the
 relationships that bind structure together.
 
-## Layering
+## Separated System Concerns
 
-The system is organized around a narrow semantic core:
+The system keeps payload storage, relation authentication, and execution/access
+separate:
 
 ```text
-Application layout
-    |
-    v
-Semantic layer: list / map
-    |
-    v
-ArcTable: root-recoverable arcset materialization
-    |
-    v
-Commitment backend: stateless proof primitive
-    |
-    v
-KV state + CAS payloads
+Payload plane          Portable authentication kernel       Execution plane
+CAS + payload CIDs     canonical arcs, list/map proofs,      layouts, ArcTable,
+                      VC verification, ProofLists           caches, gateways
+        |                            ^                              |
+        +------ authenticated target+------ result + proof --------+
 ```
 
-Application layout translates source-domain data into semantic mutations. The
-semantic layer defines list and map behavior. ArcTable persists and
-materializes arcsets. The stateless commitment backend authenticates primitive
-cell vectors, while the semantic packages expose storage-free single-step
-commitment facades for list/map slot proofs.
+Application layouts translate source-domain data into semantic mutations. The
+module-root `malt` package exposes typed read, apply, and verify operations.
+`auth/verifier` checks real list/map/range ProofLists without ArcTable, CAS, a
+runtime, a layout, a server, or network access. ArcTable and other execution
+components may accelerate proof generation but cannot make an invalid answer
+acceptable.
 
 ## Semantic Layer
 
@@ -37,7 +31,7 @@ The semantic layer is the architectural center.
 
 - `list` describes ordered or indexed child references.
 - `map` describes authenticated keyed or path-like relations.
-- every map semantic object carries the reserved `@payload` binding.
+- `@payload` is reserved but optional for generic maps; layouts may require it.
 
 Layouts produce semantic mutations, and graph ports expose resolver reads and
 writer mutations over list/map semantics. This keeps the public model
@@ -56,7 +50,8 @@ storage prefixes, snapshots, or versioned recovery internally. Those details
 are not semantic identity, commitment input, `ProofList` input, or verifier
 input.
 
-An incorrect ArcTable result is rejected by root-relative verification.
+ArcTable is untrusted materialization. An incorrect ArcTable result is rejected
+by root-relative verification.
 
 ## Commitment Backend
 
@@ -82,6 +77,10 @@ single-step facades:
 Those facades expose storage-free `Commit`, `ProveSlot`, and `VerifySlot`
 operations. `runtime/semantic/list/tree` and `runtime/semantic/mapping/radix`
 compose them with ArcTable access and multi-step traversal.
+
+The portable authentication kernel in `auth/verifier` selects a supported VC
+verification backend from the typed MALT root. The current built-in backends
+cover KZG and IPA roots.
 
 ## Graph Ports and Layouts
 
@@ -123,3 +122,8 @@ In the current MALT UnixFS direction:
 
 This layout demonstrates that the semantic layer can support practical file
 and directory behavior while keeping payload identity unchanged.
+
+The current implementation is published as the experimental
+[`v0.0.3`](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.3)
+`v0alpha1` contract. It is a source release, not a production managed service
+or stable API line.

@@ -4,10 +4,17 @@
 
 Public website and design documentation for MALT.
 
-MALT targets authenticated structured data: data whose relationships can be
-normalized into graph-shaped nodes and relations. This site presents the public
-design narrative, root-centric resolver/writer model, service boundary, and
-evaluation plan.
+MALT is a general arc-granularity data-authentication system for graph-shaped
+relations. Vector-commitment backends authenticate arcs, immutable payloads
+remain in content-addressed storage (CAS), and untrusted execution components
+locate and serve proofs. UnixFS is one application layout over that core.
+
+## Current Release
+
+[`v0.0.3`](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.3) is an
+experimental source release of the module-root `malt` facade and portable
+`auth/verifier` kernel. Its verifier-facing artifact profile is `v0alpha1`;
+APIs and wire shapes are not yet stable for production use.
 
 ## Prerequisites
 

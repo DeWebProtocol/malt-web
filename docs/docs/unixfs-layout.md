@@ -22,6 +22,15 @@ In pure MALT structure UnixFS:
 Payload and chunks remain ordinary CAS data. MALT authenticates the structure
 that binds paths, payloads, and chunk lists together.
 
+UnixFS requires `@payload` on its file and directory maps. That is a layout
+invariant, not a generic map rule: relation-only MALT maps may omit or delete
+the reserved coordinate.
+
+For byte ranges, ProofList verification authenticates fixed chunk metadata and
+the ordered segment CIDs. A caller accepting returned range bytes must also use
+`layout/unixfs.VerifyRangeBody` or an equivalent check to bind those bytes to
+the authenticated segments.
+
 ## Current MALT Layout Flags
 
 `flat` and `hierarchical` are the current user-facing MALT UnixFS layout names.

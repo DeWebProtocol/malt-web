@@ -24,11 +24,16 @@ const requiredPhrases = new Map([
   ],
   [
     'narrative/abstraction.md',
-    ['Authenticated Graph-Normalized Structure', 'CanonicalArcSet', '@payload']
+    [
+      'Authenticated Graph-Normalized Structure',
+      'Payload storage',
+      'Relation authentication',
+      'Execution and access'
+    ]
   ],
   [
     'narrative/system-design.md',
-    ['Application layout', 'ArcTable', 'stateless commitment backend']
+    ['Portable authentication kernel', 'ArcTable', 'untrusted materialization']
   ],
   [
     'narrative/evaluation-story.md',
@@ -36,7 +41,12 @@ const requiredPhrases = new Map([
   ],
   [
     'docs/runtime.md',
-    ['malt add', 'malt-eval read', 'graph boundary around resolver and writer ports']
+    [
+      'package malt',
+      'auth/verifier',
+      'graph/verifier',
+      'graph boundary around resolver and writer ports'
+    ]
   ],
   [
     'docs/api.md',
@@ -51,7 +61,8 @@ const requiredPhrases = new Map([
     [
       'Read(root, query) -> result + ProofList',
       'X-Malt-ProofList-Encoding',
-      'schema remains intentionally deferred'
+      'layout/unixfs.VerifyRangeBody',
+      'no stable named JSON Schema'
     ]
   ],
   [

@@ -26,7 +26,7 @@ const appFallbackRedirectScript = `<script>
 
 export default defineConfig({
   title: 'MALT',
-  description: 'Authenticated mutable structure over immutable content-addressed storage.',
+  description: 'Arc-granularity data authentication for graph-shaped relations.',
   lang: 'en-US',
   cleanUrls: true,
   base: process.env.BASE_PATH || '/',
@@ -45,7 +45,7 @@ export default defineConfig({
       {
         property: 'og:description',
         content:
-          'Authenticated mutable structure over immutable content-addressed storage.'
+          'Arc-granularity data authentication for graph-shaped relations.'
       }
     ]
   ],
@@ -58,7 +58,11 @@ export default defineConfig({
       { text: 'Narrative', link: '/narrative/problem' },
       { text: 'Docs', link: '/docs/runtime' },
       { text: 'Runtime', link: '/runtime' },
-      { text: 'Service', link: '/service' }
+      { text: 'Service', link: '/service' },
+      {
+        text: 'v0.0.3',
+        link: 'https://github.com/DeWebProtocol/malt/releases/tag/v0.0.3'
+      }
     ],
     sidebar: [
       {
@@ -120,13 +124,14 @@ export default defineConfig({
       }
     ],
     socialLinks: [
+      { icon: 'github', link: 'https://github.com/dewebprotocol/malt' },
       { icon: 'github', link: 'https://github.com/dewebprotocol/malt-web' }
     ],
     search: {
       provider: 'local'
     },
     footer: {
-      message: 'MALT separates payload identity from authenticated structure.',
+      message: 'MALT separates payload storage, arc authentication, and execution.',
       copyright: 'Released as project documentation for the MALT research prototype.'
     },
     editLink: {

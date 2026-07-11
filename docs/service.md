@@ -38,15 +38,21 @@ publication, backend orchestration, cache policy, S3/Filecoin/IPFS integration,
 quota, and product-level end-to-end tests.
 
 The `DeWebProtocol/malt` repository may keep a small reference/evaluation
-gateway so core behavior can be exercised end to end:
+gateway so core behavior can be exercised end to end. Payload storage and MALT
+authentication are separate capabilities orchestrated by the gateway:
 
 ```text
-client -> reference gateway -> MALT core -> CAS
-       <- result + ProofList <-
-client verifies locally
+                         +-> MALT execution/core -> result + ProofList
+client -> reference gateway
+                         +-> CAS payloads --------> bytes identified by CID
+
+client verifies the ProofList against its trusted root and checks payload bytes
+against the authenticated CID
 ```
 
-That reference surface should not become the production multi-tenant service.
+CAS is not hidden behind or defined by MALT core, and the gateway is not part of
+the authentication trust boundary. That reference surface should not become
+the production multi-tenant service.
 
 ## Product Surface
 

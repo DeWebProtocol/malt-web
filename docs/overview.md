@@ -3,10 +3,10 @@
 MALT targets authenticated structured data: data whose relationships can be
 normalized into graph-shaped nodes and relations.
 
-MALT defines how those structural relationships are expressed, persisted,
-authenticated, read, written, and verified. Immutable payload objects can remain
-ordinary CAS content identified by CIDs, but CAS is introduced as a natural
-payload substrate rather than the first definition of the abstraction.
+MALT authenticates those relationships at arc granularity. Immutable payload
+objects remain ordinary CAS content identified by CIDs, vector-commitment (VC)
+backends commit to typed relations, and execution/access components locate and
+serve results without entering the correctness trust boundary.
 
 The website has two main lanes:
 
@@ -23,10 +23,12 @@ force ancestor-dependent rewrites and retrieval-depth costs.
 
 MALT changes the boundary:
 
-- structure is authenticated by independent structure roots
+- typed arcs are authenticated under independent structure roots
 - `list` and `map` define typed semantic reads and writes
-- ArcTable materializes root-relative structure state for efficient access
-- stateless commitment backends produce verifier-facing proofs
+- VC backends produce verifier-facing commitments and proofs
+- the portable `auth/verifier` checks proofs without runtime or storage access
+- ArcTable materializes root-relative state for efficient access but remains
+  untrusted execution state
 - reads return `result + ProofList` for local verification
 - resolver and writer ports expose this runtime behavior without owning the
   list/map semantics
@@ -35,27 +37,24 @@ MALT changes the boundary:
 The claim is not that updates become free. The claim is that MALT replaces
 implicit ancestor-rewrite costs with explicit, verifiable structure maintenance.
 
-## Layering
+## Three Separated Concerns
 
 ```text
-Application layout
-    |
-    v
-Semantic layer: list / map
-    |
-    v
-ArcTable: root-recoverable arcset materialization
-    |
-    v
-Commitment backend: stateless proof primitive
-    |
-    v
-KV state + CAS payloads
+Payload storage       Arc authentication          Execution and access
+CAS objects + CIDs    typed arcs + VC proofs      layouts, ArcTable, caches,
+        |              auth/verifier               daemons, gateways
+        |                     ^                            |
+        +--- payload CID -----+--- result + ProofList -----+
 ```
 
-The semantic interfaces live with `auth/semantic/list` and
-`auth/semantic/mapping`. The graph runtime is a composition boundary around
-resolver and writer ports, not a second node-interface hierarchy.
+The module-root `malt` package is the application-neutral facade for typed
+reads, mutations, and verification. The semantic interfaces live with
+`auth/semantic/list` and `auth/semantic/mapping`; `auth/verifier` is the
+portable authentication kernel. The graph runtime is a composition boundary
+around resolver and writer ports, not a second node-interface hierarchy.
+
+UnixFS is one layout that composes these primitives. It is not the definition
+of the core abstraction.
 
 ## Read Interface
 
@@ -92,6 +91,10 @@ guarantee freshness, arbitrate multi-writer conflicts, provide global
 availability, or define tenant and quota policy. Those are application or
 deployment concerns built around MALT. Managed gateway service behavior belongs
 in the separate `DeWebProtocol/gateway` repository.
+
+The current [`v0.0.3`](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.3)
+contract is an experimental `v0alpha1` source profile, not a production
+stability promise.
 
 ## Where to Go Next
 

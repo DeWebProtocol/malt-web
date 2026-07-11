@@ -7,6 +7,24 @@ The source of truth for current executable behavior is the sibling
 implementation repository. The website summarizes the public runtime boundary
 so readers can connect the research model to the prototype.
 
+The current source release is
+[`v0.0.3`](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.3). It exposes
+an experimental `v0alpha1` facade and proof-artifact profile; consumers should
+pin the release and should not treat its API or JSON shape as production-stable.
+
+## Portable Core Surface
+
+The module-root `package malt` is the application-neutral integration facade.
+It exposes typed `Query`, `ReadRequest`, `ReadResult`, and
+`Engine.Read`/`Apply`/`VerifyRead` operations for primitive map, list-index, and
+measured-list-range queries.
+
+`auth/verifier` is the portable authentication kernel. It verifies runtime-
+generated map, list, and range ProofLists without ArcTable, CAS, layout,
+server, daemon, or network access. `graph/verifier` is a thin adapter that lets
+the reference graph runtime use that same kernel; it is not a second verifier
+implementation.
+
 ## Public CLI
 
 The current public `malt` CLI is intentionally small:
@@ -85,6 +103,8 @@ prototype modules mapped to the semantic model:
 
 | Package | Role |
 |---|---|
+| module-root `package malt` | Experimental typed read, mutation, and verification facade for application-neutral integrations. |
+| `auth/verifier` | Portable ProofList verification kernel with built-in KZG and IPA verification support. |
 | `auth/commitment` | Stateless primitive commitment backends for cell-vector commit/prove/verify/update. |
 | `auth/arcset` | Canonical path and arcset representation. |
 | `runtime/arctable` | Root-recoverable arcset persistence and materialization. |
@@ -102,6 +122,7 @@ prototype modules mapped to the semantic model:
 | `cmd/cas` | Standalone local mock CAS HTTP server for development and controlled-latency evaluation. |
 | `storage/kv` | Generic persistence adapters. |
 | `graph/resolver` | Resolver read/proof port and explicit MALT path. |
+| `graph/verifier` | Thin reference-runtime adapter over `auth/verifier`. |
 | `graph/writer` | Mutation model and executor. |
 | `graph` | Graph contracts around resolver and writer ports. |
 | `runtime/graph` | Concrete graph runtime composition around resolver and writer executors. |

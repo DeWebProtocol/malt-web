@@ -46,9 +46,14 @@ Native writes:
 - replace
 - delete
 
-Every MALT-native map semantic object carries a reserved `@payload` binding.
-That binding is the terminal materialization relation for map semantic objects;
-list roots do not implicitly redirect through `@payload`.
+`@payload` is a reserved coordinate but is optional for a generic map. A
+relation-only map may omit or delete it. When present, the binding is terminal
+and uses `payload_binding` proof semantics; list roots do not implicitly
+redirect through `@payload`.
+
+UnixFS file and directory maps require `@payload` as a layout invariant. Other
+layouts may require it, omit it, or reserve additional coordinates without
+changing generic map semantics.
 
 ## Path Resolution
 
