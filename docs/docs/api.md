@@ -1,176 +1,127 @@
-# Root-Centric HTTP API
+# Gateway and Artifact API
 
-The current prototype exposes a root-centric HTTP surface. The caller supplies
-the root that should be verified; server-side resolver and writer routes
-execute root-relative reads and mutations, returning result data plus proof
-material unless proof generation is explicitly omitted.
+The product-facing browser and SDK boundary is the MALT Gateway at
+`http://127.0.0.1:8080` by default. It delegates execution to a MALT daemon but
+preserves the core `malt.artifact/v0alpha2` contract instead of inventing a
+second proof format.
 
-## Read Routes
-
-```text
-GET|HEAD /{root}/{path...}
-GET /resolve/{root}[/{path...}]
-```
-
-`GET|HEAD /{root}/{path...}` is the default content route. A successful `GET`
-returns the loaded file or directory result in the body. When proof generation
-is enabled, verifier-facing proof material is carried in headers.
-
-`GET /resolve/{root}[/{path...}]` returns an explicit resolve response. This is
-the route used by `malt resolve`.
-
-## Write and Root Routes
+## Resolve, Prove, Verify
 
 ```text
-POST /_
-POST /_unixfs?path=<path>
-POST /{root}/{path...}
-POST /{root}/_mutate
+POST /v1/artifacts/resolve
+POST /v1/artifacts/prove
+POST /v1/artifacts/verify
 ```
 
-`POST /_` creates a root.
-
-`POST /_unixfs?path=<path>` writes file bytes into a new UnixFS root. `POST
-/{root}/{path...}` writes file bytes into an existing UnixFS root and returns
-the updated root. Root-scoped UnixFS writes require `{root}` to already be a
-UnixFS root by default. Legacy map roots can be migrated only with explicit
-`migrate=1` opt-in, so browser uploads fail fast instead of implicitly
-traversing and migrating a whole legacy tree. `POST /{root}/_mutate` is the
-root-scoped semantic mutation path. The UnixFS and semantic mutation routes use
-the writer mutation boundary instead of exposing mutable public heads.
-
-## Semantic Mutation Contract
-
-`POST /{root}/_mutate` accepts layout-produced semantic mutations. The request
-body carries canonical arc deltas, not source-domain file operations:
+Resolve accepts canonical segments:
 
 ```json
 {
-  "deltas": [
-    {
-      "object": "<existing map/list root, omitted for creation>",
-      "expected_root": "<optional replay check root>",
-      "kind": "map",
-      "changes": [
-        {
-          "path": "@payload",
-          "before": { "target": "<old CID>", "target_kind": "cas" },
-          "after": { "target": "<new CID>", "target_kind": "list" }
-        }
-      ]
-    },
-    {
-      "kind": "list",
-      "changes": [
-        {
-          "index": 0,
-          "after": { "target": "<chunk CID>", "target_kind": "cas" }
-        }
-      ],
-      "commit": {
-        "fixed_list": {
-          "total_size": 1048576,
-          "chunk_size": 262144
-        }
-      }
-    }
-  ]
+  "profile": "malt.artifact/v0alpha2",
+  "root": "<trusted MALT root>",
+  "segments": ["a", "b", "c", "d"]
 }
 ```
 
-Each delta applies to one semantic object. `kind` selects the coordinate
-domain: map deltas use canonical path/key coordinates through `path`, while
-list deltas use canonical index coordinates through `index`. `before` and
-`after` describe one coordinate transition; omitting `before` means the
-coordinate is expected to be absent, and omitting `after` means deletion.
+The client does not need to know whether the graph consumes those segments as
+arcs `a/b`, `c`, and `d`. The reference resolver may prefer the longest prefix
+at each root. Verification authenticates the complete returned derivation; it
+does not claim that the chosen derivation was longest or unique.
 
-Targets are typed references. `target_kind` may be `cas`, `map`, `list`, or
-`unknown`; omitting it keeps the target CID but treats the semantic target type
-as unknown for compatibility. The optional `commit.fixed_list` descriptor is
-valid only for list deltas. It lets large-file UnixFS materialization replay a
-measured fixed-width list root with the committed `total_size` and
-`chunk_size`.
-
-`expected_root` is an optional replay guard. When present, the writer checks
-that applying the delta reproduces the layout's expected semantic root. It is
-not a head publication or freshness mechanism.
-
-The response is a materialization receipt:
+Prove accepts one primitive typed query:
 
 ```json
 {
-  "base_root": "<request root>",
-  "new_root": "<resulting root>",
-  "result_root": "<resulting root>",
-  "delta_count": 2,
-  "arc_count": 3,
-  "malt_object_count": 2,
-  "map_count": 1,
-  "list_count": 1
+  "profile": "malt.artifact/v0alpha2",
+  "root": "<trusted MALT root>",
+  "query": {"kind": "map_key", "segments": ["account", "name"]}
 }
 ```
 
-The receipt counts are operational accounting. `delta_count` counts semantic
-object deltas, `arc_count` counts canonical coordinate changes, and
-`map_count` / `list_count` count deltas by semantic kind. These counts help
-storage and evaluation accounting; they are not verifier evidence and do not
-replace root recomputation or ProofList verification.
+Other primitive kinds are `list_index` and `list_range`. Path composition is a
+resolve operation, not a primitive prove query.
 
-## Auxiliary Routes
+Verify accepts the complete artifact returned by resolve or prove:
 
-The daemon also exposes runtime support endpoints:
-
-```text
-GET /health
-GET /metrics
-POST /metrics:reset
-POST /verify
+```json
+{
+  "profile": "malt.artifact/v0alpha2",
+  "artifact": {"profile": "malt.artifact/v0alpha2", "operation": "resolve"}
+}
 ```
 
-`/metrics` and `/metrics:reset` support local evaluation counter collection.
-`/verify` is the daemon-side verification helper used by clients that want to
-delegate compatibility verification checks, while the core correctness model
-still assumes clients can verify locally against the selected root.
+The abbreviated artifact above only shows the envelope. A real request carries
+its root, query, target, and ProofList. A response is:
 
-Browser tools can call the local daemon when their origin is listed in
-`rpc.cors_allowed_origins`. Defaults include local VitePress dev/preview
-origins and the current public documentation origins. CORS is limited to
-read/proof routes, `POST /verify`, and the UnixFS upload conveniences
-`POST /_unixfs?path=...` and `POST /{root}/{path...}`. Root-scoped browser
-uploads still follow the UnixFS-root-only default; they do not request legacy
-migration. Admin routes and raw semantic mutation routes are not exposed
-through the browser CORS path.
+```json
+{"profile":"malt.artifact/v0alpha2","valid":true}
+```
 
-## Proof Transport
+JSON shape validation is not proof verification. The verifier also binds the
+root, query, target, ordered steps, optional range segments, and cryptographic
+evidence. Normative schemas and semantics live in the
+[`DeWebProtocol/malt` artifact spec](https://github.com/DeWebProtocol/malt/blob/v0.0.4/docs/spec/artifacts.md).
 
-Proof-bearing content reads use response headers:
+## Product Content Routes
+
+The current UnixFS product scenario uses gateway content routes:
+
+```text
+GET|HEAD /v1/roots/{root}/content[/{path...}]
+POST     /v1/roots/{root}/content/{path...}
+POST     /v1/content/new?path={path}
+```
+
+`GET` returns file bytes or directory JSON. `HEAD` returns stat metadata.
+`POST /v1/content/new` creates a new UnixFS root, while root-scoped `POST`
+writes into an existing UnixFS root and returns the updated root.
+
+Content reads preserve proof headers from the reference daemon:
 
 ```text
 X-Malt-ProofList: <base64url(JSON ProofList)>
 X-Malt-ProofList-Encoding: base64url-json
-Vary: X-Malt-Proof
+X-Malt-Key: <resolved key CID>
+X-Malt-Payload: <optional payload CID>
 ```
 
-Clients that only need bytes can opt out of proof materialization:
+The website reconstructs the complete profiled artifact from the explicit root,
+segment path, returned target, and ProofList before calling gateway verify.
+
+## Trust and Deployment Boundary
+
+The gateway is untrusted for correctness. It can authenticate callers, enforce
+tenant policy, publish roots, cache, and orchestrate storage, but clients accept
+results only after verification against a root selected by the application.
+
+The open gateway currently provides a permissive local product path around a
+configured daemon. Production identity, authorization, quota, cache, billing,
+abuse controls, and provider-specific S3/IAM policy remain deployment work.
+
+Browser origins are configured through `GATEWAY_CORS_ALLOWED_ORIGINS`. The
+gateway forwards only selected request and response headers required for
+content, byte ranges, and proof transport.
+
+## Reference Daemon Routes
+
+The MALT repository retains local/reference routes such as:
 
 ```text
-GET /{root}/{path...}?proof=false
-X-Malt-Proof: omit
+GET /resolve/{root}[/{path...}]
+GET|HEAD /{root}[/{path...}]
+POST /_unixfs?path={path}
+POST /{root}/{path...}
+POST /{root}/_mutate
+POST /verify
 ```
 
-Opting out removes proof materialization from the response. It does not change
-the root-centric correctness model for clients that require verification.
+These routes support the CLI, evaluation, and compatibility clients. New
+gateway, daemon, and SDK integrations should use the profiled artifact contract
+for resolve/prove/verify. Managed products should not copy reference runtime
+admin or mutation routes as their public contract.
 
-## Removed Public Surface
+## Root Policy
 
-The public bucket/head routes are removed. Runtime storage placement and local
-working-root conveniences are not semantic identity, verifier input, ProofList
-input, or authoritative head state.
-
-The legacy content-route `format=resolve` and `format=proof` modes are removed.
-Resolve transcripts use `/resolve/{root}[/{path...}]`; proof-bearing content
-reads return content in the body and carry verifier evidence in
-`X-Malt-ProofList`.
-
-Removed public routes such as `POST /{root}/_batch-update` remain reserved so
-they do not fall through to content routes.
+Neither the gateway nor core verification proves that a root is fresh, latest,
+or authorized. Root publication, rollback prevention, and multi-writer policy
+belong to the application or managed gateway layer.

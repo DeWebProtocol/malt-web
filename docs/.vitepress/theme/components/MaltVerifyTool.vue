@@ -1,8 +1,8 @@
 <script setup>
 import { onMounted, ref } from 'vue'
-import { defaultDaemonURL, extractProofListInput, verifyProofList } from '../malt-client.mjs'
+import { defaultGatewayURL, extractArtifactInput, verifyProofList } from '../malt-client.mjs'
 
-const baseURL = ref(defaultDaemonURL)
+const baseURL = ref(defaultGatewayURL)
 const proofInput = ref('')
 const busy = ref(false)
 const error = ref('')
@@ -20,8 +20,8 @@ async function runVerify() {
   verification.value = null
   busy.value = true
   try {
-    const proofList = extractProofListInput(proofInput.value)
-    verification.value = await verifyProofList({ baseURL: baseURL.value, proofList })
+    const artifact = extractArtifactInput(proofInput.value)
+    verification.value = await verifyProofList({ baseURL: baseURL.value, artifact })
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
   } finally {
@@ -44,11 +44,11 @@ async function runVerify() {
 
     <div class="malt-tool__grid is-single">
       <label>
-        <span>Daemon URL</span>
+        <span>Gateway URL</span>
         <input v-model="baseURL" autocomplete="off" spellcheck="false" />
       </label>
       <label>
-        <span>ProofList JSON</span>
+        <span>Artifact or ProofList JSON</span>
         <textarea v-model="proofInput" spellcheck="false" rows="14" />
       </label>
     </div>

@@ -8,7 +8,7 @@ import {
   appFallbackStorageKey,
   buildAppStatePath,
   defaultCASURL,
-  defaultDaemonURL,
+  defaultGatewayURL,
   joinMaltPath,
   normalizeUploadPath,
   pathBasename,
@@ -25,7 +25,7 @@ import {
   verifyProofList
 } from '../malt-client.mjs'
 
-const baseURL = ref(defaultDaemonURL)
+const baseURL = ref(defaultGatewayURL)
 const casURL = ref(defaultCASURL)
 const profileInput = ref('')
 const activeProfile = ref('')
@@ -247,7 +247,7 @@ function signIn() {
   const saved = loadStoredProfile(name)
   const routeState = currentAppRouteState()
   const hasRouteRoot = Boolean(routeState?.root)
-  baseURL.value = saved.baseURL || baseURL.value || defaultDaemonURL
+  baseURL.value = saved.baseURL || baseURL.value || defaultGatewayURL
   casURL.value = saved.casURL || casURL.value || defaultCASURL
   root.value = hasRouteRoot ? routeState.root : saved.root || ''
   currentPath.value = root.value ? (hasRouteRoot ? routeState.path : saved.currentPath || '') : ''
@@ -276,7 +276,7 @@ function signOut() {
   persistProfile()
   activeProfile.value = ''
   profileInput.value = ''
-  baseURL.value = defaultDaemonURL
+  baseURL.value = defaultGatewayURL
   casURL.value = defaultCASURL
   root.value = ''
   currentPath.value = ''
@@ -1290,6 +1290,8 @@ async function verifyAndMark(path, proofList) {
     verifyProofList({
       baseURL: baseURL.value,
       proofList,
+      root: root.value,
+      path,
       signal
     })
   )
@@ -1680,7 +1682,7 @@ function formatSize(size) {
             <input v-model="root" autocomplete="off" spellcheck="false" />
           </label>
           <label>
-            <span>Daemon URL</span>
+            <span>Gateway URL</span>
             <input v-model="baseURL" autocomplete="off" spellcheck="false" />
           </label>
           <label>

@@ -9,26 +9,28 @@ The current static documentation is split between the
 This page describes what stays outside MALT core now that managed gateway work
 has its own repository boundary.
 
-## Recommended First Service
+## Current First Product
 
-Start with a hosted server runtime for explicit-root reads:
+The open gateway now provides an explicit-root product path:
 
 ```text
 Read(root, query) -> result + ProofList
 ```
 
-This service can provide:
+This service provides the integration boundary for:
 
 - public demo roots
 - root-relative file and directory reads
 - ProofList-bearing responses
 - examples for CLI and HTTP clients
 - reproducible benchmark datasets
+- profiled `resolve`, `prove`, and `verify` artifacts
+- UnixFS content streaming and browser uploads through a local daemon backend
 
 It should not claim to provide global freshness or latest-head discovery unless
 an application publication layer is added.
 
-For the current root-centric API surface, see [Root-Centric HTTP API](/docs/api).
+For the current API surface, see [Gateway and Artifact API](/docs/api).
 
 ## Managed Gateway Repository
 

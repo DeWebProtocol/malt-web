@@ -8,9 +8,9 @@ implementation repository. The website summarizes the public runtime boundary
 so readers can connect the research model to the prototype.
 
 The current source release is
-[`v0.0.3`](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.3). It exposes
-an experimental `v0alpha1` facade and proof-artifact profile; consumers should
-pin the release and should not treat its API or JSON shape as production-stable.
+[`v0.0.4`](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.4). It keeps
+the experimental primitive facade and adds canonical segment paths plus the
+explicit `malt.artifact/v0alpha2` resolve/prove/verify profile and schemas.
 
 ## Portable Core Surface
 
@@ -24,6 +24,11 @@ generated map, list, and range ProofLists without ArcTable, CAS, layout,
 server, daemon, or network access. `graph/verifier` is a thin adapter that lets
 the reference graph runtime use that same kernel; it is not a second verifier
 implementation.
+
+The unversioned `artifact` package is the cross-process integration contract.
+Versioning lives in its serialized profile and schemas, not in Go package
+names. A resolver receives segment arrays and may compose several authenticated
+arcs without requiring the client to discover arc boundaries first.
 
 ## Public CLI
 
@@ -45,9 +50,11 @@ built from `cmd/cas`; local development normally runs it at
 `http://127.0.0.1:4318` and points daemon `cas.base_url` at that external CAS
 endpoint.
 
-The website App uses the same local daemon boundary from the browser. It can
-upload files or browser-selected folders through the UnixFS write routes, then
-resolve from the resulting root and verify the returned ProofList response.
+The website App calls the local MALT Gateway at `http://127.0.0.1:8080`. The
+gateway delegates to the daemon at `http://127.0.0.1:4317`, streams UnixFS
+content, and exposes the profiled artifact endpoints. The App can upload files
+or browser-selected folders, resolve from the resulting root, and verify the
+complete returned artifact.
 When the current root is not already a UnixFS root, browser uploads fail fast;
 legacy-root migration is a daemon compatibility opt-in rather than a default
 browser action.
@@ -104,6 +111,7 @@ prototype modules mapped to the semantic model:
 | Package | Role |
 |---|---|
 | module-root `package malt` | Experimental typed read, mutation, and verification facade for application-neutral integrations. |
+| `artifact` | Profiled resolve/prove/verify envelopes, verification binding, schemas, and conformance fixtures. |
 | `auth/verifier` | Portable ProofList verification kernel with built-in KZG and IPA verification support. |
 | `auth/commitment` | Stateless primitive commitment backends for cell-vector commit/prove/verify/update. |
 | `auth/arcset` | Canonical path and arcset representation. |

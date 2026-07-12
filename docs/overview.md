@@ -30,6 +30,10 @@ MALT changes the boundary:
 - ArcTable materializes root-relative state for efficient access but remains
   untrusted execution state
 - reads return `result + ProofList` for local verification
+- clients submit segment arrays without discovering how a graph groups a long
+  path into authenticated arcs
+- the `malt.artifact/v0alpha2` envelope standardizes resolve, primitive prove,
+  and verify across gateways, daemons, and SDKs
 - resolver and writer ports expose this runtime behavior without owning the
   list/map semantics
 - immutable payloads can remain ordinary CAS data
@@ -92,9 +96,9 @@ availability, or define tenant and quota policy. Those are application or
 deployment concerns built around MALT. Managed gateway service behavior belongs
 in the separate `DeWebProtocol/gateway` repository.
 
-The current [`v0.0.3`](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.3)
-contract is an experimental `v0alpha1` source profile, not a production
-stability promise.
+The current [`v0.0.4`](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.4)
+source release publishes canonical segments and the profiled artifact contract.
+It remains pre-`v1` and is not a production stability promise.
 
 ## Where to Go Next
 

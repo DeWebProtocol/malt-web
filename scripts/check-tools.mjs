@@ -5,12 +5,16 @@ import { fileURLToPath } from 'node:url'
 
 import {
   appFallbackStorageKey,
+  artifactProfile,
   ancestorDirectoryPaths,
   buildAppStatePath,
   buildContentURL,
+  buildProveURL,
   buildUnixFSWriteURL,
   buildResolveURL,
+  buildVerifyURL,
   decodeProofListHeader,
+  extractArtifactInput,
   extractProofListInput,
   isAppStateRoute,
   joinMaltPath,
@@ -18,7 +22,8 @@ import {
   parseAppStatePath,
   pathBasename,
   pathParent,
-  profileStorageKey
+  profileStorageKey,
+  resolveArtifactFromProofList
 } from '../docs/.vitepress/theme/malt-client.mjs'
 
 const root = path.dirname(fileURLToPath(import.meta.url))
@@ -109,7 +114,7 @@ for (const pattern of [
   /malt-app__icon-button/,
   /settingsOpen/,
   /malt-app__settings/,
-  /Daemon URL/,
+  /Gateway URL/,
   /CAS URL/,
   /compareEntries/,
   /entryKindOrder/,
@@ -419,21 +424,46 @@ const verifyPage = fs.readFileSync(path.join(docsRoot, 'tools/verify.md'), 'utf8
 assert.match(verifyPage, /<MaltVerifyTool\s*\/>/)
 
 assert.equal(
-  buildResolveURL('http://127.0.0.1:4317/', 'bafkqaaa', 'docs/read me').toString(),
-  'http://127.0.0.1:4317/resolve/bafkqaaa/docs/read%20me'
+  buildResolveURL('http://127.0.0.1:8080/', 'bafkqaaa', 'docs/read me').toString(),
+  'http://127.0.0.1:8080/v1/artifacts/resolve'
 )
 assert.equal(
-  buildContentURL('http://127.0.0.1:4317', 'bafkqaaa', 'docs/read me').toString(),
-  'http://127.0.0.1:4317/bafkqaaa/docs/read%20me'
+  buildProveURL('http://127.0.0.1:8080').toString(),
+  'http://127.0.0.1:8080/v1/artifacts/prove'
 )
 assert.equal(
-  buildUnixFSWriteURL('http://127.0.0.1:4317', '', 'docs/read me').toString(),
-  'http://127.0.0.1:4317/_unixfs?path=docs%2Fread+me'
+  buildVerifyURL('http://127.0.0.1:8080').toString(),
+  'http://127.0.0.1:8080/v1/artifacts/verify'
 )
 assert.equal(
-  buildUnixFSWriteURL('http://127.0.0.1:4317', 'bafkqaaa', 'docs/read me').toString(),
-  'http://127.0.0.1:4317/bafkqaaa/docs/read%20me'
+  buildContentURL('http://127.0.0.1:8080', 'bafkqaaa', 'docs/read me').toString(),
+  'http://127.0.0.1:8080/v1/roots/bafkqaaa/content/docs/read%20me'
 )
+assert.equal(
+  buildUnixFSWriteURL('http://127.0.0.1:8080', '', 'docs/read me').toString(),
+  'http://127.0.0.1:8080/v1/content/new?path=docs%2Fread+me'
+)
+assert.equal(
+  buildUnixFSWriteURL('http://127.0.0.1:8080', 'bafkqaaa', 'docs/read me').toString(),
+  'http://127.0.0.1:8080/v1/roots/bafkqaaa/content/docs/read%20me'
+)
+
+const rootCID = 'bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku'
+const identityArtifact = resolveArtifactFromProofList({
+  proofList: { root: { '/': rootCID }, query: '', steps: [] }
+})
+assert.deepEqual(
+  identityArtifact,
+  {
+    profile: artifactProfile,
+    operation: 'resolve',
+    root: rootCID,
+    query: { kind: 'path', segments: [] },
+    target: rootCID,
+    prooflist: { root: { '/': rootCID }, query: '', steps: [] }
+  }
+)
+assert.deepEqual(extractArtifactInput(identityArtifact), identityArtifact)
 assert.equal(
   buildAppStatePath('/app', 'bafkqaaa', 'docs/read me'),
   '/app/bafkqaaa/docs/read%20me'

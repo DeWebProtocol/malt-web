@@ -1,21 +1,34 @@
-export const defaultDaemonURL = 'http://127.0.0.1:4317'
+export const artifactProfile = 'malt.artifact/v0alpha2'
+export const defaultGatewayURL = 'http://127.0.0.1:8080'
+// Compatibility alias for persisted profiles created before the gateway split.
+export const defaultDaemonURL = defaultGatewayURL
 export const defaultCASURL = 'http://127.0.0.1:4318'
 export const appFallbackStorageKey = 'malt-app-fallback-path'
 
 export function buildResolveURL(baseURL, root, rawPath = '') {
-  return buildDaemonURL(baseURL, ['resolve', root, ...pathSegments(rawPath)])
+  void root
+  void rawPath
+  return buildGatewayURL(baseURL, ['v1', 'artifacts', 'resolve'])
+}
+
+export function buildProveURL(baseURL) {
+  return buildGatewayURL(baseURL, ['v1', 'artifacts', 'prove'])
+}
+
+export function buildVerifyURL(baseURL) {
+  return buildGatewayURL(baseURL, ['v1', 'artifacts', 'verify'])
 }
 
 export function buildContentURL(baseURL, root, rawPath = '') {
-  return buildDaemonURL(baseURL, [root, ...pathSegments(rawPath)])
+  return buildGatewayURL(baseURL, ['v1', 'roots', root, 'content', ...pathSegments(rawPath)])
 }
 
 export function buildUnixFSWriteURL(baseURL, root, rawPath) {
   const cleanPath = normalizeUploadPath(rawPath)
   if (String(root || '').trim()) {
-    return buildDaemonURL(baseURL, [root, ...pathSegments(cleanPath)])
+    return buildContentURL(baseURL, root, cleanPath)
   }
-  const url = buildDaemonURL(baseURL, ['_unixfs'])
+  const url = buildGatewayURL(baseURL, ['v1', 'content', 'new'])
   url.searchParams.set('path', cleanPath)
   return url
 }
@@ -111,6 +124,16 @@ export function extractProofListInput(input) {
   return proofList
 }
 
+export function extractArtifactInput(input) {
+  const parsed = typeof input === 'string' ? JSON.parse(input) : input
+  const candidate = parsed?.artifact && typeof parsed.artifact === 'object' ? parsed.artifact : parsed
+  if (candidate?.profile === artifactProfile && candidate?.operation && candidate?.prooflist) {
+    return candidate
+  }
+  const proofList = extractProofListInput(parsed)
+  return resolveArtifactFromProofList({ proofList })
+}
+
 export function normalizeUploadPath(rawPath) {
   const path = String(rawPath || '')
     .replace(/\\/g, '/')
@@ -159,12 +182,40 @@ export function activeProfileStorageKey() {
 
 export async function resolvePath({ baseURL, root, path, signal }) {
   const url = buildResolveURL(baseURL, root, path)
-  const response = await fetch(url, { signal })
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      profile: artifactProfile,
+      root: String(root || '').trim(),
+      segments: pathSegments(path)
+    }),
+    signal
+  })
   const payload = await readJSONResponse(response)
   return {
     endpoint: url.toString(),
     status: response.status,
     response: payload,
+    proofList: payload.prooflist ?? null,
+    artifact: payload
+  }
+}
+
+export async function proveQuery({ baseURL, root, query, signal }) {
+  const url = buildProveURL(baseURL)
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ profile: artifactProfile, root: String(root || '').trim(), query }),
+    signal
+  })
+  const payload = await readJSONResponse(response)
+  return {
+    endpoint: url.toString(),
+    status: response.status,
+    response: payload,
+    artifact: payload,
     proofList: payload.prooflist ?? null
   }
 }
@@ -277,12 +328,13 @@ export async function readDirectoryByPayload({ baseURL, payload, signal }) {
   return readDirectory({ baseURL, root: payloadCID, path: '', signal, omitProof: true })
 }
 
-export async function verifyProofList({ baseURL, proofList, signal }) {
-  const url = buildDaemonURL(baseURL, ['verify'])
+export async function verifyProofList({ baseURL, proofList, artifact, root, path, signal }) {
+  const url = buildVerifyURL(baseURL)
+  const candidate = artifact ?? resolveArtifactFromProofList({ proofList, root, path })
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prooflist: proofList }),
+    body: JSON.stringify({ profile: artifactProfile, artifact: candidate }),
     signal
   })
   const payload = await readJSONResponse(response)
@@ -294,7 +346,42 @@ export async function verifyProofList({ baseURL, proofList, signal }) {
   }
 }
 
-function buildDaemonURL(baseURL, segments) {
+export function resolveArtifactFromProofList({ proofList, root, path }) {
+  if (!proofList || typeof proofList !== 'object' || !Array.isArray(proofList.steps)) {
+    throw new Error('ProofList JSON must contain a steps array')
+  }
+  const proofRoot = cidString(proofList.root)
+  const trustedRoot = String(root || proofRoot || '').trim()
+  if (!trustedRoot) {
+    throw new Error('artifact root is required')
+  }
+  const queryPath = path == null ? String(proofList.query || '') : String(path || '')
+  const lastStep = proofList.steps[proofList.steps.length - 1]
+  const target = lastStep ? cidString(lastStep.target) : trustedRoot
+  if (!target) {
+    throw new Error('ProofList target is required')
+  }
+  return {
+    profile: artifactProfile,
+    operation: 'resolve',
+    root: trustedRoot,
+    query: { kind: 'path', segments: pathSegments(queryPath) },
+    target,
+    prooflist: proofList
+  }
+}
+
+function cidString(value) {
+  if (typeof value === 'string') {
+    return value
+  }
+  if (value && typeof value === 'object' && typeof value['/'] === 'string') {
+    return value['/']
+  }
+  return ''
+}
+
+function buildGatewayURL(baseURL, segments) {
   const url = new URL(normalizeBaseURL(baseURL))
   const prefix = url.pathname.replace(/\/+$/, '')
   const encoded = segments.map((segment) => encodeURIComponent(String(segment).trim()))
@@ -305,7 +392,7 @@ function buildDaemonURL(baseURL, segments) {
 function normalizeBaseURL(baseURL) {
   const trimmed = String(baseURL || '').trim()
   if (!trimmed) {
-    throw new Error('daemon URL is required')
+    throw new Error('gateway URL is required')
   }
   return trimmed
 }
@@ -377,5 +464,5 @@ async function responseErrorMessage(response) {
 
 function apiErrorMessage(response, payload, text) {
   const message = payload?.error || text?.trim() || response.statusText || 'request failed'
-  return `daemon API error (${response.status}): ${message}`
+  return `gateway API error (${response.status}): ${message}`
 }

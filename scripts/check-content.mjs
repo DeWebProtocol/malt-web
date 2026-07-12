@@ -51,9 +51,10 @@ const requiredPhrases = new Map([
   [
     'docs/api.md',
     [
-      'GET|HEAD /{root}/{path...}',
-      'GET /resolve/{root}[/{path...}]',
-      'legacy content-route `format=resolve` and `format=proof` modes are removed'
+			'POST /v1/artifacts/resolve',
+			'POST /v1/artifacts/prove',
+			'POST /v1/artifacts/verify',
+			'GET|HEAD /v1/roots/{root}/content'
     ]
   ],
   [
@@ -61,8 +62,8 @@ const requiredPhrases = new Map([
     [
       'Read(root, query) -> result + ProofList',
       'X-Malt-ProofList-Encoding',
-      'layout/unixfs.VerifyRangeBody',
-      'no stable named JSON Schema'
+			'layout/unixfs.VerifyRangeBody',
+			'malt.artifact/v0alpha2'
     ]
   ],
   [

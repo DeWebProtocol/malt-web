@@ -97,9 +97,12 @@ Native writes:
 - replace
 - delete
 
-Path resolution is a compatibility layer above map reads. A resolver may apply
-longest-prefix or product-specific policy, but map owns exact keyed proof and
-update semantics.
+Composition above primitive map reads accepts canonical segment arrays. One
+authenticated arc may consume several leading segments, so clients do not need
+to discover arc boundaries before resolving. The reference resolver prefers
+the longest prefix at each root, while the verifier proves the complete
+returned derivation without claiming maximality or uniqueness. Map still owns
+exact keyed proof and update semantics; applications own overlap policy.
 
 ## Payload Boundary
 

@@ -13,14 +13,14 @@ hero:
       text: Technical docs
       link: /docs/runtime
     - theme: alt
-      text: v0.0.3 release
-      link: https://github.com/DeWebProtocol/malt/releases/tag/v0.0.3
+      text: v0.0.4 release
+      link: https://github.com/DeWebProtocol/malt/releases/tag/v0.0.4
 
 features:
   - title: Research narrative
     details: Problem framing, abstraction, system design, and evaluation story aligned with the current paper memory.
   - title: Technical docs
-    details: The experimental v0.0.3 core facade, portable verifier, root-centric HTTP routes, ProofList transport, UnixFS layout, and benchmark protocol.
+    details: The v0.0.4 segment-path core, profiled resolve/prove/verify artifacts, portable verifier, gateway product path, UnixFS layout, and benchmark protocol.
   - title: Root-centric verification
     details: Readers verify result plus ProofList against an explicit trusted root. The server runtime does not publish heads or decide freshness.
 ---
@@ -61,8 +61,8 @@ import { withBase } from 'vitepress'
       <span>Follow the problem, abstraction, system design, and evaluation story for MALT as a systems research project.</span>
     </div>
     <div class="malt-strip">
-      <strong>Experimental v0.0.3</strong>
-      <span>Use the module-root facade and portable verifier while pinning the v0alpha1 source release; the API is not yet production-stable.</span>
+      <strong>Experimental v0.0.4</strong>
+      <span>Use canonical segments and malt.artifact/v0alpha2 through the gateway while pinning the source release; the API remains pre-v1.</span>
     </div>
     <div class="malt-strip">
       <strong>Server runtime model</strong>

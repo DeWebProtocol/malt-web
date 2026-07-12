@@ -124,6 +124,7 @@ This layout demonstrates that the semantic layer can support practical file
 and directory behavior while keeping payload identity unchanged.
 
 The current implementation is published as the experimental
-[`v0.0.3`](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.3)
-`v0alpha1` contract. It is a source release, not a production managed service
-or stable API line.
+[`v0.0.4`](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.4) source
+release. It adds canonical segment-path composition and the explicit
+`malt.artifact/v0alpha2` resolve/prove/verify profile. It is not yet a
+production managed service or stable API line.

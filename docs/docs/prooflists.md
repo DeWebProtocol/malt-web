@@ -60,14 +60,18 @@ resolve response containing a `prooflist` field.
 
 ## Artifact Profile Status
 
-[`v0.0.3`](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.3) publishes
-the current ProofList contract as the experimental `v0alpha1` artifact profile.
-The envelope is verifier-facing and implementation-bound, but it has no embedded
-version discriminator and no stable named JSON Schema.
+[`v0.0.4`](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.4) publishes
+the explicit `malt.artifact/v0alpha2` envelope and named JSON Schemas for
+resolve, primitive prove, and verify. The envelope carries the expected root,
+query, target, optional range segments, and ProofList together.
 
-Consumers should pin the MALT release and bind the ProofList to the expected
-typed root, query, target, and range segments. They should not treat the current
-JSON fields as a stable cross-release wire contract.
+Consumers should pin the MALT release and reject unknown profiles. Schema
+validation checks structure; portable verification still checks all semantic
+bindings and cryptographic evidence.
+
+Resolution is existential. A valid artifact proves the complete ordered
+derivation returned for the requested segments, not that this derivation was
+longest or unique. Namespace overlap policy belongs to the application/layout.
 
 `@payload` is reserved but optional for generic maps. UnixFS requires it for its
 file and directory maps, so UnixFS proof paths include the terminal

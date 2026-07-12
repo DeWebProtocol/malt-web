@@ -2,13 +2,13 @@
 import { computed, ref } from 'vue'
 import { withBase } from 'vitepress'
 import {
-  defaultDaemonURL,
+  defaultGatewayURL,
   readContent,
   resolvePath,
   verifyProofList
 } from '../malt-client.mjs'
 
-const baseURL = ref(defaultDaemonURL)
+const baseURL = ref(defaultGatewayURL)
 const root = ref('')
 const path = ref('')
 const range = ref('')
@@ -48,7 +48,10 @@ async function run(nextMode) {
     }
     verification.value = await verifyProofList({
       baseURL: baseURL.value,
-      proofList: payload.proofList
+      proofList: payload.proofList,
+      artifact: payload.artifact,
+      root: root.value,
+      path: path.value
     })
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
@@ -70,7 +73,7 @@ function sendToVerifier() {
   <section class="malt-tool" aria-labelledby="malt-resolve-heading">
     <div class="malt-tool__head">
       <div>
-        <p class="malt-tool__eyebrow">Local daemon</p>
+        <p class="malt-tool__eyebrow">MALT Gateway</p>
         <h2 id="malt-resolve-heading">Resolve</h2>
       </div>
       <span class="malt-tool__status" :class="{ 'is-valid': verification?.valid }">
@@ -80,7 +83,7 @@ function sendToVerifier() {
 
     <div class="malt-tool__grid">
       <label>
-        <span>Daemon URL</span>
+        <span>Gateway URL</span>
         <input v-model="baseURL" autocomplete="off" spellcheck="false" />
       </label>
       <label>
