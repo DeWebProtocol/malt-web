@@ -71,8 +71,8 @@ range reads. The step carries authenticated fixed chunk metadata, covered
 segment CIDs, and metadata/index proof payload. ProofList verification binds
 that metadata and the ordered segment CIDs; UnixFS callers accepting returned
 bytes additionally perform an equivalent body-binding check. The
-`sdk/unixfs.VerifyRangeBody` helper name belongs to active draft PR #163, not
-the released `v0.0.4` package surface.
+`sdk/unixfs.VerifyRangeBody` helper is part of the released `v0.0.5` client
+surface.
 
 Encrypted private-CAS read:
 

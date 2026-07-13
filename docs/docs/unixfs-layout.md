@@ -3,11 +3,10 @@
 UnixFS is an application model above MALT list/map semantics and immutable
 payload objects. It is not the core MALT abstraction.
 
-Released `v0.0.4` still carries its implementation under the older layout
-package boundary. The `model/unixfs`, `sdk/unixfs`, and `runtime/unixfs` split
-described here is the active target of
-[draft PR #163](https://github.com/DeWebProtocol/malt/pull/163) at
-`0f2b5b1`, not current release reality.
+Released `v0.0.5` separates UnixFS ownership across `model/unixfs`,
+`sdk/unixfs`, and `runtime/unixfs`. Those packages respectively own the
+application model, client planning/body verification, and optional reference
+execution adapter described here.
 
 The model demonstrates how practical file and directory semantics can be built
 without embedding every verifier-facing relation inside immutable parent

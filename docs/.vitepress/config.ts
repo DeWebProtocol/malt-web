@@ -60,8 +60,8 @@ export default defineConfig({
       { text: 'Runtime', link: '/runtime' },
       { text: 'Service', link: '/service' },
       {
-        text: 'v0.0.4',
-        link: 'https://github.com/DeWebProtocol/malt/releases/tag/v0.0.4'
+        text: 'v0.0.5',
+        link: 'https://github.com/DeWebProtocol/malt/releases/tag/v0.0.5'
       }
     ],
     sidebar: [

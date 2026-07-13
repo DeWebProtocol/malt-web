@@ -6,11 +6,10 @@ a performance-critical component, not a correctness authority or semantic owner.
 For concrete prototype routes, see [Root-Centric HTTP API](/docs/api). For
 verifier-facing evidence, see [ProofLists](/docs/prooflists).
 
-Released behavior is pinned to MALT `v0.0.4`. The tightened package split and
-reference-executor naming are the active target of
-[draft PR #163](https://github.com/DeWebProtocol/malt/pull/163) at
-`d3598cd`; this page uses those draft role names where it discusses
-the intended boundary.
+Released behavior is pinned to MALT
+[`v0.0.5`](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.5). The
+tightened package split, operation-specific resolve/read contracts, and
+reference-executor naming are part of that release.
 
 ## Roles
 

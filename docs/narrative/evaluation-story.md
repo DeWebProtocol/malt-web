@@ -26,8 +26,8 @@ range reads. The step carries authenticated fixed chunk metadata, covered
 segment CIDs, and metadata/index proof payload. ProofList verification binds
 that metadata and the ordered segment CIDs; UnixFS callers accepting returned
 bytes additionally perform an equivalent body-binding check. The
-`sdk/unixfs.VerifyRangeBody` package path is the active draft PR #163 target,
-not a released `v0.0.4` package claim.
+`sdk/unixfs.VerifyRangeBody` package path is part of the released v0.0.5 client
+surface.
 
 Metrics should include:
 

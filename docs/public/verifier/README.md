@@ -24,7 +24,7 @@ passed separately with its ProofList. The module checks every binding and runs
 the portable KZG/IPA verifier locally; it does not call a gateway.
 
 `maltVerifyArtifact` only preserves the released `malt.artifact/v0alpha2`
-v0.0.4 compatibility contract. New integrations use
+v0.0.4 compatibility contract. MALT v0.0.5 integrations use
 `malt.resolve/v0alpha1` and `malt.read/v0alpha1`.
 
 `PROVENANCE.json` records the exact MALT Git commit, source remote, Go version,

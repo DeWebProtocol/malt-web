@@ -15,10 +15,9 @@ The website has two main lanes:
 - [Technical Docs](/docs/runtime): current prototype status, HTTP API,
   ProofLists, UnixFS application model, and benchmark protocol.
 
-Status labels matter in the technical lane: `v0.0.4` is the released baseline;
-the tightened client/gateway/core package split and browser-local verifier are
-the active target of [draft PR #163](https://github.com/DeWebProtocol/malt/pull/163)
-at `d3598cd`.
+Status labels matter in the technical lane: `v0.0.5` is the current released
+baseline and includes the tightened client/gateway/core package split,
+operation-specific resolve/read contracts, and browser-local verifier.
 
 ## Core Claim
 
@@ -57,8 +56,8 @@ CAS objects + CIDs    typed arcs + VC proofs      layouts, ArcTable, caches,
         +--- payload CID -----+--- result + ProofList -----+
 ```
 
-In the active draft, the module-root `malt` package is the application-neutral facade for typed
-reads, mutations, and verification. The semantic interfaces live with
+In v0.0.5, the module-root `malt` package is the application-neutral facade for
+resolve/read values, mutations, and verification. The semantic interfaces live with
 `auth/semantic/list` and `auth/semantic/mapping`; `auth/verifier` is the
 portable authentication kernel. The graph runtime is a composition boundary
 around resolver and writer ports, not a second node-interface hierarchy.
@@ -106,10 +105,9 @@ availability, or define tenant and quota policy. Those are application or
 deployment concerns built around MALT. Managed gateway service behavior belongs
 in the separate `DeWebProtocol/gateway` repository.
 
-The current [`v0.0.4`](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.4)
-source release publishes canonical segments and the frozen v0alpha2 Artifact
-compatibility contract. The operation-specific resolve/read profiles are the
-active PR target.
+The current [`v0.0.5`](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.5)
+source release publishes the operation-specific resolve/read profiles and
+retains the frozen v0alpha2 Artifact compatibility contract from v0.0.4.
 It remains pre-`v1` and is not a production stability promise.
 
 ## Where to Go Next

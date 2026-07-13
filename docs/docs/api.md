@@ -4,10 +4,10 @@ The product-facing browser and SDK boundary is the MALT Gateway at
 `http://127.0.0.1:8080` by default. It delegates execution to an untrusted MALT
 reference executor while preserving the operation-specific core contracts.
 
-The current gateway tracks [MALT PR #163](https://github.com/DeWebProtocol/malt/pull/163)
-at commit `d3598cd`. Released `v0.0.4` remains the baseline; its
-`malt.artifact/v0alpha2` resolve/prove profile is frozen compatibility behavior,
-not the contract new clients use.
+The current gateway tracks the
+[MALT v0.0.5 release](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.5).
+Its operation-specific resolve/read contracts are the current integration
+surface; `malt.artifact/v0alpha2` remains frozen v0.0.4 compatibility behavior.
 
 ## Resolve, Read, and Diagnostic Verify
 
@@ -64,7 +64,7 @@ The browser verifies a caller-constructed request together with the untrusted
 result. The remote verify endpoints accept the same `{request, result}` pair
 and return a diagnostic `{profile, valid, error?}` response. They are not trust
 oracles. Normative schemas and semantics live in the
-[MALT resolve/read spec](https://github.com/DeWebProtocol/malt/blob/d3598cdb6e5d8bb7ab535a48a3e9912fc4b6cce6/docs/spec/resolve-read-contracts.md).
+[MALT resolve/read spec](https://github.com/DeWebProtocol/malt/blob/v0.0.5/docs/spec/resolve-read-contracts.md).
 
 ## Semantic Mutation Contract
 

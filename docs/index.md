@@ -13,14 +13,14 @@ hero:
       text: Technical docs
       link: /docs/runtime
     - theme: alt
-      text: v0.0.4 release
-      link: https://github.com/DeWebProtocol/malt/releases/tag/v0.0.4
+      text: v0.0.5 release
+      link: https://github.com/DeWebProtocol/malt/releases/tag/v0.0.5
 
 features:
   - title: Research narrative
     details: Problem framing, abstraction, system design, and evaluation story aligned with the current paper memory.
   - title: Technical docs
-    details: The released v0.0.4 segment-path baseline, plus the active PR #163 operation-specific resolve/read contracts and client/gateway/core boundaries.
+    details: The released v0.0.5 operation-specific resolve/read contracts and client/gateway/core boundaries, with frozen v0.0.4 artifact compatibility.
   - title: Root-centric verification
     details: Readers verify result plus ProofList against an explicit trusted root. The server runtime does not publish heads or decide freshness.
 ---
@@ -61,7 +61,7 @@ import { withBase } from 'vitepress'
       <span>Follow the problem, abstraction, system design, and evaluation story for MALT as a systems research project.</span>
     </div>
     <div class="malt-strip">
-      <strong>Active pre-release contracts</strong>
+      <strong>Current pre-v1 contracts</strong>
       <span>Use canonical segments with malt.resolve/v0alpha1 and malt.read/v0alpha1 through the gateway; the API remains pre-v1.</span>
     </div>
     <div class="malt-strip">
