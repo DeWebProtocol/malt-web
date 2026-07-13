@@ -6,6 +6,12 @@ executor but
 preserves the core `malt.artifact/v0alpha2` contract instead of inventing a
 second proof format.
 
+The gateway routes and `v0alpha2` artifact profile below interoperate with the
+released MALT `v0.0.4` baseline. The browser-local verifier envelope and the
+client/gateway/core package boundary are the active target of
+[draft MALT PR #163](https://github.com/DeWebProtocol/malt/pull/163) at
+`0f2b5b1`, not released `v0.0.4` behavior.
+
 ## Resolve, Prove, and Diagnostic Verify
 
 ```text
@@ -64,9 +70,10 @@ evidence. Normative schemas and semantics live in the
 [`DeWebProtocol/malt` artifact spec](https://github.com/DeWebProtocol/malt/blob/v0.0.4/docs/spec/artifacts.md).
 
 This endpoint is a diagnostic and conformance surface, not a client trust
-oracle. Browser and SDK clients run the portable verifier locally and fail
-closed when it is unavailable. A gateway may report a diagnostic result, but a
-client must not accept that result in place of local verification.
+oracle. The active draft browser and SDK clients run the portable verifier
+locally and fail closed when it is unavailable. A gateway may report a
+diagnostic result, but a client must not accept that result in place of local
+verification.
 
 ## Product Content Routes
 
@@ -93,8 +100,17 @@ X-Malt-Payload: <optional payload CID>
 
 The website reconstructs the complete profiled artifact from the explicit root,
 segment path, returned target, and ProofList, then verifies it locally with the
-portable WebAssembly verifier. It does not use the gateway's `valid` field as a
-trust decision.
+draft portable WebAssembly verifier. For raw payloads and directory manifests,
+it hashes the exact response bytes against the authenticated payload CID. A
+partial raw response is compared with the matching slice of a separately
+fetched and CID-checked complete payload. For list ranges, the client fetches
+the authenticated segment CIDs, checks every segment, and compares the
+assembled authenticated range with the response body. It does not use the
+gateway's `valid` field as a trust decision.
+
+Write responses return candidate roots. The website does not automatically
+promote a gateway-returned `new_root` to a trusted root; accepting or publishing
+that candidate is an explicit application action.
 
 ## Trust and Deployment Boundary
 

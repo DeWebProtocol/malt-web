@@ -21,5 +21,11 @@ uses the same `malt.artifact/v0alpha2` profile. The module checks all caller
 expectations and runs the portable KZG/IPA verifier locally; it does not call a
 gateway.
 
-`SHA256SUMS` records the checksums for the deployed module and matching Go
-runtime. Regenerate it after rebuilding either artifact.
+`PROVENANCE.json` records the exact MALT Git commit, source remote, Go version,
+full Go toolchain string, target, and build flags used for the published
+module. The build refuses a dirty `MALT_SOURCE`, so the recorded commit always
+names the source bytes used for the build.
+
+`SHA256SUMS` records the checksums for the deployed module, matching Go runtime,
+and provenance record. Regenerate all published files through the build script;
+do not replace the WASM or runtime independently.

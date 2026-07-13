@@ -36,6 +36,7 @@ const request = {
 
 async function main() {
   verifyChecksums()
+  verifyProvenance()
   const go = new Go()
   const wasm = fs.readFileSync(path.join(verifierRoot, 'malt-verifier.wasm'))
   const { instance } = await WebAssembly.instantiate(wasm, go.importObject)
@@ -45,6 +46,23 @@ async function main() {
   const accepted = JSON.parse(globalThis.maltVerifyArtifact(JSON.stringify(request)))
   if (accepted.profile !== request.profile || accepted.valid !== true) {
     throw new Error(`identity artifact was not accepted: ${JSON.stringify(accepted)}`)
+  }
+
+  // v0.0.4 omitted an empty path segments array. The same v0alpha2 profile
+  // treats the absent field as the canonical identity path, while explicit
+  // null remains invalid.
+  const v004Identity = structuredClone(request)
+  delete v004Identity.artifact.query.segments
+  const v004Accepted = JSON.parse(globalThis.maltVerifyArtifact(JSON.stringify(v004Identity)))
+  if (v004Accepted.profile !== request.profile || v004Accepted.valid !== true) {
+    throw new Error(`v0.0.4 identity artifact was not accepted: ${JSON.stringify(v004Accepted)}`)
+  }
+
+  const nullSegments = structuredClone(request)
+  nullSegments.artifact.query.segments = null
+  const nullRejected = JSON.parse(globalThis.maltVerifyArtifact(JSON.stringify(nullSegments)))
+  if (nullRejected.valid !== false) {
+    throw new Error('identity artifact with explicit null segments was accepted')
   }
 
   const tampered = structuredClone(request)
@@ -75,6 +93,7 @@ function verifyChecksums() {
     .readFileSync(path.join(verifierRoot, 'SHA256SUMS'), 'utf8')
     .trim()
     .split('\n')
+  const checked = new Set()
   for (const line of sums) {
     const [expected, filename] = line.trim().split(/\s+/, 2)
     const actual = createHash('sha256')
@@ -83,6 +102,33 @@ function verifyChecksums() {
     if (actual !== expected) {
       throw new Error(`checksum mismatch for ${filename}: got ${actual}, want ${expected}`)
     }
+    checked.add(filename)
+  }
+  for (const filename of ['malt-verifier.wasm', 'wasm_exec.js', 'PROVENANCE.json']) {
+    if (!checked.has(filename)) {
+      throw new Error(`SHA256SUMS does not cover ${filename}`)
+    }
+  }
+}
+
+function verifyProvenance() {
+  const provenance = JSON.parse(
+    fs.readFileSync(path.join(verifierRoot, 'PROVENANCE.json'), 'utf8')
+  )
+  if (provenance.schema !== 'malt.web-verifier.provenance/v1') {
+    throw new Error(`unexpected verifier provenance schema ${JSON.stringify(provenance.schema)}`)
+  }
+  if (!/^[0-9a-f]{40}$/.test(provenance.source_commit || '')) {
+    throw new Error('verifier provenance does not contain an exact MALT commit')
+  }
+  if (!/^go\d+\.\d+(?:\.\d+)?/.test(provenance.go_version || '')) {
+    throw new Error('verifier provenance does not contain a Go version')
+  }
+  if (!String(provenance.go_toolchain || '').includes(provenance.go_version)) {
+    throw new Error('verifier provenance Go toolchain does not match go_version')
+  }
+  if (provenance.target !== 'js/wasm') {
+    throw new Error(`unexpected verifier build target ${JSON.stringify(provenance.target)}`)
   }
 }
 

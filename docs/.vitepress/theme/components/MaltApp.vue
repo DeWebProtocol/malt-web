@@ -18,12 +18,14 @@ import {
   profileStorageKey,
   readContentBlob,
   readDirectory,
+  readPayloadBlock,
   resolveArtifactFromProofList,
   resolvePathQuery,
   statPath,
   uploadPathForFile,
   uploadUnixFSFile
 } from '../malt-client.mjs'
+import { verifyPayloadBytes } from '../malt-payload-verifier.mjs'
 import { verifyArtifactLocally } from '../malt-verifier.mjs'
 
 const baseURL = ref(defaultGatewayURL)
@@ -431,7 +433,7 @@ async function refreshDirectory() {
     if (!manifest.proofList) {
       throw new Error('directory response did not include ProofList material')
     }
-    const verification = await verifyAndMark(currentPath.value, manifest.proofList)
+    const verification = await verifyContentAndMark(currentPath.value, manifest)
     proofView.value = {
       path: currentPath.value,
       kind: 'dir',
@@ -903,21 +905,36 @@ async function uploadDropped(uploadItems) {
       writes.push(write)
       currentRoot = write.newRoot
     }
-    root.value = currentRoot
-    verifiedPaths.value = {}
-    syncBrowserLocation('replace')
     uploadResult.value = {
+      baseRoot: root.value.trim(),
+      candidateRoot: currentRoot,
       newRoot: currentRoot,
+      accepted: false,
       files: writes
     }
-    uploadStatus.value = `Uploaded ${writes.length} item${writes.length === 1 ? '' : 's'}`
+    uploadStatus.value = `Uploaded ${writes.length} item${writes.length === 1 ? '' : 's'}. The returned root is an untrusted candidate until you explicitly accept it.`
     persistProfile()
-    await refreshDirectory()
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
   } finally {
     busy.value = false
   }
+}
+
+async function acceptCandidateRoot() {
+  const candidate = String(uploadResult.value?.candidateRoot || '').trim()
+  if (!candidate || uploadResult.value?.accepted) {
+    return
+  }
+  error.value = ''
+  root.value = candidate
+  verifiedPaths.value = {}
+  resetTreeState()
+  uploadResult.value = { ...uploadResult.value, accepted: true }
+  uploadStatus.value = 'Candidate root accepted by this client. Content still requires local proof and payload verification.'
+  syncBrowserLocation('replace')
+  persistProfile()
+  await loadRoot(currentPath.value, { history: 'replace' })
 }
 
 async function openDirectory(entry) {
@@ -1049,7 +1066,7 @@ async function loadTreeDirectory(entry) {
   if (!manifest.proofList) {
     throw new Error('directory response did not include ProofList material')
   }
-  await verifyAndMark(path, manifest.proofList)
+  await verifyContentAndMark(path, manifest)
   cacheDirectoryEntries(path, loadedEntries)
 }
 
@@ -1064,7 +1081,7 @@ async function loadTreeAncestors(path) {
     if (!manifest.proofList) {
       throw new Error('directory response did not include ProofList material')
     }
-    await verifyAndMark(ancestorPath, manifest.proofList)
+    await verifyContentAndMark(ancestorPath, manifest)
     cacheDirectoryEntries(ancestorPath, loadedEntries)
   }
 }
@@ -1093,7 +1110,7 @@ async function previewFile(entry, options = {}) {
     if (!payload.proofList) {
       throw new Error('file response did not include ProofList material')
     }
-    const verification = await verifyAndMark(entry.path, payload.proofList)
+    const verification = await verifyContentAndMark(entry.path, payload)
     proofView.value = {
       path: entry.path,
       kind: 'file',
@@ -1210,7 +1227,7 @@ async function downloadFile(entry) {
     if (!payload.proofList) {
       throw new Error('file response did not include ProofList material')
     }
-    await verifyAndMark(entry.path, payload.proofList)
+    await verifyContentAndMark(entry.path, payload)
     const url = URL.createObjectURL(payload.blob)
     const link = document.createElement('a')
     link.href = url
@@ -1245,7 +1262,7 @@ async function showProof(target) {
     if (!payload.proofList) {
       throw new Error('response did not include ProofList material')
     }
-    const verification = await verifyAndMark(path, payload.proofList)
+    const verification = await verifyContentAndMark(path, payload)
     proofView.value = {
       path,
       kind,
@@ -1294,24 +1311,46 @@ async function runEntryAction(action, entry) {
   }
 }
 
-async function verifyAndMark(path, proofList) {
-  const artifact = resolveArtifactFromProofList({ proofList, root: root.value, path })
-  const verification = await withDaemonTimeout('verify proof locally', (signal) =>
-    verifyArtifactLocally({
-      artifact,
-      expectedRoot: root.value.trim(),
-      expectedOperation: 'resolve',
-      expectedQuery: resolvePathQuery(path),
-      runtimeURL: withBase('/verifier/wasm_exec.js'),
-      wasmURL: withBase('/verifier/malt-verifier.wasm'),
-      signal
-    })
-  )
-  markVerification(path, verification.valid)
-  if (!verification.valid) {
-    throw new Error(verification.error || 'local proof verification failed')
+async function verifyContentAndMark(path, payload) {
+  const proofList = payload?.proofList
+  if (!proofList) {
+    markVerification(path, false)
+    throw new Error('content response did not include ProofList material')
   }
-  return verification
+  try {
+    const artifact = resolveArtifactFromProofList({ proofList, root: root.value, path })
+    const verification = await withDaemonTimeout('verify proof and payload locally', async (signal) => {
+      const proofVerification = await verifyArtifactLocally({
+        artifact,
+        expectedRoot: root.value.trim(),
+        expectedOperation: 'resolve',
+        expectedQuery: resolvePathQuery(path),
+        runtimeURL: withBase('/verifier/wasm_exec.js'),
+        wasmURL: withBase('/verifier/malt-verifier.wasm'),
+        signal
+      })
+      if (!proofVerification.valid) {
+        throw new Error(proofVerification.error || 'local proof verification failed')
+      }
+      const payloadVerification = await verifyPayloadBytes({
+        proofList,
+        body: payload.bytes ?? payload.blob,
+        contentRange: payload.contentRange,
+        fetchSegment: (cid) =>
+          readPayloadBlock({ baseURL: baseURL.value, cid, signal })
+      })
+      return {
+        ...proofVerification,
+        payloadBound: true,
+        payloadVerification
+      }
+    })
+    markVerification(path, true)
+    return verification
+  } catch (err) {
+    markVerification(path, false)
+    throw err
+  }
 }
 
 async function withDaemonTimeout(label, operation, timeoutMs = daemonRequestTimeoutMs) {
@@ -1367,7 +1406,7 @@ function proofStatusLabel(path) {
   if (!proofView.value?.verification) {
     return 'loaded'
   }
-  return proofView.value.verification.valid ? 'valid' : 'invalid'
+  return proofView.value.verification.valid ? 'proof + payload valid' : 'invalid'
 }
 
 function proofVerificationLabel(proof) {
@@ -1377,7 +1416,7 @@ function proofVerificationLabel(proof) {
   if (!proof.verification) {
     return 'loaded'
   }
-  return proof.verification.valid ? 'valid' : 'invalid'
+  return proof.verification.valid ? 'proof + payload valid' : 'invalid'
 }
 
 function clearPreview() {
@@ -2085,14 +2124,26 @@ function formatSize(size) {
         <section v-if="uploadResult" class="malt-app__result">
           <dl>
             <div>
-              <dt>New root</dt>
-              <dd>{{ uploadResult.newRoot }}</dd>
+              <dt>Candidate root</dt>
+              <dd>{{ uploadResult.candidateRoot }}</dd>
+            </div>
+            <div>
+              <dt>Trust status</dt>
+              <dd>{{ uploadResult.accepted ? 'explicitly accepted by this client' : 'untrusted gateway result' }}</dd>
             </div>
             <div>
               <dt>Uploaded</dt>
               <dd>{{ uploadResult.files.length }}</dd>
             </div>
           </dl>
+          <p v-if="!uploadResult.accepted" class="malt-app__status-line">
+            Upload receipts do not authenticate a root transition. Review or independently publish this candidate before trusting it.
+          </p>
+          <div v-if="!uploadResult.accepted" class="malt-app__button-row">
+            <button type="button" :disabled="busy" @click="acceptCandidateRoot">
+              Accept candidate root
+            </button>
+          </div>
           <div class="malt-app__panel">
             <h2>Uploads</h2>
             <pre>{{ uploadText }}</pre>

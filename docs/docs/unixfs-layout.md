@@ -3,6 +3,12 @@
 UnixFS is an application model above MALT list/map semantics and immutable
 payload objects. It is not the core MALT abstraction.
 
+Released `v0.0.4` still carries its implementation under the older layout
+package boundary. The `model/unixfs`, `sdk/unixfs`, and `runtime/unixfs` split
+described here is the active target of
+[draft PR #163](https://github.com/DeWebProtocol/malt/pull/163) at
+`0f2b5b1`, not current release reality.
+
 The model demonstrates how practical file and directory semantics can be built
 without embedding every verifier-facing relation inside immutable parent
 objects.
@@ -31,7 +37,7 @@ the ordered segment CIDs. A caller accepting returned range bytes must also use
 `sdk/unixfs.VerifyRangeBody` or an equivalent check to bind those bytes to
 the authenticated segments.
 
-## Current Materialization Flags
+## Released Materialization Flags
 
 `flat` and `hierarchical` are the current user-facing values of the retained
 `malt add --layout` materialization flag. `flat` is the default. The flag names

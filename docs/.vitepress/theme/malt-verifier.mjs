@@ -82,7 +82,9 @@ export function createLocalVerifyRequest({
   if (!expectedQuery || typeof expectedQuery !== 'object') {
     throw new Error('expected query is required and must be selected outside the artifact')
   }
-  if (!queriesEqual(artifact.query, expectedQuery)) {
+  const canonicalArtifactQuery = canonicalQuery(artifact.query)
+  const canonicalExpectedQuery = canonicalQuery(expectedQuery)
+  if (!queriesEqual(canonicalArtifactQuery, canonicalExpectedQuery)) {
     throw new Error('artifact query does not match the client-selected query')
   }
 
@@ -91,11 +93,16 @@ export function createLocalVerifyRequest({
     throw new Error('artifact target does not match the client-selected target')
   }
 
-  const expected = { operation, query: expectedQuery }
+  const expected = { operation, query: canonicalExpectedQuery }
   if (target) {
     expected.target = target
   }
-  return { profile: localVerifierProfile, trusted_root: trustedRoot, expected, artifact }
+  return {
+    profile: localVerifierProfile,
+    trusted_root: trustedRoot,
+    expected,
+    artifact: { ...artifact, query: canonicalArtifactQuery }
+  }
 }
 
 export async function loadBrowserVerifier({
@@ -234,6 +241,16 @@ function queriesEqual(actual, expected) {
   }
   const fields = ['segments', 'index', 'start', 'end']
   return fields.every((field) => valuesEqual(actual[field], expected[field]))
+}
+
+function canonicalQuery(query) {
+  if (!query || typeof query !== 'object') {
+    return query
+  }
+  if (query.kind === 'path' && !Object.hasOwn(query, 'segments')) {
+    return { ...query, segments: [] }
+  }
+  return query
 }
 
 function valuesEqual(left, right) {

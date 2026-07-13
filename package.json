@@ -9,15 +9,17 @@
     "preview": "vitepress preview docs --host 127.0.0.1",
     "build:verifier": "bash scripts/build-verifier.sh",
     "check:content": "node scripts/check-content.mjs",
+    "check:payload": "node scripts/check-payload-verifier.mjs",
     "check:tools": "node scripts/check-tools.mjs",
     "check:verifier": "node scripts/check-verifier-wasm.cjs",
-    "test": "npm run check:content && npm run check:tools && npm run check:verifier"
+    "test": "npm run check:content && npm run check:tools && npm run check:payload && npm run check:verifier"
   },
   "devDependencies": {
     "vitepress": "^1.6.4"
   },
   "dependencies": {
     "markdown-it": "^14.2.0",
+    "multiformats": "13.4.1",
     "shiki": "^2.5.0"
   }
 }

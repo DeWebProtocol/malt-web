@@ -4,10 +4,12 @@ import { withBase } from 'vitepress'
 import {
   defaultGatewayURL,
   readContent,
+  readPayloadBlock,
   resolveArtifactFromProofList,
   resolvePath,
   resolvePathQuery
 } from '../malt-client.mjs'
+import { verifyPayloadBytes } from '../malt-payload-verifier.mjs'
 import { verifyArtifactLocally } from '../malt-verifier.mjs'
 
 const baseURL = ref(defaultGatewayURL)
@@ -19,6 +21,16 @@ const busy = ref(false)
 const error = ref('')
 const result = ref(null)
 const verification = ref(null)
+
+const verificationLabel = computed(() => {
+  if (!verification.value) {
+    return 'idle'
+  }
+  if (!verification.value.valid) {
+    return 'invalid'
+  }
+  return verification.value.payloadBound ? 'proof + payload verified' : 'proof verified'
+})
 
 const proofText = computed(() =>
   result.value?.proofList ? JSON.stringify(result.value.proofList, null, 2) : ''
@@ -44,11 +56,10 @@ async function run(nextMode) {
             range: range.value
           })
         : await resolvePath({ baseURL: baseURL.value, root: root.value, path: path.value })
-    result.value = payload
     if (!payload.proofList) {
       throw new Error('response did not include ProofList material')
     }
-    verification.value = await verifyArtifactLocally({
+    const proofVerification = await verifyArtifactLocally({
       artifact:
         payload.artifact ??
         resolveArtifactFromProofList({
@@ -62,9 +73,37 @@ async function run(nextMode) {
       runtimeURL: withBase('/verifier/wasm_exec.js'),
       wasmURL: withBase('/verifier/malt-verifier.wasm')
     })
-    if (!verification.value.valid) {
-      throw new Error(verification.value.error || 'local proof verification failed')
+    if (!proofVerification.valid) {
+      verification.value = proofVerification
+      throw new Error(proofVerification.error || 'local proof verification failed')
     }
+    if (nextMode === 'content') {
+      let payloadVerification
+      try {
+        payloadVerification = await verifyPayloadBytes({
+          proofList: payload.proofList,
+          body: payload.bytes,
+          contentRange: payload.contentRange,
+          fetchSegment: (cid) => readPayloadBlock({ baseURL: baseURL.value, cid })
+        })
+      } catch (err) {
+        verification.value = {
+          ...proofVerification,
+          valid: false,
+          payloadBound: false,
+          error: err instanceof Error ? err.message : String(err)
+        }
+        throw err
+      }
+      verification.value = {
+        ...proofVerification,
+        payloadBound: true,
+        payloadVerification
+      }
+    } else {
+      verification.value = { ...proofVerification, payloadBound: false }
+    }
+    result.value = payload
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
   } finally {
@@ -104,7 +143,7 @@ function sendToVerifier() {
         <h2 id="malt-resolve-heading">Resolve</h2>
       </div>
       <span class="malt-tool__status" :class="{ 'is-valid': verification?.valid }">
-        {{ verification ? (verification.valid ? 'verified' : 'invalid') : 'idle' }}
+        {{ verificationLabel }}
       </span>
     </div>
 
@@ -154,8 +193,16 @@ function sendToVerifier() {
           <dd>{{ result.contentRange }}</dd>
         </div>
         <div v-if="verification">
-          <dt>Local proof verification</dt>
-          <dd>{{ verification.valid ? 'valid: true' : `valid: false (${verification.error || 'rejected'})` }}</dd>
+          <dt>Local verification</dt>
+          <dd>
+            {{
+              verification.valid
+                ? verification.payloadBound
+                  ? 'valid: proof and returned payload bytes are bound'
+                  : 'valid: proof only (no payload was returned)'
+                : `valid: false (${verification.error || 'rejected'})`
+            }}
+          </dd>
         </div>
       </dl>
 

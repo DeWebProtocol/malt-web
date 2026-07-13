@@ -6,6 +6,12 @@ a performance-critical component, not a correctness authority or semantic owner.
 For concrete prototype routes, see [Root-Centric HTTP API](/docs/api). For
 verifier-facing evidence, see [ProofLists](/docs/prooflists).
 
+Released behavior is pinned to MALT `v0.0.4`. The tightened package split and
+reference-executor naming are the active target of
+[draft PR #163](https://github.com/DeWebProtocol/malt/pull/163) at
+`0f2b5b1`; this page uses those draft role names where it discusses
+the intended boundary.
+
 ## Roles
 
 <div class="malt-flow">

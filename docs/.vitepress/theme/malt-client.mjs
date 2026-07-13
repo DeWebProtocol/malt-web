@@ -276,13 +276,15 @@ export async function readContent({ baseURL, root, path, range, signal, omitProo
     throw new Error(await responseErrorMessage(response))
   }
   const proofHeader = response.headers.get('X-Malt-ProofList')
+  const bytes = new Uint8Array(await response.arrayBuffer())
   return {
     endpoint: url.toString(),
     status: response.status,
     contentType: response.headers.get('Content-Type') ?? '',
     contentRange: response.headers.get('Content-Range') ?? '',
     proofList: proofHeader ? decodeProofListHeader(proofHeader) : null,
-    body: await response.text()
+    bytes,
+    body: new TextDecoder().decode(bytes)
   }
 }
 
@@ -305,6 +307,25 @@ export async function readContentBlob({ baseURL, root, path, range, signal }) {
     proofList: proofHeader ? decodeProofListHeader(proofHeader) : null,
     blob: await response.blob()
   }
+}
+
+// Fetch one immutable payload block through the same gateway. Callers must
+// still hash the returned bytes against the requested CID; this endpoint is an
+// availability path, not a trust decision.
+export async function readPayloadBlock({ baseURL, cid, signal }) {
+  const blockCID = String(cid || '').trim()
+  if (!blockCID) {
+    throw new Error('payload block CID is required')
+  }
+  const url = buildContentURL(baseURL, blockCID)
+  const response = await fetch(url, {
+    headers: { 'X-Malt-Proof': 'omit' },
+    signal
+  })
+  if (!response.ok) {
+    throw new Error(await responseErrorMessage(response))
+  }
+  return new Uint8Array(await response.arrayBuffer())
 }
 
 export async function readDirectory({ baseURL, root, path, signal, omitProof = false }) {

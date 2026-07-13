@@ -15,6 +15,11 @@ The website has two main lanes:
 - [Technical Docs](/docs/runtime): current prototype status, HTTP API,
   ProofLists, UnixFS application model, and benchmark protocol.
 
+Status labels matter in the technical lane: `v0.0.4` is the released baseline;
+the tightened client/gateway/core package split and browser-local verifier are
+the active target of [draft PR #163](https://github.com/DeWebProtocol/malt/pull/163)
+at `0f2b5b1`.
+
 ## Core Claim
 
 Merkle DAG systems commit traversal structure implicitly inside parent object
@@ -51,14 +56,15 @@ CAS objects + CIDs    typed arcs + VC proofs      layouts, ArcTable, caches,
         +--- payload CID -----+--- result + ProofList -----+
 ```
 
-The module-root `malt` package is the application-neutral facade for typed
+In the active draft, the module-root `malt` package is the application-neutral facade for typed
 reads, mutations, and verification. The semantic interfaces live with
 `auth/semantic/list` and `auth/semantic/mapping`; `auth/verifier` is the
 portable authentication kernel. The graph runtime is a composition boundary
 around resolver and writer ports, not a second node-interface hierarchy.
 
-UnixFS is one layout that composes these primitives. It is not the definition
-of the core abstraction.
+UnixFS is one application model/profile that composes these primitives; it is
+not the definition of the core abstraction. `flat` and `hierarchical` name
+materialization layouts within that application model.
 
 ## Read Interface
 
@@ -106,4 +112,4 @@ It remains pre-`v1` and is not a production stability promise.
 - [MALT Abstraction](/narrative/abstraction)
 - [Root-Centric HTTP API](/docs/api)
 - [ProofLists](/docs/prooflists)
-- [MALT UnixFS Layout](/docs/unixfs-layout)
+- [MALT UnixFS Application Model](/docs/unixfs-layout)

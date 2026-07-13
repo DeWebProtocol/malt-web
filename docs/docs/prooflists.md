@@ -2,6 +2,12 @@
 
 ProofLists are the verifier-facing evidence returned by MALT reads.
 
+The `malt.artifact/v0alpha2` profile described here is released in `v0.0.4`.
+The `sdk/unixfs` package location, local verifier envelope, and browser WASM
+integration are the active target of
+[draft PR #163](https://github.com/DeWebProtocol/malt/pull/163) at
+`0f2b5b1`; they are not yet a newer release.
+
 The public contract is root-centric:
 
 ```text
@@ -55,8 +61,9 @@ Vary: X-Malt-Proof
 `Vary: X-Malt-Proof` records that clients can request proof omission with
 `X-Malt-Proof: omit`.
 
-`malt verify --prooflist` accepts either a bare ProofList JSON object or a
-resolve response containing a `prooflist` field.
+In the active draft, `malt verify --prooflist` accepts either a bare ProofList
+JSON object or a resolve response containing a `prooflist` field and requires a
+caller-selected trusted root.
 
 ## Artifact Profile Status
 

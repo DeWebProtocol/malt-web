@@ -47,9 +47,11 @@ const requiredFiles = [
   '.vitepress/theme/components/MaltResolveTool.vue',
   '.vitepress/theme/components/MaltVerifyTool.vue',
   '.vitepress/theme/malt-client.mjs',
+  '.vitepress/theme/malt-payload-verifier.mjs',
   '.vitepress/theme/malt-verifier.mjs',
   'public/verifier/wasm_exec.js',
   'public/verifier/malt-verifier.wasm',
+  'public/verifier/PROVENANCE.json',
   'public/verifier/SHA256SUMS'
 ]
 
@@ -312,13 +314,24 @@ const loadTreeDirectorySource = appSource.match(
 )?.[0]
 assert.ok(loadTreeDirectorySource, 'loadTreeDirectory function is missing')
 assert.match(loadTreeDirectorySource, /loadDirectoryEntries\(path,\s*'',\s*\{ omitProof: false \}\)/)
-assert.match(loadTreeDirectorySource, /await verifyAndMark\(path, manifest\.proofList\)/)
+assert.match(loadTreeDirectorySource, /await verifyContentAndMark\(path, manifest\)/)
 assert.match(appSource, /:style="treeRowStyle\(node\.depth\)"/)
 assert.match(appSource, /document\.title\s*=\s*'App \| MALT'/)
 assert.match(appSource, /await loadTreeAncestors\(currentPath\.value\)/)
 assert.match(appSource, /directory response did not include ProofList material/)
 assert.match(appSource, /file response did not include ProofList material/)
-assert.match(appSource, /await verifyAndMark\(ancestorPath, manifest\.proofList\)/)
+assert.match(appSource, /await verifyContentAndMark\(ancestorPath, manifest\)/)
+assert.match(appSource, /async function verifyContentAndMark\(path, payload\)/)
+assert.match(appSource, /verifyPayloadBytes/)
+assert.match(appSource, /readPayloadBlock/)
+assert.match(appSource, /async function acceptCandidateRoot\(\)/)
+assert.match(appSource, />\s*Accept candidate root\s*</)
+const uploadDroppedSource = appSource.match(
+  /async function uploadDropped\(uploadItems\) \{[\s\S]*?\n\}\n\nasync function acceptCandidateRoot/
+)?.[0]
+assert.ok(uploadDroppedSource, 'uploadDropped function is missing')
+assert.doesNotMatch(uploadDroppedSource, /root\.value\s*=\s*currentRoot/)
+assert.match(uploadDroppedSource, /candidateRoot:\s*currentRoot/)
 assert.doesNotMatch(appSource, /readDirectoryByPayload/)
 assert.doesNotMatch(appSource, /runEntryAction\('preview'/)
 assert.doesNotMatch(appSource, /malt-app__browser-head/)
@@ -337,6 +350,7 @@ assert.match(clientSource, /appFallbackStorageKey/)
 assert.match(clientSource, /parseAppFallbackRoute/)
 assert.match(clientSource, /isAppStateRoute/)
 assert.match(clientSource, /ancestorDirectoryPaths/)
+assert.match(clientSource, /export async function readPayloadBlock/)
 
 const verifierSource = fs.readFileSync(
   path.join(docsRoot, '.vitepress/theme/malt-verifier.mjs'),
@@ -347,6 +361,7 @@ assert.match(verifierSource, /WebAssembly\.instantiateStreaming/)
 assert.match(verifierSource, /source: 'local-wasm'/)
 assert.match(verifierSource, /trusted root is required/)
 assert.doesNotMatch(verifierSource, /v1\/artifacts\/verify/)
+assert.match(verifierSource, /function canonicalQuery\(query\)/)
 
 const customCSS = fs.readFileSync(path.join(docsRoot, '.vitepress/theme/custom.css'), 'utf8')
 for (const pattern of [
@@ -475,6 +490,35 @@ const rootCID = 'bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku'
 const identityArtifact = resolveArtifactFromProofList({
   proofList: { root: { '/': rootCID }, query: '', steps: [] }
 })
+
+const v004IdentityArtifact = {
+  ...identityArtifact,
+  query: { kind: 'path' }
+}
+assert.deepEqual(
+  createLocalVerifyRequest({
+    artifact: v004IdentityArtifact,
+    expectedRoot: rootCID,
+    expectedOperation: 'resolve',
+    expectedQuery: { kind: 'path', segments: [] }
+  }),
+  {
+    profile: localVerifierProfile,
+    trusted_root: rootCID,
+    expected: { operation: 'resolve', query: { kind: 'path', segments: [] } },
+    artifact: identityArtifact
+  }
+)
+assert.throws(
+  () =>
+    createLocalVerifyRequest({
+      artifact: { ...identityArtifact, query: { kind: 'path', segments: null } },
+      expectedRoot: rootCID,
+      expectedOperation: 'resolve',
+      expectedQuery: { kind: 'path', segments: [] }
+    }),
+  /client-selected query/
+)
 assert.deepEqual(
   identityArtifact,
   {
@@ -584,6 +628,24 @@ const encoded = Buffer.from(JSON.stringify(proofList), 'utf8').toString('base64u
 assert.deepEqual(decodeProofListHeader(encoded), proofList)
 assert.deepEqual(extractProofListInput(JSON.stringify({ prooflist: proofList })), proofList)
 assert.deepEqual(extractProofListInput(JSON.stringify(proofList)), proofList)
+
+const listRootCID = 'bafkreib6qhwx2g5wgdgczgczumrq6rupl7u36po34ohfhn7rmvtpt7a3om'
+const listRangeProof = {
+  root: { '/': rootCID },
+  query: 'large.bin',
+  steps: [
+    { kind: 'payload_binding', target: { '/': listRootCID } },
+    { kind: 'list_range', target: { '/': listRootCID }, segments: [] }
+  ]
+}
+assert.equal(
+  resolveArtifactFromProofList({
+    proofList: listRangeProof,
+    root: rootCID,
+    path: 'large.bin'
+  }).target,
+  listRootCID
+)
 
 assert.equal(joinMaltPath('', 'docs'), 'docs')
 assert.equal(joinMaltPath('docs', 'readme.md'), 'docs/readme.md')

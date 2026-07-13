@@ -105,9 +105,9 @@ The write receipt is operational metadata, not a correctness object. The current
 prototype's concrete write payload is documented in the
 [Semantic Mutation Contract](/docs/api#semantic-mutation-contract).
 
-## UnixFS as a Layout
+## UnixFS as an Application Model
 
-UnixFS is an application layout built from list/map semantics plus immutable
+UnixFS is an application model/profile built from list/map semantics plus immutable
 payload objects. It is not the core MALT abstraction.
 
 In the current MALT UnixFS direction:

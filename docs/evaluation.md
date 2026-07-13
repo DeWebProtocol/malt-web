@@ -70,8 +70,9 @@ The current MALT path uses measured-list `list_range` evidence for large-file
 range reads. The step carries authenticated fixed chunk metadata, covered
 segment CIDs, and metadata/index proof payload. ProofList verification binds
 that metadata and the ordered segment CIDs; UnixFS callers accepting returned
-bytes additionally use `sdk/unixfs.VerifyRangeBody` (or an equivalent check)
-to bind the response body to those authenticated segments.
+bytes additionally perform an equivalent body-binding check. The
+`sdk/unixfs.VerifyRangeBody` helper name belongs to active draft PR #163, not
+the released `v0.0.4` package surface.
 
 Encrypted private-CAS read:
 

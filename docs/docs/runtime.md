@@ -1,7 +1,7 @@
 # Runtime and Prototype Status
 
-This page describes the current MALT prototype surface. It is implementation
-documentation, not the definition of the MALT abstraction.
+This page separates the released MALT baseline from an active draft target. It
+is implementation documentation, not the definition of the MALT abstraction.
 
 The source of truth for current executable behavior is the sibling
 implementation repository. The website summarizes the public runtime boundary
@@ -12,7 +12,15 @@ The current source release is
 the experimental primitive facade and adds canonical segment paths plus the
 explicit `malt.artifact/v0alpha2` resolve/prove/verify profile and schemas.
 
-## Portable Core Surface
+The client/gateway/core package split, `execution.Executor`, local verifier
+envelope, reference-executor naming, and `model/unixfs` + `sdk/unixfs` +
+`runtime/unixfs` split below are the active target of
+[draft PR #163](https://github.com/DeWebProtocol/malt/pull/163), currently at
+`0f2b5b1`. They are not part of the `v0.0.4` release. The browser
+verifier's [published provenance](/verifier/PROVENANCE.json) records the exact
+full MALT commit and Go toolchain used to build the deployed WASM.
+
+## Active Draft: Portable Core Surface
 
 The module-root `package malt` is the trusted, application-neutral facade. It
 exposes typed `Query`, `ReadRequest`, `ReadResult`, mutation/receipt value
@@ -34,9 +42,9 @@ Versioning lives in its serialized profile and schemas, not in Go package
 names. A resolver receives segment arrays and may compose several authenticated
 arcs without requiring the client to discover arc boundaries first.
 
-## Public CLI
+## Active Draft: Public CLI and Local Verifier
 
-The current public `malt` CLI is intentionally small:
+The draft public `malt` CLI target is intentionally small:
 
 - `malt init`: create or initialize local configuration
 - `malt start/status/stop/restart`: detach, inspect, stop, or restart a managed
@@ -57,14 +65,16 @@ endpoint.
 
 The website App calls the local MALT Gateway at `http://127.0.0.1:8080`. The
 gateway delegates to the reference executor at `http://127.0.0.1:4317`, streams UnixFS
-content, and exposes the profiled artifact endpoints. The App can upload files
-or browser-selected folders, resolve from the resulting root, and verify the
-complete returned artifact.
+content, and exposes the profiled artifact endpoints. Its local WASM trust
+boundary tracks draft PR #163: the App verifies both ProofList evidence and the
+actual returned payload bytes before preview or download. An upload response is
+only a candidate root until the user explicitly accepts or independently
+publishes it.
 When the current root is not already a UnixFS root, browser uploads fail fast;
 legacy-root migration is a reference-executor compatibility opt-in rather than a default
 browser action.
 
-## Mutation Materialization
+## Active Draft: Mutation Materialization
 
 The current write boundary is root-scoped writer mutation application.
 Application adapters produce canonical arc deltas and submit them through the
@@ -108,10 +118,10 @@ has checked-in result schema coverage; paper claims still require refreshed
 artifacts, repeated runs, workload-lock metadata, and explicit backend/config
 labels.
 
-## Package Roles
+## Active Draft: Package Roles
 
-Current package names should not redefine the research abstraction. They are
-prototype modules mapped to the semantic model:
+These draft package names should not redefine the research abstraction. They
+are proposed prototype modules mapped to the semantic model:
 
 | Package | Role |
 |---|---|

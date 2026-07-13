@@ -4,7 +4,7 @@ MALT exposes authenticated structure through semantic abstractions, not through
 runtime graph objects.
 
 For the research framing, see [MALT Abstraction](/narrative/abstraction). For
-the current UnixFS application layout, see [MALT UnixFS Layout](/docs/unixfs-layout).
+the current UnixFS application model, see [MALT UnixFS Application Model](/docs/unixfs-layout).
 
 ## List
 
