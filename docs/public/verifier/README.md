@@ -17,3 +17,6 @@ globalThis.maltVerifyArtifact(verifyRequestJSON) -> verifyResultJSON
 
 The request and result use the `malt.artifact/v0alpha2` profile. The module
 runs the portable KZG/IPA verifier locally; it does not call a gateway.
+
+`SHA256SUMS` records the checksums for the deployed module and matching Go
+runtime. Regenerate it after rebuilding either artifact.

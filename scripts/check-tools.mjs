@@ -49,7 +49,8 @@ const requiredFiles = [
   '.vitepress/theme/malt-client.mjs',
   '.vitepress/theme/malt-verifier.mjs',
   'public/verifier/wasm_exec.js',
-  'public/verifier/malt-verifier.wasm'
+  'public/verifier/malt-verifier.wasm',
+  'public/verifier/SHA256SUMS'
 ]
 
 for (const file of requiredFiles) {

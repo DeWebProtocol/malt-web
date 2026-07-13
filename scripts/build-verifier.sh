@@ -14,4 +14,8 @@ cp "$go_root/lib/wasm/wasm_exec.js" "$output_dir/wasm_exec.js"
     -o "$output_dir/malt-verifier.wasm" ./cmd/malt-verifier-wasm
 )
 chmod 0644 "$output_dir/wasm_exec.js" "$output_dir/malt-verifier.wasm"
-sha256sum "$output_dir/malt-verifier.wasm"
+(
+  cd "$output_dir"
+  sha256sum malt-verifier.wasm wasm_exec.js > SHA256SUMS
+)
+cat "$output_dir/SHA256SUMS"

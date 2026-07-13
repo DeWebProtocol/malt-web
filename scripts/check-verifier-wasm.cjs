@@ -1,5 +1,6 @@
 const fs = require('node:fs')
 const path = require('node:path')
+const { createHash, webcrypto } = require('node:crypto')
 const { TextDecoder, TextEncoder } = require('node:util')
 
 const repositoryRoot = path.resolve(__dirname, '..')
@@ -11,7 +12,7 @@ globalThis.path = path
 globalThis.TextEncoder = TextEncoder
 globalThis.TextDecoder = TextDecoder
 globalThis.performance ??= require('node:perf_hooks').performance
-globalThis.crypto ??= require('node:crypto').webcrypto
+globalThis.crypto ??= webcrypto
 
 require(path.join(verifierRoot, 'wasm_exec.js'))
 
@@ -29,6 +30,7 @@ const request = {
 }
 
 async function main() {
+  verifyChecksums()
   const go = new Go()
   const wasm = fs.readFileSync(path.join(verifierRoot, 'malt-verifier.wasm'))
   const { instance } = await WebAssembly.instantiate(wasm, go.importObject)
@@ -47,6 +49,22 @@ async function main() {
     throw new Error('tampered artifact was accepted')
   }
   console.log('Local WASM verifier contract passed.')
+}
+
+function verifyChecksums() {
+  const sums = fs
+    .readFileSync(path.join(verifierRoot, 'SHA256SUMS'), 'utf8')
+    .trim()
+    .split('\n')
+  for (const line of sums) {
+    const [expected, filename] = line.trim().split(/\s+/, 2)
+    const actual = createHash('sha256')
+      .update(fs.readFileSync(path.join(verifierRoot, filename)))
+      .digest('hex')
+    if (actual !== expected) {
+      throw new Error(`checksum mismatch for ${filename}: got ${actual}, want ${expected}`)
+    }
+  }
 }
 
 async function waitForProvider() {
