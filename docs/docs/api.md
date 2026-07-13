@@ -75,6 +75,59 @@ locally and fail closed when it is unavailable. A gateway may report a
 diagnostic result, but a client must not accept that result in place of local
 verification.
 
+## Semantic Mutation Contract
+
+The gateway applies a root-relative semantic mutation through:
+
+```text
+POST /v1/roots/{root}/mutations
+```
+
+`{root}` is the caller-selected base root. The request body is the released
+`api/http.SemanticMutationRequest` shape: one or more typed map/list deltas,
+each with canonical coordinate changes and optional replay constraints.
+
+```json
+{
+  "deltas": [
+    {
+      "kind": "map",
+      "object": "<optional semantic-object CID>",
+      "expected_root": "<optional replay-result CID>",
+      "changes": [
+        {
+          "path": "docs/readme.md",
+          "before": {"target": "<old CID>", "target_kind": "cas"},
+          "after": {"target": "<new CID>", "target_kind": "cas"}
+        }
+      ]
+    }
+  ]
+}
+```
+
+A successful application returns `201 Created` with an operational receipt:
+
+```json
+{
+  "base_root": "<requested root>",
+  "new_root": "<candidate root>",
+  "result_root": "<optional materialized root>",
+  "delta_count": 1,
+  "arc_count": 1,
+  "malt_object_count": 1,
+  "map_count": 1,
+  "list_count": 0
+}
+```
+
+`new_root` is a candidate root and the receipt is operational metadata, not a
+portable correctness proof or authoritative head publication. A client must
+derive and verify the intended mutation independently, explicitly accept the
+candidate, or obtain it through its own root-publication policy before using it
+as a trusted root. Reads under an accepted root still require local ProofList
+and response-byte verification.
+
 ## Product Content Routes
 
 The current UnixFS product scenario uses gateway content routes:
