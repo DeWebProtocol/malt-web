@@ -1,7 +1,7 @@
 {
   "schema": "malt.web-verifier.provenance/v1",
   "source_repository": "git@github.com:DeWebProtocol/malt.git",
-  "source_commit": "db271e725dc0f4a21a7263eff92a14292c6590de",
+  "source_commit": "d3598cdb6e5d8bb7ab535a48a3e9912fc4b6cce6",
   "go_version": "go1.26.2",
   "go_toolchain": "go version go1.26.2 linux/amd64",
   "target": "js/wasm",

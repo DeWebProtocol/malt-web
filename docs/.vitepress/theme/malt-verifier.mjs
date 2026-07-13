@@ -71,6 +71,7 @@ export async function verifyContentProofLocally({
     }
 
     const reads = readVerificationsFromProofList(proofList)
+    assertReadChain(resolve, reads)
     const readResults = []
     for (const value of reads) {
       throwIfAborted(signal)
@@ -117,7 +118,7 @@ export function createReadVerification({ request, result }) {
 
 export function resolveVerificationFromProofList({ proofList, root, path = '', payload = false }) {
   requireProofList(proofList)
-  const trustedRoot = String(root || cidString(proofList.root) || '').trim()
+  const trustedRoot = String(root || '').trim()
   if (!trustedRoot) {
     throw new Error('trusted root is required')
   }
@@ -158,6 +159,19 @@ export function resolveVerificationFromProofList({ proofList, root, path = '', p
         steps
       }
     }
+  }
+}
+
+function assertReadChain(resolve, reads) {
+  let expectedRoot = String(resolve?.result?.target || '').trim()
+  for (const [index, read] of reads.entries()) {
+    const actualRoot = String(read?.request?.root || '').trim()
+    if (!expectedRoot || actualRoot !== expectedRoot) {
+      throw new Error(
+        `primitive read ${index} root ${JSON.stringify(actualRoot)} does not continue from authenticated target ${JSON.stringify(expectedRoot)}`
+      )
+    }
+    expectedRoot = String(read?.result?.target || '').trim()
   }
 }
 
@@ -386,7 +400,7 @@ function parseProviderResult(raw, expectedProfile) {
 }
 
 function pathSegments(rawPath = '') {
-  return String(rawPath || '').split('/').filter(Boolean).map((segment) => decodeURIComponent(segment))
+  return String(rawPath || '').split('/').filter(Boolean)
 }
 
 function cidString(value) {

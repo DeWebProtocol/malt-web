@@ -139,9 +139,9 @@ function verifyProvenance() {
   if (provenance.target !== 'js/wasm') {
     throw new Error(`unexpected verifier build target ${JSON.stringify(provenance.target)}`)
   }
-  if (rootContentFixture.source_commit !== provenance.source_commit) {
+  if (rootContentFixture.verified_commit !== provenance.source_commit) {
     throw new Error(
-      `root-content fixture source ${rootContentFixture.source_commit} does not match verifier source ${provenance.source_commit}`
+      `root-content fixture verification ${rootContentFixture.verified_commit} does not match verifier source ${provenance.source_commit}`
     )
   }
 }

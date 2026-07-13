@@ -30,6 +30,7 @@ import {
 	createResolveVerification,
 	readVerificationsFromProofList,
 	resolveVerificationFromProofList,
+	verifyContentProofLocally,
 	verifyResolveLocally
 } from '../docs/.vitepress/theme/malt-verifier.mjs'
 
@@ -531,6 +532,35 @@ const rawContentVerification = resolveVerificationFromProofList({
 })
 assert.deepEqual(rawContentVerification.request.segments, [])
 assert.equal(rawContentVerification.result.target, rootCID)
+assert.throws(
+  () =>
+    resolveVerificationFromProofList({
+      proofList: rawContentVerification.result.prooflist,
+      path: ''
+    }),
+  /trusted root is required/
+)
+
+for (const name of ['%', '%41', '%2F']) {
+  const percentVerification = resolveVerificationFromProofList({
+    proofList: {
+      root: { '/': rootCID },
+      query: name,
+      steps: [
+        {
+          kind: 'map_step',
+          from: { '/': rootCID },
+          path: name,
+          target: { '/': rootPayloadCID }
+        }
+      ]
+    },
+    root: rootCID,
+    path: name
+  })
+  assert.deepEqual(percentVerification.request.segments, [name])
+  assert.equal(percentVerification.result.prooflist.query, name)
+}
 assert.deepEqual(createResolveVerification(identityVerification), identityVerification)
 assert.deepEqual(extractVerificationInput(identityVerification), identityVerification)
 assert.throws(
@@ -637,6 +667,30 @@ assert.equal(listResolve.result.target, listRootCID)
 const listReads = readVerificationsFromProofList(listRangeProof)
 assert.equal(listReads.length, 1)
 assert.equal(listReads[0].request.profile, readProfile)
+
+const acceptingProvider = {
+  resolve: () => JSON.stringify({ profile: resolveProfile, valid: true }),
+  read: () => JSON.stringify({ profile: readProfile, valid: true })
+}
+const validComposite = await verifyContentProofLocally({
+  proofList: listRangeProof,
+  expectedRoot: rootCID,
+  expectedPath: 'large.bin',
+  provider: acceptingProvider
+})
+assert.equal(validComposite.valid, true)
+
+const crossRootSplice = structuredClone(listRangeProof)
+crossRootSplice.steps[1].from = { '/': rootCID }
+crossRootSplice.steps[1].target = { '/': rootCID }
+const splicedComposite = await verifyContentProofLocally({
+  proofList: crossRootSplice,
+  expectedRoot: rootCID,
+  expectedPath: 'large.bin',
+  provider: acceptingProvider
+})
+assert.equal(splicedComposite.valid, false)
+assert.match(splicedComposite.error, /does not continue from authenticated target/)
 
 assert.equal(joinMaltPath('', 'docs'), 'docs')
 assert.equal(joinMaltPath('docs', 'readme.md'), 'docs/readme.md')

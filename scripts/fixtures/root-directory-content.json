@@ -1,6 +1,7 @@
 {
-  "schema": "malt.web.root-content-fixture/v2",
+  "schema": "malt.web.root-content-fixture/v3",
   "source_commit": "db271e725dc0f4a21a7263eff92a14292c6590de",
+  "verified_commit": "d3598cdb6e5d8bb7ab535a48a3e9912fc4b6cce6",
   "source_scenario": "reference daemon GET /{root} after writing docs/readme.txt",
   "request_path": "/bagaybqabaayjgj5qst4x7wig56y7lydcv4y3372zwgwlntowmy2oimn262ea5to32d4xvoalviqbi5okqnzslvk5",
   "body_base64": "eyJlbnRyaWVzIjpbImRvY3MiXX0=",
