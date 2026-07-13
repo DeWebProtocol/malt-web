@@ -18,7 +18,7 @@ The website has two main lanes:
 Status labels matter in the technical lane: `v0.0.4` is the released baseline;
 the tightened client/gateway/core package split and browser-local verifier are
 the active target of [draft PR #163](https://github.com/DeWebProtocol/malt/pull/163)
-at `db271e7`.
+at `d3598cd`.
 
 ## Core Claim
 

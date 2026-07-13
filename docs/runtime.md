@@ -9,7 +9,7 @@ verifier-facing evidence, see [ProofLists](/docs/prooflists).
 Released behavior is pinned to MALT `v0.0.4`. The tightened package split and
 reference-executor naming are the active target of
 [draft PR #163](https://github.com/DeWebProtocol/malt/pull/163) at
-`db271e7`; this page uses those draft role names where it discusses
+`d3598cd`; this page uses those draft role names where it discusses
 the intended boundary.
 
 ## Roles

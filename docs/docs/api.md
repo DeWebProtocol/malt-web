@@ -5,7 +5,7 @@ The product-facing browser and SDK boundary is the MALT Gateway at
 reference executor while preserving the operation-specific core contracts.
 
 The current gateway tracks [MALT PR #163](https://github.com/DeWebProtocol/malt/pull/163)
-at commit `db271e7`. Released `v0.0.4` remains the baseline; its
+at commit `d3598cd`. Released `v0.0.4` remains the baseline; its
 `malt.artifact/v0alpha2` resolve/prove profile is frozen compatibility behavior,
 not the contract new clients use.
 
@@ -64,7 +64,7 @@ The browser verifies a caller-constructed request together with the untrusted
 result. The remote verify endpoints accept the same `{request, result}` pair
 and return a diagnostic `{profile, valid, error?}` response. They are not trust
 oracles. Normative schemas and semantics live in the
-[MALT resolve/read spec](https://github.com/DeWebProtocol/malt/blob/db271e725dc0f4a21a7263eff92a14292c6590de/docs/spec/resolve-read-contracts.md).
+[MALT resolve/read spec](https://github.com/DeWebProtocol/malt/blob/d3598cdb6e5d8bb7ab535a48a3e9912fc4b6cce6/docs/spec/resolve-read-contracts.md).
 
 ## Semantic Mutation Contract
 

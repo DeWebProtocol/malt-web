@@ -16,7 +16,7 @@ The client/gateway/core package split, `execution.Executor`, operation-specific
 resolve/read profiles, reference-executor naming, and `model/unixfs` +
 `sdk/unixfs` + `runtime/unixfs` split below are the active target of
 [draft PR #163](https://github.com/DeWebProtocol/malt/pull/163), currently at
-`db271e7`. Payload selection is an explicit `@payload` resolve segment; the
+`d3598cd`. Payload selection is an explicit `@payload` resolve segment; the
 released v0alpha2 Artifact profile remains frozen. These changes are not part
 of the `v0.0.4` release. The browser
 verifier's [published provenance](/verifier/PROVENANCE.json) records the exact
