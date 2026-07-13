@@ -377,6 +377,14 @@ export async function diagnoseProofListRemotely({ baseURL, proofList, artifact, 
 export const verifyProofListRemotely = diagnoseProofListRemotely
 
 export function resolveArtifactFromProofList({ proofList, root, path }) {
+  return pathArtifactFromProofList({ proofList, root, path, operation: 'resolve' })
+}
+
+export function resolvePayloadArtifactFromProofList({ proofList, root, path }) {
+  return pathArtifactFromProofList({ proofList, root, path, operation: 'resolve_payload' })
+}
+
+function pathArtifactFromProofList({ proofList, root, path, operation }) {
   if (!proofList || typeof proofList !== 'object' || !Array.isArray(proofList.steps)) {
     throw new Error('ProofList JSON must contain a steps array')
   }
@@ -386,14 +394,25 @@ export function resolveArtifactFromProofList({ proofList, root, path }) {
     throw new Error('artifact root is required')
   }
   const queryPath = path == null ? String(proofList.query || '') : String(path || '')
-  const lastStep = proofList.steps[proofList.steps.length - 1]
-  const target = lastStep ? cidString(lastStep.target) : trustedRoot
+  let target
+  if (operation === 'resolve_payload') {
+    const bindings = proofList.steps.filter(
+      (step) => step?.kind === 'payload_binding' && step?.path === '@payload'
+    )
+    if (bindings.length !== 1) {
+      throw new Error('resolve_payload ProofList must contain exactly one @payload binding')
+    }
+    target = cidString(bindings[0].target)
+  } else {
+    const lastStep = proofList.steps[proofList.steps.length - 1]
+    target = lastStep ? cidString(lastStep.target) : trustedRoot
+  }
   if (!target) {
     throw new Error('ProofList target is required')
   }
   return {
     profile: artifactProfile,
-    operation: 'resolve',
+    operation,
     root: trustedRoot,
     query: { kind: 'path', segments: pathSegments(queryPath) },
     target,

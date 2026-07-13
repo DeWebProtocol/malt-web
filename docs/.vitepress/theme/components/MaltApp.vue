@@ -19,7 +19,7 @@ import {
   readContentBlob,
   readDirectory,
   readPayloadBlock,
-  resolveArtifactFromProofList,
+  resolvePayloadArtifactFromProofList,
   resolvePathQuery,
   statPath,
   uploadPathForFile,
@@ -1318,12 +1318,12 @@ async function verifyContentAndMark(path, payload) {
     throw new Error('content response did not include ProofList material')
   }
   try {
-    const artifact = resolveArtifactFromProofList({ proofList, root: root.value, path })
+    const artifact = resolvePayloadArtifactFromProofList({ proofList, root: root.value, path })
     const verification = await withDaemonTimeout('verify proof and payload locally', async (signal) => {
       const proofVerification = await verifyArtifactLocally({
         artifact,
         expectedRoot: root.value.trim(),
-        expectedOperation: 'resolve',
+        expectedOperation: 'resolve_payload',
         expectedQuery: resolvePathQuery(path),
         runtimeURL: withBase('/verifier/wasm_exec.js'),
         wasmURL: withBase('/verifier/malt-verifier.wasm'),
@@ -1438,13 +1438,13 @@ function openVerifierPage() {
     window.sessionStorage.setItem(
       'malt-verification-input',
       JSON.stringify({
-        artifact: resolveArtifactFromProofList({
+        artifact: resolvePayloadArtifactFromProofList({
           proofList: proofView.value.proofList,
           root: root.value,
           path
         }),
         trustedRoot: root.value.trim(),
-        expectedOperation: 'resolve',
+        expectedOperation: 'resolve_payload',
         expectedQuery: resolvePathQuery(path)
       })
     )

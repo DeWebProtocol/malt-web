@@ -85,6 +85,11 @@ file and directory maps, so UnixFS proof paths include the terminal
 `payload_binding` step described above; relation-only generic maps do not need
 one.
 
+The active draft represents this terminal binding as a `resolve_payload`
+artifact. Root content therefore uses an empty segment query with a non-empty
+payload ProofList; only an empty `resolve` query with zero steps means root
+identity.
+
 ## Freshness Boundary
 
 A valid `ProofList` proves snapshot correctness relative to the supplied root.

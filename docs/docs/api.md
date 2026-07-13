@@ -10,9 +10,9 @@ The gateway routes and `v0alpha2` artifact profile below interoperate with the
 released MALT `v0.0.4` baseline. The browser-local verifier envelope and the
 client/gateway/core package boundary are the active target of
 [draft MALT PR #163](https://github.com/DeWebProtocol/malt/pull/163) at
-`0f2b5b1`, not released `v0.0.4` behavior.
+`17352b9`, not released `v0.0.4` behavior.
 
-## Resolve, Prove, and Diagnostic Verify
+## Resolve, Payload Resolve, Prove, and Diagnostic Verify
 
 ```text
 POST /v1/artifacts/resolve
@@ -66,8 +66,14 @@ its root, query, target, and ProofList. A response is:
 
 JSON shape validation is not proof verification. The verifier also binds the
 root, query, target, ordered steps, optional range segments, and cryptographic
-evidence. Normative schemas and semantics live in the
-[`DeWebProtocol/malt` artifact spec](https://github.com/DeWebProtocol/malt/blob/v0.0.4/docs/spec/artifacts.md).
+evidence. Draft normative schemas and semantics live in the
+[`DeWebProtocol/malt` artifact spec](https://github.com/DeWebProtocol/malt/blob/17352b9a81b7bbcbf9e719de4343a8c5f1fa576c/docs/spec/artifacts.md).
+
+Content clients use the draft `resolve_payload` artifact operation to bind the
+caller-selected segment path to exactly one authenticated `@payload` step. In
+particular, root content uses an empty path plus a non-empty payload ProofList;
+it is not re-labeled as the zero-step `resolve` root identity. The artifact
+target is the payload-binding target even when later range evidence is present.
 
 This endpoint is a diagnostic and conformance surface, not a client trust
 oracle. The active draft browser and SDK clients run the portable verifier
@@ -149,12 +155,17 @@ X-Malt-ProofList: <base64url(JSON ProofList)>
 X-Malt-ProofList-Encoding: base64url-json
 X-Malt-Key: <resolved key CID>
 X-Malt-Payload: <optional payload CID>
+Vary: X-Malt-Proof
 ```
 
-The website reconstructs the complete profiled artifact from the explicit root,
-segment path, returned target, and ProofList, then verifies it locally with the
-draft portable WebAssembly verifier. For raw payloads and directory manifests,
-it hashes the exact response bytes against the authenticated payload CID. A
+The gateway preserves the upstream proof variance and merges it with
+`Vary: Origin` when browser CORS is active, so cached proof-bearing and
+proof-omitted responses cannot be substituted for one another.
+
+The website reconstructs a `resolve_payload` artifact from the explicit root,
+segment path, authenticated `@payload` target, and ProofList, then verifies it
+locally with the draft portable WebAssembly verifier. For raw payloads and
+directory manifests, it hashes the exact response bytes against the authenticated payload CID. A
 partial raw response is compared with the matching slice of a separately
 fetched and CID-checked complete payload. For list ranges, the client fetches
 the authenticated segment CIDs, checks every segment, and compares the

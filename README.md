@@ -14,7 +14,7 @@ locate and serve proofs. UnixFS is one application model over that core; its
 
 [`v0.0.4`](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.4) is the
 current experimental source-release baseline. It publishes canonical segment
-paths and the `malt.artifact/v0alpha2` resolve/prove/verify profile. APIs and
+paths and the `malt.artifact/v0alpha2` resolve/resolve_payload/prove/verify profile. APIs and
 wire shapes remain pre-v1 and are not yet stable for production use.
 
 ## Prerequisites

@@ -73,8 +73,10 @@ export function createLocalVerifyRequest({
     throw new Error('artifact root does not match the client-selected trusted root')
   }
   const operation = String(expectedOperation || '').trim()
-  if (operation !== 'resolve' && operation !== 'prove') {
-    throw new Error('expected operation must be resolve or prove and selected outside the artifact')
+  if (operation !== 'resolve' && operation !== 'resolve_payload' && operation !== 'prove') {
+    throw new Error(
+      'expected operation must be resolve, resolve_payload, or prove and selected outside the artifact'
+    )
   }
   if (artifact.operation !== operation) {
     throw new Error('artifact operation does not match the client-selected operation')

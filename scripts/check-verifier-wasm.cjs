@@ -5,6 +5,9 @@ const { TextDecoder, TextEncoder } = require('node:util')
 
 const repositoryRoot = path.resolve(__dirname, '..')
 const verifierRoot = path.join(repositoryRoot, 'docs', 'public', 'verifier')
+const rootContentFixture = JSON.parse(
+  fs.readFileSync(path.join(repositoryRoot, 'scripts', 'fixtures', 'root-directory-content.json'), 'utf8')
+)
 
 globalThis.require = require
 globalThis.fs = fs
@@ -46,6 +49,24 @@ async function main() {
   const accepted = JSON.parse(globalThis.maltVerifyArtifact(JSON.stringify(request)))
   if (accepted.profile !== request.profile || accepted.valid !== true) {
     throw new Error(`identity artifact was not accepted: ${JSON.stringify(accepted)}`)
+  }
+
+  const rootContentRequest = {
+    profile: rootContentFixture.artifact.profile,
+    trusted_root: rootContentFixture.expected.trusted_root,
+    expected: {
+      operation: rootContentFixture.expected.operation,
+      query: rootContentFixture.expected.query
+    },
+    artifact: rootContentFixture.artifact
+  }
+  const rootContentAccepted = JSON.parse(
+    globalThis.maltVerifyArtifact(JSON.stringify(rootContentRequest))
+  )
+  if (rootContentAccepted.profile !== request.profile || rootContentAccepted.valid !== true) {
+    throw new Error(
+      `real daemon root-content artifact was not accepted: ${JSON.stringify(rootContentAccepted)}`
+    )
   }
 
   // v0.0.4 omitted an empty path segments array. The same v0alpha2 profile
@@ -129,6 +150,11 @@ function verifyProvenance() {
   }
   if (provenance.target !== 'js/wasm') {
     throw new Error(`unexpected verifier build target ${JSON.stringify(provenance.target)}`)
+  }
+  if (rootContentFixture.source_commit !== provenance.source_commit) {
+    throw new Error(
+      `root-content fixture source ${rootContentFixture.source_commit} does not match verifier source ${provenance.source_commit}`
+    )
   }
 }
 

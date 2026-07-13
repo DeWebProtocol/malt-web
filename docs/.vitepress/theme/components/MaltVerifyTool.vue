@@ -105,6 +105,7 @@ async function runGatewayDiagnostic() {
         <span>Expected operation</span>
         <select v-model="expectedOperation">
           <option value="resolve">resolve</option>
+          <option value="resolve_payload">resolve_payload</option>
           <option value="prove">prove</option>
         </select>
       </label>

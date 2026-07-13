@@ -6,6 +6,7 @@ import {
   readContent,
   readPayloadBlock,
   resolveArtifactFromProofList,
+  resolvePayloadArtifactFromProofList,
   resolvePath,
   resolvePathQuery
 } from '../malt-client.mjs'
@@ -59,16 +60,19 @@ async function run(nextMode) {
     if (!payload.proofList) {
       throw new Error('response did not include ProofList material')
     }
+    const operation = nextMode === 'content' ? 'resolve_payload' : 'resolve'
+    const buildArtifact =
+      nextMode === 'content' ? resolvePayloadArtifactFromProofList : resolveArtifactFromProofList
     const proofVerification = await verifyArtifactLocally({
       artifact:
         payload.artifact ??
-        resolveArtifactFromProofList({
+        buildArtifact({
           proofList: payload.proofList,
           root: root.value,
           path: path.value
         }),
       expectedRoot: root.value.trim(),
-      expectedOperation: 'resolve',
+      expectedOperation: operation,
       expectedQuery: resolvePathQuery(path.value),
       runtimeURL: withBase('/verifier/wasm_exec.js'),
       wasmURL: withBase('/verifier/malt-verifier.wasm')
@@ -115,9 +119,12 @@ function sendToVerifier() {
   if (!proofText.value || typeof window === 'undefined') {
     return
   }
+  const operation = mode.value === 'content' ? 'resolve_payload' : 'resolve'
+  const buildArtifact =
+    mode.value === 'content' ? resolvePayloadArtifactFromProofList : resolveArtifactFromProofList
   const artifact =
     result.value?.artifact ??
-    resolveArtifactFromProofList({
+    buildArtifact({
       proofList: result.value?.proofList,
       root: root.value,
       path: path.value
@@ -127,7 +134,7 @@ function sendToVerifier() {
     JSON.stringify({
       artifact,
       trustedRoot: root.value.trim(),
-      expectedOperation: 'resolve',
+      expectedOperation: operation,
       expectedQuery: resolvePathQuery(path.value)
     })
   )

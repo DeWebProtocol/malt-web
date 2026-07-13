@@ -16,7 +16,8 @@ The client/gateway/core package split, `execution.Executor`, local verifier
 envelope, reference-executor naming, and `model/unixfs` + `sdk/unixfs` +
 `runtime/unixfs` split below are the active target of
 [draft PR #163](https://github.com/DeWebProtocol/malt/pull/163), currently at
-`0f2b5b1`. They are not part of the `v0.0.4` release. The browser
+`17352b9`. The draft extends the same alpha profile with `resolve_payload` for
+path plus CAS-payload binding. These changes are not part of the `v0.0.4` release. The browser
 verifier's [published provenance](/verifier/PROVENANCE.json) records the exact
 full MALT commit and Go toolchain used to build the deployed WASM.
 
@@ -128,7 +129,7 @@ are proposed prototype modules mapped to the semantic model:
 | module-root `package malt` | Trusted typed-query, mutation/receipt value, and `VerifyRead` facade; no execution or storage ownership. |
 | `mutation` | Pure semantic mutation, delta, commit-descriptor, and write-receipt values plus validation. |
 | `execution` | Untrusted `Read`/`Apply` executor over injected semantic/runtime ports. |
-| `artifact` | Profiled resolve/prove/verify envelopes, verification binding, schemas, and conformance fixtures. |
+| `artifact` | Profiled resolve/resolve_payload/prove/verify envelopes, verification binding, schemas, and conformance fixtures. |
 | `auth/verifier` | Portable ProofList verification kernel with built-in KZG and IPA verification support. |
 | `auth/commitment` | Verification-only and prover/updater commitment capabilities, with built-in KZG and IPA backends. |
 | `auth/arcset` | Canonical path and arcset representation. |

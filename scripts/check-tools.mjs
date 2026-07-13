@@ -23,7 +23,8 @@ import {
   pathBasename,
   pathParent,
   profileStorageKey,
-  resolveArtifactFromProofList
+  resolveArtifactFromProofList,
+  resolvePayloadArtifactFromProofList
 } from '../docs/.vitepress/theme/malt-client.mjs'
 import {
   createLocalVerifyRequest,
@@ -34,6 +35,9 @@ import {
 const root = path.dirname(fileURLToPath(import.meta.url))
 const docsRoot = path.join(root, '..', 'docs')
 const packageManifest = JSON.parse(fs.readFileSync(path.join(root, '..', 'package.json'), 'utf8'))
+const rootContentFixture = JSON.parse(
+  fs.readFileSync(path.join(root, 'fixtures', 'root-directory-content.json'), 'utf8')
+)
 
 assert.match(packageManifest.dependencies?.['markdown-it'] || '', /\^?\d+\.\d+\.\d+/)
 assert.match(packageManifest.dependencies?.shiki || '', /\^?\d+\.\d+\.\d+/)
@@ -322,6 +326,8 @@ assert.match(appSource, /directory response did not include ProofList material/)
 assert.match(appSource, /file response did not include ProofList material/)
 assert.match(appSource, /await verifyContentAndMark\(ancestorPath, manifest\)/)
 assert.match(appSource, /async function verifyContentAndMark\(path, payload\)/)
+assert.match(appSource, /resolvePayloadArtifactFromProofList/)
+assert.match(appSource, /expectedOperation: 'resolve_payload'/)
 assert.match(appSource, /verifyPayloadBytes/)
 assert.match(appSource, /readPayloadBlock/)
 assert.match(appSource, /async function acceptCandidateRoot\(\)/)
@@ -495,6 +501,55 @@ const v004IdentityArtifact = {
   ...identityArtifact,
   query: { kind: 'path' }
 }
+
+const rootPayloadCID = 'bafkreib6qhwx2g5wgdgczgczumrq6rupl7u36po34ohfhn7rmvtpt7a3om'
+const rootPayloadArtifact = resolvePayloadArtifactFromProofList({
+  proofList: {
+    root: { '/': rootCID },
+    query: '',
+    steps: [
+      {
+        kind: 'payload_binding',
+        from: { '/': rootCID },
+        path: '@payload',
+        target: { '/': rootPayloadCID }
+      }
+    ]
+  },
+  root: rootCID,
+  path: ''
+})
+assert.equal(rootPayloadArtifact.operation, 'resolve_payload')
+assert.equal(rootPayloadArtifact.target, rootPayloadCID)
+assert.deepEqual(
+  createLocalVerifyRequest({
+    artifact: rootPayloadArtifact,
+    expectedRoot: rootCID,
+    expectedOperation: 'resolve_payload',
+    expectedQuery: { kind: 'path', segments: [] }
+  }).expected,
+  {
+    operation: 'resolve_payload',
+    query: { kind: 'path', segments: [] }
+  }
+)
+assert.throws(
+  () =>
+    resolvePayloadArtifactFromProofList({
+      proofList: { root: { '/': rootCID }, query: '', steps: [] },
+      root: rootCID,
+      path: ''
+    }),
+  /exactly one @payload binding/
+)
+assert.deepEqual(
+  resolvePayloadArtifactFromProofList({
+    proofList: rootContentFixture.artifact.prooflist,
+    root: rootContentFixture.expected.trusted_root,
+    path: ''
+  }),
+  rootContentFixture.artifact
+)
 assert.deepEqual(
   createLocalVerifyRequest({
     artifact: v004IdentityArtifact,

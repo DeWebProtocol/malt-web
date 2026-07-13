@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
 
 import { CID } from 'multiformats/cid'
 import * as raw from 'multiformats/codecs/raw'
@@ -10,6 +11,23 @@ import {
 } from '../docs/.vitepress/theme/malt-payload-verifier.mjs'
 
 const encoder = new TextEncoder()
+const rootContentFixture = JSON.parse(
+  fs.readFileSync(new URL('./fixtures/root-directory-content.json', import.meta.url), 'utf8')
+)
+const rootContentBody = Uint8Array.from(Buffer.from(rootContentFixture.body_base64, 'base64'))
+const rootContentBinding = await verifyPayloadBytes({
+  proofList: rootContentFixture.artifact.prooflist,
+  body: rootContentBody
+})
+assert.equal(rootContentBinding.target, rootContentFixture.artifact.target)
+await assert.rejects(
+  verifyPayloadBytes({
+    proofList: rootContentFixture.artifact.prooflist,
+    body: encoder.encode('{"entries":["tampered"]}')
+  }),
+  /do not match authenticated CID/
+)
+
 const rawBytes = encoder.encode('authenticated payload')
 const rawCID = await cidFor(rawBytes, raw.code)
 const rawProof = {
