@@ -18,12 +18,13 @@ import {
   profileStorageKey,
   readContentBlob,
   readDirectory,
-  readDirectoryByPayload,
+  resolveArtifactFromProofList,
+  resolvePathQuery,
   statPath,
   uploadPathForFile,
-  uploadUnixFSFile,
-  verifyProofList
+  uploadUnixFSFile
 } from '../malt-client.mjs'
+import { verifyArtifactLocally } from '../malt-verifier.mjs'
 
 const baseURL = ref(defaultGatewayURL)
 const casURL = ref(defaultCASURL)
@@ -427,13 +428,15 @@ async function refreshDirectory() {
     const { manifest, loadedEntries } = await loadDirectoryEntries(currentPath.value, '', {
       omitProof: false
     })
-    if (manifest.proofList) {
-      proofView.value = {
-        path: currentPath.value,
-        kind: 'dir',
-        proofList: manifest.proofList,
-        verification: null
-      }
+    if (!manifest.proofList) {
+      throw new Error('directory response did not include ProofList material')
+    }
+    const verification = await verifyAndMark(currentPath.value, manifest.proofList)
+    proofView.value = {
+      path: currentPath.value,
+      kind: 'dir',
+      proofList: manifest.proofList,
+      verification
     }
     entries.value = loadedEntries
     cacheDirectoryEntries(currentPath.value, entries.value)
@@ -449,22 +452,16 @@ async function refreshDirectory() {
 
 async function loadDirectoryEntries(path, payload, options = {}) {
   const directoryPath = normalizeOptionalPath(path)
-  const directoryPayload = String(payload || '').trim()
+  void payload
   const omitProof = options.omitProof !== false
   const manifest = await withDaemonTimeout('read directory', (signal) =>
-    directoryPayload
-      ? readDirectoryByPayload({
-          baseURL: baseURL.value,
-          payload: directoryPayload,
-          signal
-        })
-      : readDirectory({
-          baseURL: baseURL.value,
-          root: root.value,
-          path: directoryPath,
-          signal,
-          omitProof
-        })
+    readDirectory({
+      baseURL: baseURL.value,
+      root: root.value,
+      path: directoryPath,
+      signal,
+      omitProof
+    })
   )
   const loadedEntries = manifest.entries.map((name) => lazyDirectoryEntry(directoryPath, name))
   return {
@@ -1048,7 +1045,11 @@ async function toggleTreeDirectory(entry) {
 
 async function loadTreeDirectory(entry) {
   const path = normalizeOptionalPath(entry.path)
-  const { loadedEntries } = await loadDirectoryEntries(path, entry.payload)
+  const { manifest, loadedEntries } = await loadDirectoryEntries(path, '', { omitProof: false })
+  if (!manifest.proofList) {
+    throw new Error('directory response did not include ProofList material')
+  }
+  await verifyAndMark(path, manifest.proofList)
   cacheDirectoryEntries(path, loadedEntries)
 }
 
@@ -1057,7 +1058,13 @@ async function loadTreeAncestors(path) {
     if (loadedTreeDirectories.value[ancestorPath]) {
       continue
     }
-    const { loadedEntries } = await loadDirectoryEntries(ancestorPath)
+    const { manifest, loadedEntries } = await loadDirectoryEntries(ancestorPath, '', {
+      omitProof: false
+    })
+    if (!manifest.proofList) {
+      throw new Error('directory response did not include ProofList material')
+    }
+    await verifyAndMark(ancestorPath, manifest.proofList)
     cacheDirectoryEntries(ancestorPath, loadedEntries)
   }
 }
@@ -1083,14 +1090,15 @@ async function previewFile(entry, options = {}) {
         signal
       })
     )
-    if (payload.proofList) {
-      const verification = await verifyAndMark(entry.path, payload.proofList)
-      proofView.value = {
-        path: entry.path,
-        kind: 'file',
-        proofList: payload.proofList,
-        verification
-      }
+    if (!payload.proofList) {
+      throw new Error('file response did not include ProofList material')
+    }
+    const verification = await verifyAndMark(entry.path, payload.proofList)
+    proofView.value = {
+      path: entry.path,
+      kind: 'file',
+      proofList: payload.proofList,
+      verification
     }
     const blob = payload.blob
     const contentType = payload.contentType || blob.type || ''
@@ -1199,9 +1207,10 @@ async function downloadFile(entry) {
         signal
       })
     )
-    if (payload.proofList) {
-      await verifyAndMark(entry.path, payload.proofList)
+    if (!payload.proofList) {
+      throw new Error('file response did not include ProofList material')
     }
+    await verifyAndMark(entry.path, payload.proofList)
     const url = URL.createObjectURL(payload.blob)
     const link = document.createElement('a')
     link.href = url
@@ -1286,16 +1295,21 @@ async function runEntryAction(action, entry) {
 }
 
 async function verifyAndMark(path, proofList) {
-  const verification = await withDaemonTimeout('verify proof', (signal) =>
-    verifyProofList({
-      baseURL: baseURL.value,
-      proofList,
-      root: root.value,
-      path,
+  const artifact = resolveArtifactFromProofList({ proofList, root: root.value, path })
+  const verification = await withDaemonTimeout('verify proof locally', (signal) =>
+    verifyArtifactLocally({
+      artifact,
+      expectedRoot: root.value.trim(),
+      expectedQuery: resolvePathQuery(path),
+      runtimeURL: withBase('/verifier/wasm_exec.js'),
+      wasmURL: withBase('/verifier/malt-verifier.wasm'),
       signal
     })
   )
   markVerification(path, verification.valid)
+  if (!verification.valid) {
+    throw new Error(verification.error || 'local proof verification failed')
+  }
   return verification
 }
 
@@ -1379,7 +1393,22 @@ function openVerifierPage() {
   if (typeof window === 'undefined') {
     return
   }
-  window.location.href = withBase('/verify')
+  if (proofView.value?.proofList) {
+    const path = proofView.value.path || ''
+    window.sessionStorage.setItem(
+      'malt-verification-input',
+      JSON.stringify({
+        artifact: resolveArtifactFromProofList({
+          proofList: proofView.value.proofList,
+          root: root.value,
+          path
+        }),
+        trustedRoot: root.value.trim(),
+        expectedQuery: resolvePathQuery(path)
+      })
+    )
+  }
+  window.location.href = withBase('/tools/verify')
 }
 
 function normalizeOptionalPath(path) {

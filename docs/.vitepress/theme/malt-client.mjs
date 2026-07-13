@@ -99,6 +99,10 @@ export function ancestorDirectoryPaths(rawPath = '') {
   return ancestors
 }
 
+export function resolvePathQuery(rawPath = '') {
+  return { kind: 'path', segments: pathSegments(rawPath) }
+}
+
 export function decodeProofListHeader(raw) {
   if (!raw) {
     throw new Error('missing X-Malt-ProofList header')
@@ -328,7 +332,7 @@ export async function readDirectoryByPayload({ baseURL, payload, signal }) {
   return readDirectory({ baseURL, root: payloadCID, path: '', signal, omitProof: true })
 }
 
-export async function verifyProofList({ baseURL, proofList, artifact, root, path, signal }) {
+export async function diagnoseProofListRemotely({ baseURL, proofList, artifact, root, path, signal }) {
   const url = buildVerifyURL(baseURL)
   const candidate = artifact ?? resolveArtifactFromProofList({ proofList, root, path })
   const response = await fetch(url, {
@@ -342,9 +346,14 @@ export async function verifyProofList({ baseURL, proofList, artifact, root, path
     endpoint: url.toString(),
     status: response.status,
     valid: Boolean(payload.valid),
+    source: 'gateway-diagnostic',
     response: payload
   }
 }
+
+// Compatibility alias. Remote verification is diagnostic only and must never
+// be used as the client's trust decision.
+export const verifyProofListRemotely = diagnoseProofListRemotely
 
 export function resolveArtifactFromProofList({ proofList, root, path }) {
   if (!proofList || typeof proofList !== 'object' || !Array.isArray(proofList.steps)) {

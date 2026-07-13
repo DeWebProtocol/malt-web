@@ -5,7 +5,7 @@ The product-facing browser and SDK boundary is the MALT Gateway at
 preserves the core `malt.artifact/v0alpha2` contract instead of inventing a
 second proof format.
 
-## Resolve, Prove, Verify
+## Resolve, Prove, and Diagnostic Verify
 
 ```text
 POST /v1/artifacts/resolve
@@ -41,7 +41,7 @@ Prove accepts one primitive typed query:
 Other primitive kinds are `list_index` and `list_range`. Path composition is a
 resolve operation, not a primitive prove query.
 
-Verify accepts the complete artifact returned by resolve or prove:
+The verify endpoint accepts the complete artifact returned by resolve or prove:
 
 ```json
 {
@@ -61,6 +61,11 @@ JSON shape validation is not proof verification. The verifier also binds the
 root, query, target, ordered steps, optional range segments, and cryptographic
 evidence. Normative schemas and semantics live in the
 [`DeWebProtocol/malt` artifact spec](https://github.com/DeWebProtocol/malt/blob/v0.0.4/docs/spec/artifacts.md).
+
+This endpoint is a diagnostic and conformance surface, not a client trust
+oracle. Browser and SDK clients run the portable verifier locally and fail
+closed when it is unavailable. A gateway may report a diagnostic result, but a
+client must not accept that result in place of local verification.
 
 ## Product Content Routes
 
@@ -86,13 +91,16 @@ X-Malt-Payload: <optional payload CID>
 ```
 
 The website reconstructs the complete profiled artifact from the explicit root,
-segment path, returned target, and ProofList before calling gateway verify.
+segment path, returned target, and ProofList, then verifies it locally with the
+portable WebAssembly verifier. It does not use the gateway's `valid` field as a
+trust decision.
 
 ## Trust and Deployment Boundary
 
 The gateway is untrusted for correctness. It can authenticate callers, enforce
 tenant policy, publish roots, cache, and orchestrate storage, but clients accept
-results only after verification against a root selected by the application.
+results only after local verification against a root selected by the
+application.
 
 The open gateway currently provides a permissive local product path around a
 configured daemon. Production identity, authorization, quota, cache, billing,

@@ -24,7 +24,7 @@ This service provides the integration boundary for:
 - ProofList-bearing responses
 - examples for CLI and HTTP clients
 - reproducible benchmark datasets
-- profiled `resolve`, `prove`, and `verify` artifacts
+- profiled `resolve` and `prove` artifacts, plus diagnostic `verify`
 - UnixFS content streaming and browser uploads through a local daemon backend
 
 It should not claim to provide global freshness or latest-head discovery unless
@@ -48,7 +48,7 @@ authentication are separate capabilities orchestrated by the gateway:
 client -> reference gateway
                          +-> CAS payloads --------> bytes identified by CID
 
-client verifies the ProofList against its trusted root and checks payload bytes
+client verifies the ProofList locally against its trusted root and checks payload bytes
 against the authenticated CID
 ```
 

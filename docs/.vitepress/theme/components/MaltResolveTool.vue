@@ -4,9 +4,11 @@ import { withBase } from 'vitepress'
 import {
   defaultGatewayURL,
   readContent,
+  resolveArtifactFromProofList,
   resolvePath,
-  verifyProofList
+  resolvePathQuery
 } from '../malt-client.mjs'
+import { verifyArtifactLocally } from '../malt-verifier.mjs'
 
 const baseURL = ref(defaultGatewayURL)
 const root = ref('')
@@ -46,13 +48,22 @@ async function run(nextMode) {
     if (!payload.proofList) {
       throw new Error('response did not include ProofList material')
     }
-    verification.value = await verifyProofList({
-      baseURL: baseURL.value,
-      proofList: payload.proofList,
-      artifact: payload.artifact,
-      root: root.value,
-      path: path.value
+    verification.value = await verifyArtifactLocally({
+      artifact:
+        payload.artifact ??
+        resolveArtifactFromProofList({
+          proofList: payload.proofList,
+          root: root.value,
+          path: path.value
+        }),
+      expectedRoot: root.value.trim(),
+      expectedQuery: resolvePathQuery(path.value),
+      runtimeURL: withBase('/verifier/wasm_exec.js'),
+      wasmURL: withBase('/verifier/malt-verifier.wasm')
     })
+    if (!verification.value.valid) {
+      throw new Error(verification.value.error || 'local proof verification failed')
+    }
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
   } finally {
@@ -64,8 +75,22 @@ function sendToVerifier() {
   if (!proofText.value || typeof window === 'undefined') {
     return
   }
-  window.sessionStorage.setItem('malt-prooflist', proofText.value)
-  window.location.href = withBase('/verify')
+  const artifact =
+    result.value?.artifact ??
+    resolveArtifactFromProofList({
+      proofList: result.value?.proofList,
+      root: root.value,
+      path: path.value
+    })
+  window.sessionStorage.setItem(
+    'malt-verification-input',
+    JSON.stringify({
+      artifact,
+      trustedRoot: root.value.trim(),
+      expectedQuery: resolvePathQuery(path.value)
+    })
+  )
+  window.location.href = withBase('/tools/verify')
 }
 </script>
 
@@ -127,8 +152,8 @@ function sendToVerifier() {
           <dd>{{ result.contentRange }}</dd>
         </div>
         <div v-if="verification">
-          <dt>Verify</dt>
-          <dd>{{ verification.valid ? 'valid: true' : 'valid: false' }}</dd>
+          <dt>Local proof verification</dt>
+          <dd>{{ verification.valid ? 'valid: true' : `valid: false (${verification.error || 'rejected'})` }}</dd>
         </div>
       </dl>
 

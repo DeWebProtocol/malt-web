@@ -25,6 +25,11 @@ import {
   profileStorageKey,
   resolveArtifactFromProofList
 } from '../docs/.vitepress/theme/malt-client.mjs'
+import {
+  createLocalVerifyRequest,
+  localVerifierProfile,
+  verifyArtifactLocally
+} from '../docs/.vitepress/theme/malt-verifier.mjs'
 
 const root = path.dirname(fileURLToPath(import.meta.url))
 const docsRoot = path.join(root, '..', 'docs')
@@ -41,7 +46,10 @@ const requiredFiles = [
   '.vitepress/theme/components/MaltApp.vue',
   '.vitepress/theme/components/MaltResolveTool.vue',
   '.vitepress/theme/components/MaltVerifyTool.vue',
-  '.vitepress/theme/malt-client.mjs'
+  '.vitepress/theme/malt-client.mjs',
+  '.vitepress/theme/malt-verifier.mjs',
+  'public/verifier/wasm_exec.js',
+  'public/verifier/malt-verifier.wasm'
 ]
 
 for (const file of requiredFiles) {
@@ -131,7 +139,6 @@ for (const pattern of [
   /seedTreePath/,
   /toggleTreeDirectory/,
   /loadTreeDirectory/,
-  /readDirectoryByPayload/,
   /openDirectory/,
   /previewFile/,
   /renderMarkdown/,
@@ -303,10 +310,15 @@ const loadTreeDirectorySource = appSource.match(
   /async function loadTreeDirectory\(entry\) \{[\s\S]*?\n\}\n\nasync function loadTreeAncestors/
 )?.[0]
 assert.ok(loadTreeDirectorySource, 'loadTreeDirectory function is missing')
-assert.match(loadTreeDirectorySource, /loadDirectoryEntries\(path,\s*entry\.payload\)/)
+assert.match(loadTreeDirectorySource, /loadDirectoryEntries\(path,\s*'',\s*\{ omitProof: false \}\)/)
+assert.match(loadTreeDirectorySource, /await verifyAndMark\(path, manifest\.proofList\)/)
 assert.match(appSource, /:style="treeRowStyle\(node\.depth\)"/)
 assert.match(appSource, /document\.title\s*=\s*'App \| MALT'/)
 assert.match(appSource, /await loadTreeAncestors\(currentPath\.value\)/)
+assert.match(appSource, /directory response did not include ProofList material/)
+assert.match(appSource, /file response did not include ProofList material/)
+assert.match(appSource, /await verifyAndMark\(ancestorPath, manifest\.proofList\)/)
+assert.doesNotMatch(appSource, /readDirectoryByPayload/)
 assert.doesNotMatch(appSource, /runEntryAction\('preview'/)
 assert.doesNotMatch(appSource, /malt-app__browser-head/)
 assert.doesNotMatch(appSource, /type="file" multiple/)
@@ -324,6 +336,16 @@ assert.match(clientSource, /appFallbackStorageKey/)
 assert.match(clientSource, /parseAppFallbackRoute/)
 assert.match(clientSource, /isAppStateRoute/)
 assert.match(clientSource, /ancestorDirectoryPaths/)
+
+const verifierSource = fs.readFileSync(
+  path.join(docsRoot, '.vitepress/theme/malt-verifier.mjs'),
+  'utf8'
+)
+assert.match(verifierSource, /globalThis\.maltVerifyArtifact/)
+assert.match(verifierSource, /WebAssembly\.instantiateStreaming/)
+assert.match(verifierSource, /source: 'local-wasm'/)
+assert.match(verifierSource, /trusted root is required/)
+assert.doesNotMatch(verifierSource, /v1\/artifacts\/verify/)
 
 const customCSS = fs.readFileSync(path.join(docsRoot, '.vitepress/theme/custom.css'), 'utf8')
 for (const pattern of [
@@ -464,6 +486,49 @@ assert.deepEqual(
   }
 )
 assert.deepEqual(extractArtifactInput(identityArtifact), identityArtifact)
+assert.deepEqual(
+  createLocalVerifyRequest({
+    artifact: identityArtifact,
+    expectedRoot: rootCID,
+    expectedQuery: { kind: 'path', segments: [] }
+  }),
+  { profile: localVerifierProfile, artifact: identityArtifact }
+)
+assert.throws(
+  () =>
+    createLocalVerifyRequest({
+      artifact: identityArtifact,
+      expectedRoot: '',
+      expectedQuery: identityArtifact.query
+    }),
+  /trusted root is required/
+)
+assert.throws(
+  () =>
+    createLocalVerifyRequest({
+      artifact: identityArtifact,
+      expectedRoot: rootCID,
+      expectedQuery: { kind: 'path', segments: ['different'] }
+    }),
+  /client-selected query/
+)
+const localValid = await verifyArtifactLocally({
+  artifact: identityArtifact,
+  expectedRoot: rootCID,
+  expectedQuery: identityArtifact.query,
+  provider: () =>
+    JSON.stringify({ profile: localVerifierProfile, valid: true })
+})
+assert.equal(localValid.valid, true)
+assert.equal(localValid.source, 'local-wasm')
+const malformedProvider = await verifyArtifactLocally({
+  artifact: identityArtifact,
+  expectedRoot: rootCID,
+  expectedQuery: identityArtifact.query,
+  provider: () => '{"valid":true}'
+})
+assert.equal(malformedProvider.valid, false)
+assert.match(malformedProvider.error, /invalid result envelope/)
 assert.equal(
   buildAppStatePath('/app', 'bafkqaaa', 'docs/read me'),
   '/app/bafkqaaa/docs/read%20me'
