@@ -1,55 +1,64 @@
 # ProofLists
 
-ProofLists are the verifier-facing evidence returned by MALT reads.
+ProofList is evidence carried by MALT resolve and primitive-read results. It is
+not a generic semantic operation.
 
-The `malt.artifact/v0alpha2` profile described here is released in `v0.0.4`.
-The `sdk/unixfs` package location, local verifier envelope, and browser WASM
-integration are the active target of
-[draft PR #163](https://github.com/DeWebProtocol/malt/pull/163) at
-`0f2b5b1`; they are not yet a newer release.
-
-The public contract is root-centric:
+The current active profiles are:
 
 ```text
+Resolve(request) -> ResolveResult + ProofList
+VerifyResolve(request, result) -> valid / invalid
+
 Read(root, query) -> result + ProofList
-VerifyRead(root, query, result, ProofList) -> valid / invalid
+VerifyRead(request, result) -> valid / invalid
 ```
 
-The root is supplied by the caller. The server runtime may assemble the
-`ProofList`, but the reader verifies the result locally with the portable
-`auth/verifier` kernel. Verification does not require ArcTable, CAS, a graph
-runtime, an application adapter, a server, a reference executor, or network access.
+The caller constructs the request from its trusted root and intended segments
+or typed query. The executor returns an untrusted result. Local verification
+binds the two and does not require ArcTable, CAS, a graph runtime, an
+application adapter, a server, or network access.
 
-## What a ProofList Covers
+## Evidence Kinds
 
-A `ProofList` carries the evidence needed to check that a returned result
-matches a query under a root. Depending on the query and layout, evidence can
-include:
+Depending on the operation, ProofList may include:
 
-- map-step proofs
-- exact binding proofs
-- terminal `@payload` proofs
-- list index proofs
-- measured-list `list_range` evidence for range reads
-- blob binding evidence as needed by the layout
+- map-step and exact binding proofs;
+- terminal `@payload` binding proofs;
+- list-index proofs; and
+- measured `list_range` evidence with authenticated segment CIDs.
 
-For list-backed byte ranges, the current implementation resolves the path and
-terminal `@payload` binding, then appends one measured-list `list_range` step.
-That step carries authenticated fixed chunk metadata, the segment CIDs covering
-the requested range, and a proof payload composed from metadata and index
-proofs. The ProofList authenticates the metadata and ordered segment CIDs. A
-UnixFS caller that accepts returned bytes must additionally call
-`sdk/unixfs.VerifyRangeBody` (or perform an equivalent binding check) to
-fetch/check those CIDs and bind the exact response body to the authenticated
-range.
+Resolve accepts traversal evidence. Primitive list evidence is verified as a
+read result, not hidden inside resolve semantics. A UnixFS content response may
+transport both in one ProofList for convenience; the browser splits it into a
+resolve verification and zero or more read verifications before checking body
+bytes.
 
-The server runtime is not trusted for correctness. If it returns an
-inconsistent result, stale materialization, or a forged transcript, verification
-fails.
+For list ranges, ProofList authenticates metadata and ordered segment CIDs, not
+the response body by itself. A client must fetch/check those CIDs and bind the
+exact returned bytes to the authenticated range.
+
+## Explicit Payload Selection
+
+`@payload` is a reserved explicit segment:
+
+- `[]` means strict zero-step root identity;
+- `["@payload"]` resolves a root map's payload; and
+- `["docs", "readme", "@payload"]` resolves a nested payload.
+
+A raw CID reached directly by the application path needs no extra payload
+segment. This is why the UnixFS client derives payload selection from the
+actual proof rather than inventing a `resolve_payload` operation.
+
+## Existential Resolution
+
+A valid resolve result proves one complete ordered derivation. It intentionally
+does not prove that the chosen derivation was longest, shortest, or unique. If
+several valid derivations can serve an application request, choosing among them
+is application policy; any correctly verified derivation is valid core output.
 
 ## HTTP Transport
 
-The current content read transport uses headers:
+Content reads use:
 
 ```text
 X-Malt-ProofList: <base64url(JSON ProofList)>
@@ -57,44 +66,16 @@ X-Malt-ProofList-Encoding: base64url-json
 Vary: X-Malt-Proof
 ```
 
-`X-Malt-ProofList-Encoding` records the encoding of the header value.
-`Vary: X-Malt-Proof` records that clients can request proof omission with
-`X-Malt-Proof: omit`.
+The operation-specific gateway endpoints return ProofList in JSON under the
+`prooflist` field. Remote verification is diagnostic only; the authoritative
+path runs in the client through Go or browser WASM.
 
-In the active draft, `malt verify --prooflist` accepts either a bare ProofList
-JSON object or a resolve response containing a `prooflist` field and requires a
-caller-selected trusted root.
+## Compatibility
 
-## Artifact Profile Status
+MALT `v0.0.4` released `malt.artifact/v0alpha2` with `resolve`, `prove`, and
+`verify`. That profile is frozen for compatibility. New integrations use
+`malt.resolve/v0alpha1` and `malt.read/v0alpha1` rather than extending the old
+operation union.
 
-[`v0.0.4`](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.4) publishes
-the explicit `malt.artifact/v0alpha2` envelope and named JSON Schemas for
-resolve, primitive prove, and verify. The envelope carries the expected root,
-query, target, optional range segments, and ProofList together.
-
-Consumers should pin the MALT release and reject unknown profiles. Schema
-validation checks structure; portable verification still checks all semantic
-bindings and cryptographic evidence.
-
-Resolution is existential. A valid artifact proves the complete ordered
-derivation returned for the requested segments, not that this derivation was
-longest or unique. Namespace overlap policy belongs to the application.
-
-`@payload` is reserved but optional for generic maps. UnixFS requires it for its
-file and directory maps, so UnixFS proof paths include the terminal
-`payload_binding` step described above; relation-only generic maps do not need
-one.
-
-The active draft represents this terminal binding as a `resolve_payload`
-artifact. Root content therefore uses an empty segment query with a non-empty
-payload ProofList; only an empty `resolve` query with zero steps means root
-identity.
-
-## Freshness Boundary
-
-A valid `ProofList` proves snapshot correctness relative to the supplied root.
-It does not prove that the root is the latest root.
-
-Root publication, freshness, and multi-writer arbitration are application or
-deployment policies. MALT focuses on verification once a caller has selected a
-trusted root.
+Proof validity is snapshot-relative. Root freshness, publication, and
+multi-writer arbitration remain application or deployment policy.

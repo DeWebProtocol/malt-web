@@ -76,7 +76,7 @@ export default defineConfig({
       {
         text: 'Tools',
         items: [
-          { text: 'Verify ProofList', link: '/tools/verify' },
+          { text: 'Verify Result', link: '/tools/verify' },
           { text: 'Resolve Content', link: '/tools/resolve' }
         ]
       },

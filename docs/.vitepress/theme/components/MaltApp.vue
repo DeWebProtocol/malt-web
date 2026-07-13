@@ -16,17 +16,18 @@ import {
   parseAppFallbackRoute,
   parseAppStatePath,
   profileStorageKey,
-  readContentBlob,
-  readDirectory,
-  readPayloadBlock,
-  resolvePayloadArtifactFromProofList,
-  resolvePathQuery,
-  statPath,
+	readContentBlob,
+	readDirectory,
+	readPayloadBlock,
+	statPath,
   uploadPathForFile,
   uploadUnixFSFile
 } from '../malt-client.mjs'
 import { verifyPayloadBytes } from '../malt-payload-verifier.mjs'
-import { verifyArtifactLocally } from '../malt-verifier.mjs'
+import {
+  resolveVerificationFromProofList,
+  verifyContentProofLocally
+} from '../malt-verifier.mjs'
 
 const baseURL = ref(defaultGatewayURL)
 const casURL = ref(defaultCASURL)
@@ -1318,13 +1319,11 @@ async function verifyContentAndMark(path, payload) {
     throw new Error('content response did not include ProofList material')
   }
   try {
-    const artifact = resolvePayloadArtifactFromProofList({ proofList, root: root.value, path })
-    const verification = await withDaemonTimeout('verify proof and payload locally', async (signal) => {
-      const proofVerification = await verifyArtifactLocally({
-        artifact,
-        expectedRoot: root.value.trim(),
-        expectedOperation: 'resolve_payload',
-        expectedQuery: resolvePathQuery(path),
+		const verification = await withDaemonTimeout('verify proof and payload locally', async (signal) => {
+			const proofVerification = await verifyContentProofLocally({
+				proofList,
+				expectedRoot: root.value.trim(),
+				expectedPath: path,
         runtimeURL: withBase('/verifier/wasm_exec.js'),
         wasmURL: withBase('/verifier/malt-verifier.wasm'),
         signal
@@ -1437,16 +1436,14 @@ function openVerifierPage() {
     const path = proofView.value.path || ''
     window.sessionStorage.setItem(
       'malt-verification-input',
-      JSON.stringify({
-        artifact: resolvePayloadArtifactFromProofList({
-          proofList: proofView.value.proofList,
-          root: root.value,
-          path
-        }),
-        trustedRoot: root.value.trim(),
-        expectedOperation: 'resolve_payload',
-        expectedQuery: resolvePathQuery(path)
-      })
+		JSON.stringify({
+			verification: resolveVerificationFromProofList({
+				proofList: proofView.value.proofList,
+				root: root.value,
+				path,
+				payload: 'auto'
+			})
+		})
     )
   }
   window.location.href = withBase('/tools/verify')

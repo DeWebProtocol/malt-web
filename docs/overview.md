@@ -18,7 +18,7 @@ The website has two main lanes:
 Status labels matter in the technical lane: `v0.0.4` is the released baseline;
 the tightened client/gateway/core package split and browser-local verifier are
 the active target of [draft PR #163](https://github.com/DeWebProtocol/malt/pull/163)
-at `0f2b5b1`.
+at `db271e7`.
 
 ## Core Claim
 
@@ -37,8 +37,9 @@ MALT changes the boundary:
 - reads return `result + ProofList` for local verification
 - clients submit segment arrays without discovering how a graph groups a long
   path into authenticated arcs
-- the `malt.artifact/v0alpha2` envelope standardizes resolve, primitive prove,
-  and verify across gateways, executors, and SDKs
+- `malt.resolve/v0alpha1` and `malt.read/v0alpha1` standardize
+  operation-specific results and verification across gateways, executors, and
+  SDKs; the v0.0.4 Artifact union is frozen compatibility behavior
 - resolver and writer ports expose this runtime behavior without owning the
   list/map semantics
 - immutable payloads can remain ordinary CAS data
@@ -71,6 +72,9 @@ materialization layouts within that application model.
 The verifier-facing read shape is:
 
 ```text
+Resolve(root, segments) -> target + ProofList
+VerifyResolve(request, result) -> valid / invalid
+
 Read(root, query) -> result + ProofList
 VerifyRead(root, query, result, ProofList) -> valid / invalid
 ```
@@ -103,7 +107,9 @@ deployment concerns built around MALT. Managed gateway service behavior belongs
 in the separate `DeWebProtocol/gateway` repository.
 
 The current [`v0.0.4`](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.4)
-source release publishes canonical segments and the profiled artifact contract.
+source release publishes canonical segments and the frozen v0alpha2 Artifact
+compatibility contract. The operation-specific resolve/read profiles are the
+active PR target.
 It remains pre-`v1` and is not a production stability promise.
 
 ## Where to Go Next

@@ -20,7 +20,7 @@ features:
   - title: Research narrative
     details: Problem framing, abstraction, system design, and evaluation story aligned with the current paper memory.
   - title: Technical docs
-    details: The released v0.0.4 segment-path and artifact baseline, plus the clearly labeled active PR #163 target for local verification and client/gateway/core package boundaries.
+    details: The released v0.0.4 segment-path baseline, plus the active PR #163 operation-specific resolve/read contracts and client/gateway/core boundaries.
   - title: Root-centric verification
     details: Readers verify result plus ProofList against an explicit trusted root. The server runtime does not publish heads or decide freshness.
 ---
@@ -61,8 +61,8 @@ import { withBase } from 'vitepress'
       <span>Follow the problem, abstraction, system design, and evaluation story for MALT as a systems research project.</span>
     </div>
     <div class="malt-strip">
-      <strong>Experimental v0.0.4</strong>
-      <span>Use canonical segments and malt.artifact/v0alpha2 through the gateway while pinning the source release; the API remains pre-v1.</span>
+      <strong>Active pre-release contracts</strong>
+      <span>Use canonical segments with malt.resolve/v0alpha1 and malt.read/v0alpha1 through the gateway; the API remains pre-v1.</span>
     </div>
     <div class="malt-strip">
       <strong>Server runtime model</strong>

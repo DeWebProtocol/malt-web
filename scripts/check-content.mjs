@@ -51,10 +51,10 @@ const requiredPhrases = new Map([
   [
     'docs/api.md',
     [
-			'POST /v1/artifacts/resolve',
-			'POST /v1/artifacts/prove',
-			'POST /v1/artifacts/verify',
-			'GET|HEAD /v1/roots/{root}/content'
+      'POST /v1/resolve',
+      'POST /v1/read',
+      'POST /v1/verify/resolve',
+      'GET|HEAD /v1/roots/{root}/content'
     ]
   ],
   [
@@ -62,8 +62,8 @@ const requiredPhrases = new Map([
     [
       'Read(root, query) -> result + ProofList',
       'X-Malt-ProofList-Encoding',
-			'sdk/unixfs.VerifyRangeBody',
-			'malt.artifact/v0alpha2'
+      'malt.resolve/v0alpha1',
+      'malt.read/v0alpha1'
     ]
   ],
   [

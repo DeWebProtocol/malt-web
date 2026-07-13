@@ -24,13 +24,13 @@ This service provides the integration boundary for:
 - ProofList-bearing responses
 - examples for CLI and HTTP clients
 - reproducible benchmark datasets
-- profiled `resolve` and `prove` artifacts, plus diagnostic `verify`
+- profiled `resolve` and primitive `read` results, plus diagnostic verification
 - UnixFS content streaming and browser uploads through a local reference executor
 
 It should not claim to provide global freshness or latest-head discovery unless
 an application publication layer is added.
 
-For the current API surface, see [Gateway and Artifact API](/docs/api).
+For the current API surface, see [Gateway Resolve and Read API](/docs/api).
 
 ## Managed Gateway Repository
 

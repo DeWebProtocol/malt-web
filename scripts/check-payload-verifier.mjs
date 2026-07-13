@@ -16,13 +16,13 @@ const rootContentFixture = JSON.parse(
 )
 const rootContentBody = Uint8Array.from(Buffer.from(rootContentFixture.body_base64, 'base64'))
 const rootContentBinding = await verifyPayloadBytes({
-  proofList: rootContentFixture.artifact.prooflist,
+  proofList: rootContentFixture.verification.result.prooflist,
   body: rootContentBody
 })
-assert.equal(rootContentBinding.target, rootContentFixture.artifact.target)
+assert.equal(rootContentBinding.target, rootContentFixture.verification.result.target)
 await assert.rejects(
   verifyPayloadBytes({
-    proofList: rootContentFixture.artifact.prooflist,
+    proofList: rootContentFixture.verification.result.prooflist,
     body: encoder.encode('{"entries":["tampered"]}')
   }),
   /do not match authenticated CID/

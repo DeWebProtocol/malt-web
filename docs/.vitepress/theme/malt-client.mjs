@@ -1,4 +1,5 @@
-export const artifactProfile = 'malt.artifact/v0alpha2'
+export const resolveProfile = 'malt.resolve/v0alpha1'
+export const readProfile = 'malt.read/v0alpha1'
 export const defaultGatewayURL = 'http://127.0.0.1:8080'
 // Compatibility alias for persisted profiles created before the gateway split.
 export const defaultDaemonURL = defaultGatewayURL
@@ -8,15 +9,19 @@ export const appFallbackStorageKey = 'malt-app-fallback-path'
 export function buildResolveURL(baseURL, root, rawPath = '') {
   void root
   void rawPath
-  return buildGatewayURL(baseURL, ['v1', 'artifacts', 'resolve'])
+  return buildGatewayURL(baseURL, ['v1', 'resolve'])
 }
 
-export function buildProveURL(baseURL) {
-  return buildGatewayURL(baseURL, ['v1', 'artifacts', 'prove'])
+export function buildReadURL(baseURL) {
+  return buildGatewayURL(baseURL, ['v1', 'read'])
 }
 
-export function buildVerifyURL(baseURL) {
-  return buildGatewayURL(baseURL, ['v1', 'artifacts', 'verify'])
+export function buildVerifyResolveURL(baseURL) {
+  return buildGatewayURL(baseURL, ['v1', 'verify', 'resolve'])
+}
+
+export function buildVerifyReadURL(baseURL) {
+  return buildGatewayURL(baseURL, ['v1', 'verify', 'read'])
 }
 
 export function buildContentURL(baseURL, root, rawPath = '') {
@@ -99,10 +104,6 @@ export function ancestorDirectoryPaths(rawPath = '') {
   return ancestors
 }
 
-export function resolvePathQuery(rawPath = '') {
-  return { kind: 'path', segments: pathSegments(rawPath) }
-}
-
 export function decodeProofListHeader(raw) {
   if (!raw) {
     throw new Error('missing X-Malt-ProofList header')
@@ -128,14 +129,16 @@ export function extractProofListInput(input) {
   return proofList
 }
 
-export function extractArtifactInput(input) {
+export function extractVerificationInput(input) {
   const parsed = typeof input === 'string' ? JSON.parse(input) : input
-  const candidate = parsed?.artifact && typeof parsed.artifact === 'object' ? parsed.artifact : parsed
-  if (candidate?.profile === artifactProfile && candidate?.operation && candidate?.prooflist) {
+  const candidate =
+    parsed?.verification && typeof parsed.verification === 'object'
+      ? parsed.verification
+      : parsed
+  if (candidate?.request && candidate?.result) {
     return candidate
   }
-  const proofList = extractProofListInput(parsed)
-  return resolveArtifactFromProofList({ proofList })
+  throw new Error('verification JSON must contain request and result')
 }
 
 export function normalizeUploadPath(rawPath) {
@@ -186,14 +189,15 @@ export function activeProfileStorageKey() {
 
 export async function resolvePath({ baseURL, root, path, signal }) {
   const url = buildResolveURL(baseURL, root, path)
+  const request = {
+    profile: resolveProfile,
+    root: String(root || '').trim(),
+    segments: pathSegments(path)
+  }
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      profile: artifactProfile,
-      root: String(root || '').trim(),
-      segments: pathSegments(path)
-    }),
+    body: JSON.stringify(request),
     signal
   })
   const payload = await readJSONResponse(response)
@@ -201,17 +205,19 @@ export async function resolvePath({ baseURL, root, path, signal }) {
     endpoint: url.toString(),
     status: response.status,
     response: payload,
-    proofList: payload.prooflist ?? null,
-    artifact: payload
+    request,
+    result: payload,
+    proofList: payload.prooflist ?? null
   }
 }
 
-export async function proveQuery({ baseURL, root, query, signal }) {
-  const url = buildProveURL(baseURL)
+export async function readQuery({ baseURL, root, query, signal }) {
+  const url = buildReadURL(baseURL)
+  const request = { profile: readProfile, root: String(root || '').trim(), query }
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ profile: artifactProfile, root: String(root || '').trim(), query }),
+    body: JSON.stringify(request),
     signal
   })
   const payload = await readJSONResponse(response)
@@ -219,7 +225,8 @@ export async function proveQuery({ baseURL, root, query, signal }) {
     endpoint: url.toString(),
     status: response.status,
     response: payload,
-    artifact: payload,
+    request,
+    result: payload,
     proofList: payload.prooflist ?? null
   }
 }
@@ -353,13 +360,12 @@ export async function readDirectoryByPayload({ baseURL, payload, signal }) {
   return readDirectory({ baseURL, root: payloadCID, path: '', signal, omitProof: true })
 }
 
-export async function diagnoseProofListRemotely({ baseURL, proofList, artifact, root, path, signal }) {
-  const url = buildVerifyURL(baseURL)
-  const candidate = artifact ?? resolveArtifactFromProofList({ proofList, root, path })
+export async function diagnoseResolveRemotely({ baseURL, request, result, signal }) {
+  const url = buildVerifyResolveURL(baseURL)
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ profile: artifactProfile, artifact: candidate }),
+    body: JSON.stringify({ request, result }),
     signal
   })
   const payload = await readJSONResponse(response)
@@ -372,62 +378,22 @@ export async function diagnoseProofListRemotely({ baseURL, proofList, artifact, 
   }
 }
 
-// Compatibility alias. Remote verification is diagnostic only and must never
-// be used as the client's trust decision.
-export const verifyProofListRemotely = diagnoseProofListRemotely
-
-export function resolveArtifactFromProofList({ proofList, root, path }) {
-  return pathArtifactFromProofList({ proofList, root, path, operation: 'resolve' })
-}
-
-export function resolvePayloadArtifactFromProofList({ proofList, root, path }) {
-  return pathArtifactFromProofList({ proofList, root, path, operation: 'resolve_payload' })
-}
-
-function pathArtifactFromProofList({ proofList, root, path, operation }) {
-  if (!proofList || typeof proofList !== 'object' || !Array.isArray(proofList.steps)) {
-    throw new Error('ProofList JSON must contain a steps array')
-  }
-  const proofRoot = cidString(proofList.root)
-  const trustedRoot = String(root || proofRoot || '').trim()
-  if (!trustedRoot) {
-    throw new Error('artifact root is required')
-  }
-  const queryPath = path == null ? String(proofList.query || '') : String(path || '')
-  let target
-  if (operation === 'resolve_payload') {
-    const bindings = proofList.steps.filter(
-      (step) => step?.kind === 'payload_binding' && step?.path === '@payload'
-    )
-    if (bindings.length !== 1) {
-      throw new Error('resolve_payload ProofList must contain exactly one @payload binding')
-    }
-    target = cidString(bindings[0].target)
-  } else {
-    const lastStep = proofList.steps[proofList.steps.length - 1]
-    target = lastStep ? cidString(lastStep.target) : trustedRoot
-  }
-  if (!target) {
-    throw new Error('ProofList target is required')
-  }
+export async function diagnoseReadRemotely({ baseURL, request, result, signal }) {
+  const url = buildVerifyReadURL(baseURL)
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ request, result }),
+    signal
+  })
+  const payload = await readJSONResponse(response)
   return {
-    profile: artifactProfile,
-    operation,
-    root: trustedRoot,
-    query: { kind: 'path', segments: pathSegments(queryPath) },
-    target,
-    prooflist: proofList
+    endpoint: url.toString(),
+    status: response.status,
+    valid: Boolean(payload.valid),
+    source: 'gateway-diagnostic',
+    response: payload
   }
-}
-
-function cidString(value) {
-  if (typeof value === 'string') {
-    return value
-  }
-  if (value && typeof value === 'object' && typeof value['/'] === 'string') {
-    return value['/']
-  }
-  return ''
 }
 
 function buildGatewayURL(baseURL, segments) {

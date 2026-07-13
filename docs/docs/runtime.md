@@ -12,24 +12,25 @@ The current source release is
 the experimental primitive facade and adds canonical segment paths plus the
 explicit `malt.artifact/v0alpha2` resolve/prove/verify profile and schemas.
 
-The client/gateway/core package split, `execution.Executor`, local verifier
-envelope, reference-executor naming, and `model/unixfs` + `sdk/unixfs` +
-`runtime/unixfs` split below are the active target of
+The client/gateway/core package split, `execution.Executor`, operation-specific
+resolve/read profiles, reference-executor naming, and `model/unixfs` +
+`sdk/unixfs` + `runtime/unixfs` split below are the active target of
 [draft PR #163](https://github.com/DeWebProtocol/malt/pull/163), currently at
-`17352b9`. The draft extends the same alpha profile with `resolve_payload` for
-path plus CAS-payload binding. These changes are not part of the `v0.0.4` release. The browser
+`db271e7`. Payload selection is an explicit `@payload` resolve segment; the
+released v0alpha2 Artifact profile remains frozen. These changes are not part
+of the `v0.0.4` release. The browser
 verifier's [published provenance](/verifier/PROVENANCE.json) records the exact
 full MALT commit and Go toolchain used to build the deployed WASM.
 
 ## Active Draft: Portable Core Surface
 
 The module-root `package malt` is the trusted, application-neutral facade. It
-exposes typed `Query`, `ReadRequest`, `ReadResult`, mutation/receipt value
-aliases, and `VerifyRead` for primitive map, list-index, and measured-list-range
-queries. It owns no ArcTable, CAS, HTTP client, or execution engine.
+exposes `ResolveRequest`/`ResolveResult`/`VerifyResolve`, typed
+`ReadRequest`/`ReadResult`/`VerifyRead`, and mutation/receipt values. It owns no
+ArcTable, CAS, HTTP client, or execution engine.
 
 The separate `execution.Executor` performs untrusted `Read` and `Apply` work.
-Clients may use any local executor or gateway that returns the same artifacts;
+Clients may use any local executor or gateway that returns the same results;
 correctness comes from local verification, not from that executor.
 
 `auth/verifier` is the portable authentication kernel. It verifies runtime-
@@ -38,10 +39,11 @@ adapter, server, reference executor, or network access. `graph/verifier` is a th
 the reference graph runtime use that same kernel; it is not a second verifier
 implementation.
 
-The unversioned `artifact` package is the cross-process integration contract.
-Versioning lives in its serialized profile and schemas, not in Go package
-names. A resolver receives segment arrays and may compose several authenticated
-arcs without requiring the client to discover arc boundaries first.
+The unversioned `protocol` package serializes the operation-specific
+`malt.resolve/v0alpha1` and `malt.read/v0alpha1` contracts. The `artifact`
+package remains a frozen v0.0.4 compatibility surface. A resolver receives
+segment arrays and may compose several authenticated arcs without requiring the
+client to discover arc boundaries first.
 
 ## Active Draft: Public CLI and Local Verifier
 
@@ -66,7 +68,7 @@ endpoint.
 
 The website App calls the local MALT Gateway at `http://127.0.0.1:8080`. The
 gateway delegates to the reference executor at `http://127.0.0.1:4317`, streams UnixFS
-content, and exposes the profiled artifact endpoints. Its local WASM trust
+content, and exposes the profiled resolve/read endpoints. Its local WASM trust
 boundary tracks draft PR #163: the App verifies both ProofList evidence and the
 actual returned payload bytes before preview or download. An upload response is
 only a candidate root until the user explicitly accepts or independently
@@ -126,10 +128,11 @@ are proposed prototype modules mapped to the semantic model:
 
 | Package | Role |
 |---|---|
-| module-root `package malt` | Trusted typed-query, mutation/receipt value, and `VerifyRead` facade; no execution or storage ownership. |
+| module-root `package malt` | Trusted resolve/read, mutation/receipt value, and verification facade; no execution or storage ownership. |
 | `mutation` | Pure semantic mutation, delta, commit-descriptor, and write-receipt values plus validation. |
 | `execution` | Untrusted `Read`/`Apply` executor over injected semantic/runtime ports. |
-| `artifact` | Profiled resolve/resolve_payload/prove/verify envelopes, verification binding, schemas, and conformance fixtures. |
+| `protocol` | Profiled resolve/read serialization, schemas, and request/result verification pairs. |
+| `artifact` | Frozen `malt.artifact/v0alpha2` v0.0.4 compatibility envelope and fixtures. |
 | `auth/verifier` | Portable ProofList verification kernel with built-in KZG and IPA verification support. |
 | `auth/commitment` | Verification-only and prover/updater commitment capabilities, with built-in KZG and IPA backends. |
 | `auth/arcset` | Canonical path and arcset representation. |

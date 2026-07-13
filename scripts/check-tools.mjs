@@ -4,41 +4,38 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import {
-  appFallbackStorageKey,
-  artifactProfile,
-  ancestorDirectoryPaths,
-  buildAppStatePath,
-  buildContentURL,
-  buildProveURL,
-  buildUnixFSWriteURL,
-  buildResolveURL,
-  buildVerifyURL,
-  decodeProofListHeader,
-  extractArtifactInput,
-  extractProofListInput,
+	appFallbackStorageKey,
+	ancestorDirectoryPaths,
+	buildAppStatePath,
+	buildContentURL,
+	buildReadURL,
+	buildUnixFSWriteURL,
+	buildResolveURL,
+	buildVerifyReadURL,
+	buildVerifyResolveURL,
+	decodeProofListHeader,
+	extractProofListInput,
+	extractVerificationInput,
   isAppStateRoute,
   joinMaltPath,
   parseAppFallbackRoute,
   parseAppStatePath,
   pathBasename,
   pathParent,
-  profileStorageKey,
-  resolveArtifactFromProofList,
-  resolvePayloadArtifactFromProofList
+	profileStorageKey,
+	readProfile,
+	resolveProfile
 } from '../docs/.vitepress/theme/malt-client.mjs'
 import {
-  createLocalVerifyRequest,
-  localVerifierProfile,
-  verifyArtifactLocally
+	createResolveVerification,
+	readVerificationsFromProofList,
+	resolveVerificationFromProofList,
+	verifyResolveLocally
 } from '../docs/.vitepress/theme/malt-verifier.mjs'
 
 const root = path.dirname(fileURLToPath(import.meta.url))
 const docsRoot = path.join(root, '..', 'docs')
 const packageManifest = JSON.parse(fs.readFileSync(path.join(root, '..', 'package.json'), 'utf8'))
-const rootContentFixture = JSON.parse(
-  fs.readFileSync(path.join(root, 'fixtures', 'root-directory-content.json'), 'utf8')
-)
-
 assert.match(packageManifest.dependencies?.['markdown-it'] || '', /\^?\d+\.\d+\.\d+/)
 assert.match(packageManifest.dependencies?.shiki || '', /\^?\d+\.\d+\.\d+/)
 
@@ -326,8 +323,8 @@ assert.match(appSource, /directory response did not include ProofList material/)
 assert.match(appSource, /file response did not include ProofList material/)
 assert.match(appSource, /await verifyContentAndMark\(ancestorPath, manifest\)/)
 assert.match(appSource, /async function verifyContentAndMark\(path, payload\)/)
-assert.match(appSource, /resolvePayloadArtifactFromProofList/)
-assert.match(appSource, /expectedOperation: 'resolve_payload'/)
+assert.match(appSource, /resolveVerificationFromProofList/)
+assert.match(appSource, /verifyContentProofLocally/)
 assert.match(appSource, /verifyPayloadBytes/)
 assert.match(appSource, /readPayloadBlock/)
 assert.match(appSource, /async function acceptCandidateRoot\(\)/)
@@ -362,12 +359,13 @@ const verifierSource = fs.readFileSync(
   path.join(docsRoot, '.vitepress/theme/malt-verifier.mjs'),
   'utf8'
 )
-assert.match(verifierSource, /globalThis\.maltVerifyArtifact/)
+assert.match(verifierSource, /globalThis\.maltVerifyResolve/)
+assert.match(verifierSource, /globalThis\.maltVerifyRead/)
 assert.match(verifierSource, /WebAssembly\.instantiateStreaming/)
 assert.match(verifierSource, /source: 'local-wasm'/)
-assert.match(verifierSource, /trusted root is required/)
+assert.match(verifierSource, /trusted resolve root is required/)
 assert.doesNotMatch(verifierSource, /v1\/artifacts\/verify/)
-assert.match(verifierSource, /function canonicalQuery\(query\)/)
+assert.match(verifierSource, /readVerificationsFromProofList/)
 
 const customCSS = fs.readFileSync(path.join(docsRoot, '.vitepress/theme/custom.css'), 'utf8')
 for (const pattern of [
@@ -469,15 +467,19 @@ assert.match(verifyPage, /<MaltVerifyTool\s*\/>/)
 
 assert.equal(
   buildResolveURL('http://127.0.0.1:8080/', 'bafkqaaa', 'docs/read me').toString(),
-  'http://127.0.0.1:8080/v1/artifacts/resolve'
+  'http://127.0.0.1:8080/v1/resolve'
 )
 assert.equal(
-  buildProveURL('http://127.0.0.1:8080').toString(),
-  'http://127.0.0.1:8080/v1/artifacts/prove'
+  buildReadURL('http://127.0.0.1:8080').toString(),
+  'http://127.0.0.1:8080/v1/read'
 )
 assert.equal(
-  buildVerifyURL('http://127.0.0.1:8080').toString(),
-  'http://127.0.0.1:8080/v1/artifacts/verify'
+  buildVerifyResolveURL('http://127.0.0.1:8080').toString(),
+  'http://127.0.0.1:8080/v1/verify/resolve'
+)
+assert.equal(
+  buildVerifyReadURL('http://127.0.0.1:8080').toString(),
+  'http://127.0.0.1:8080/v1/verify/read'
 )
 assert.equal(
   buildContentURL('http://127.0.0.1:8080', 'bafkqaaa', 'docs/read me').toString(),
@@ -493,20 +495,19 @@ assert.equal(
 )
 
 const rootCID = 'bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku'
-const identityArtifact = resolveArtifactFromProofList({
-  proofList: { root: { '/': rootCID }, query: '', steps: [] }
-})
-
-const v004IdentityArtifact = {
-  ...identityArtifact,
-  query: { kind: 'path' }
+const identityVerification = {
+  request: { profile: resolveProfile, root: rootCID, segments: [] },
+  result: {
+    profile: resolveProfile,
+    target: rootCID,
+    prooflist: { root: { '/': rootCID }, query: '', steps: [] }
+  }
 }
-
 const rootPayloadCID = 'bafkreib6qhwx2g5wgdgczgczumrq6rupl7u36po34ohfhn7rmvtpt7a3om'
-const rootPayloadArtifact = resolvePayloadArtifactFromProofList({
+const rootPayloadVerification = resolveVerificationFromProofList({
   proofList: {
     root: { '/': rootCID },
-    query: '',
+    query: '@payload',
     steps: [
       {
         kind: 'payload_binding',
@@ -517,124 +518,45 @@ const rootPayloadArtifact = resolvePayloadArtifactFromProofList({
     ]
   },
   root: rootCID,
-  path: ''
+  path: '',
+  payload: true
 })
-assert.equal(rootPayloadArtifact.operation, 'resolve_payload')
-assert.equal(rootPayloadArtifact.target, rootPayloadCID)
-assert.deepEqual(
-  createLocalVerifyRequest({
-    artifact: rootPayloadArtifact,
-    expectedRoot: rootCID,
-    expectedOperation: 'resolve_payload',
-    expectedQuery: { kind: 'path', segments: [] }
-  }).expected,
-  {
-    operation: 'resolve_payload',
-    query: { kind: 'path', segments: [] }
-  }
+assert.equal(rootPayloadVerification.request.segments.at(-1), '@payload')
+assert.equal(rootPayloadVerification.result.target, rootPayloadCID)
+const rawContentVerification = resolveVerificationFromProofList({
+  proofList: { root: { '/': rootCID }, query: '', steps: [] },
+  root: rootCID,
+  path: '',
+  payload: 'auto'
+})
+assert.deepEqual(rawContentVerification.request.segments, [])
+assert.equal(rawContentVerification.result.target, rootCID)
+assert.deepEqual(createResolveVerification(identityVerification), identityVerification)
+assert.deepEqual(extractVerificationInput(identityVerification), identityVerification)
+assert.throws(
+  () =>
+    createResolveVerification({
+      request: { ...identityVerification.request, root: '' },
+      result: identityVerification.result
+    }),
+  /trusted resolve root is required/
 )
 assert.throws(
   () =>
-    resolvePayloadArtifactFromProofList({
-      proofList: { root: { '/': rootCID }, query: '', steps: [] },
-      root: rootCID,
-      path: ''
+    createResolveVerification({
+      request: { ...identityVerification.request, segments: ['different'] },
+      result: identityVerification.result
     }),
-  /exactly one @payload binding/
+  /client-selected segments/
 )
-assert.deepEqual(
-  resolvePayloadArtifactFromProofList({
-    proofList: rootContentFixture.artifact.prooflist,
-    root: rootContentFixture.expected.trusted_root,
-    path: ''
-  }),
-  rootContentFixture.artifact
-)
-assert.deepEqual(
-  createLocalVerifyRequest({
-    artifact: v004IdentityArtifact,
-    expectedRoot: rootCID,
-    expectedOperation: 'resolve',
-    expectedQuery: { kind: 'path', segments: [] }
-  }),
-  {
-    profile: localVerifierProfile,
-    trusted_root: rootCID,
-    expected: { operation: 'resolve', query: { kind: 'path', segments: [] } },
-    artifact: identityArtifact
-  }
-)
-assert.throws(
-  () =>
-    createLocalVerifyRequest({
-      artifact: { ...identityArtifact, query: { kind: 'path', segments: null } },
-      expectedRoot: rootCID,
-      expectedOperation: 'resolve',
-      expectedQuery: { kind: 'path', segments: [] }
-    }),
-  /client-selected query/
-)
-assert.deepEqual(
-  identityArtifact,
-  {
-    profile: artifactProfile,
-    operation: 'resolve',
-    root: rootCID,
-    query: { kind: 'path', segments: [] },
-    target: rootCID,
-    prooflist: { root: { '/': rootCID }, query: '', steps: [] }
-  }
-)
-assert.deepEqual(extractArtifactInput(identityArtifact), identityArtifact)
-assert.deepEqual(
-  createLocalVerifyRequest({
-    artifact: identityArtifact,
-    expectedRoot: rootCID,
-    expectedOperation: 'resolve',
-    expectedQuery: { kind: 'path', segments: [] }
-  }),
-  {
-    profile: localVerifierProfile,
-    trusted_root: rootCID,
-    expected: { operation: 'resolve', query: { kind: 'path', segments: [] } },
-    artifact: identityArtifact
-  }
-)
-assert.throws(
-  () =>
-    createLocalVerifyRequest({
-      artifact: identityArtifact,
-      expectedRoot: '',
-      expectedOperation: 'resolve',
-      expectedQuery: identityArtifact.query
-    }),
-  /trusted root is required/
-)
-assert.throws(
-  () =>
-    createLocalVerifyRequest({
-      artifact: identityArtifact,
-      expectedRoot: rootCID,
-      expectedOperation: 'resolve',
-      expectedQuery: { kind: 'path', segments: ['different'] }
-    }),
-  /client-selected query/
-)
-const localValid = await verifyArtifactLocally({
-  artifact: identityArtifact,
-  expectedRoot: rootCID,
-  expectedOperation: 'resolve',
-  expectedQuery: identityArtifact.query,
-  provider: () =>
-    JSON.stringify({ profile: localVerifierProfile, valid: true })
+const localValid = await verifyResolveLocally({
+  ...identityVerification,
+  provider: () => JSON.stringify({ profile: resolveProfile, valid: true })
 })
 assert.equal(localValid.valid, true)
 assert.equal(localValid.source, 'local-wasm')
-const malformedProvider = await verifyArtifactLocally({
-  artifact: identityArtifact,
-  expectedRoot: rootCID,
-  expectedOperation: 'resolve',
-  expectedQuery: identityArtifact.query,
+const malformedProvider = await verifyResolveLocally({
+  ...identityVerification,
   provider: () => '{"valid":true}'
 })
 assert.equal(malformedProvider.valid, false)
@@ -687,20 +609,34 @@ assert.deepEqual(extractProofListInput(JSON.stringify(proofList)), proofList)
 const listRootCID = 'bafkreib6qhwx2g5wgdgczgczumrq6rupl7u36po34ohfhn7rmvtpt7a3om'
 const listRangeProof = {
   root: { '/': rootCID },
-  query: 'large.bin',
+  query: 'large.bin/@payload',
   steps: [
-    { kind: 'payload_binding', target: { '/': listRootCID } },
-    { kind: 'list_range', target: { '/': listRootCID }, segments: [] }
+    {
+      kind: 'payload_binding',
+      from: { '/': rootCID },
+      path: '@payload',
+      target: { '/': listRootCID }
+    },
+    {
+      kind: 'list_range',
+      from: { '/': listRootCID },
+      target: { '/': listRootCID },
+      start: 0,
+      end: 1,
+      segments: []
+    }
   ]
 }
-assert.equal(
-  resolveArtifactFromProofList({
-    proofList: listRangeProof,
-    root: rootCID,
-    path: 'large.bin'
-  }).target,
-  listRootCID
-)
+const listResolve = resolveVerificationFromProofList({
+  proofList: listRangeProof,
+  root: rootCID,
+  path: 'large.bin',
+  payload: true
+})
+assert.equal(listResolve.result.target, listRootCID)
+const listReads = readVerificationsFromProofList(listRangeProof)
+assert.equal(listReads.length, 1)
+assert.equal(listReads[0].request.profile, readProfile)
 
 assert.equal(joinMaltPath('', 'docs'), 'docs')
 assert.equal(joinMaltPath('docs', 'readme.md'), 'docs/readme.md')

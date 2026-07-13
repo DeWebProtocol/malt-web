@@ -10,6 +10,9 @@ transport details, see [Root-Centric HTTP API](/docs/api) and
 ## Root-Centric Read
 
 ```text
+Resolve(root, segments) -> target + ProofList
+VerifyResolve(request, result) -> valid / invalid
+
 Read(root, query) -> result + ProofList
 VerifyRead(root, query, result, ProofList) -> valid / invalid
 ```

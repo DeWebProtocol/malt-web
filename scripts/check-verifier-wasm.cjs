@@ -21,19 +21,15 @@ require(path.join(verifierRoot, 'wasm_exec.js'))
 
 const root = 'bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku'
 const request = {
-  profile: 'malt.artifact/v0alpha2',
-  trusted_root: root,
-  expected: {
-    operation: 'resolve',
-    query: { kind: 'path', segments: [] }
-  },
-  artifact: {
-    profile: 'malt.artifact/v0alpha2',
-    operation: 'resolve',
+  request: {
+    profile: 'malt.resolve/v0alpha1',
     root,
-    query: { kind: 'path', segments: [] },
+    segments: []
+  },
+  result: {
+    profile: 'malt.resolve/v0alpha1',
     target: root,
-    prooflist: { root: { '/': root }, steps: [] }
+    prooflist: { root: { '/': root }, query: '', steps: [] }
   }
 }
 
@@ -46,65 +42,57 @@ async function main() {
   void go.run(instance)
   await waitForProvider()
 
-  const accepted = JSON.parse(globalThis.maltVerifyArtifact(JSON.stringify(request)))
-  if (accepted.profile !== request.profile || accepted.valid !== true) {
-    throw new Error(`identity artifact was not accepted: ${JSON.stringify(accepted)}`)
+  const accepted = JSON.parse(globalThis.maltVerifyResolve(JSON.stringify(request)))
+  if (accepted.profile !== request.request.profile || accepted.valid !== true) {
+    throw new Error(`identity resolve was not accepted: ${JSON.stringify(accepted)}`)
   }
 
-  const rootContentRequest = {
-    profile: rootContentFixture.artifact.profile,
-    trusted_root: rootContentFixture.expected.trusted_root,
-    expected: {
-      operation: rootContentFixture.expected.operation,
-      query: rootContentFixture.expected.query
-    },
-    artifact: rootContentFixture.artifact
-  }
   const rootContentAccepted = JSON.parse(
-    globalThis.maltVerifyArtifact(JSON.stringify(rootContentRequest))
+    globalThis.maltVerifyResolve(JSON.stringify(rootContentFixture.verification))
   )
-  if (rootContentAccepted.profile !== request.profile || rootContentAccepted.valid !== true) {
+  if (rootContentAccepted.profile !== request.request.profile || rootContentAccepted.valid !== true) {
     throw new Error(
-      `real daemon root-content artifact was not accepted: ${JSON.stringify(rootContentAccepted)}`
+      `real daemon root-content resolve was not accepted: ${JSON.stringify(rootContentAccepted)}`
     )
   }
 
-  // v0.0.4 omitted an empty path segments array. The same v0alpha2 profile
-  // treats the absent field as the canonical identity path, while explicit
-  // null remains invalid.
-  const v004Identity = structuredClone(request)
-  delete v004Identity.artifact.query.segments
-  const v004Accepted = JSON.parse(globalThis.maltVerifyArtifact(JSON.stringify(v004Identity)))
-  if (v004Accepted.profile !== request.profile || v004Accepted.valid !== true) {
-    throw new Error(`v0.0.4 identity artifact was not accepted: ${JSON.stringify(v004Accepted)}`)
+  const missingSegments = structuredClone(request)
+  delete missingSegments.request.segments
+  const missingRejected = JSON.parse(globalThis.maltVerifyResolve(JSON.stringify(missingSegments)))
+  if (missingRejected.valid !== false) {
+    throw new Error('resolve request without segments was accepted')
   }
 
   const nullSegments = structuredClone(request)
-  nullSegments.artifact.query.segments = null
-  const nullRejected = JSON.parse(globalThis.maltVerifyArtifact(JSON.stringify(nullSegments)))
+  nullSegments.request.segments = null
+  const nullRejected = JSON.parse(globalThis.maltVerifyResolve(JSON.stringify(nullSegments)))
   if (nullRejected.valid !== false) {
-    throw new Error('identity artifact with explicit null segments was accepted')
+    throw new Error('resolve request with null segments was accepted')
   }
 
   const tampered = structuredClone(request)
-  tampered.artifact.target = 'bafkreib6qhwx2g5wgdgczgczumrq6rupl7u36po34ohfhn7rmvtpt7a3om'
-  const rejected = JSON.parse(globalThis.maltVerifyArtifact(JSON.stringify(tampered)))
+  tampered.result.target = 'bafkreib6qhwx2g5wgdgczgczumrq6rupl7u36po34ohfhn7rmvtpt7a3om'
+  const rejected = JSON.parse(globalThis.maltVerifyResolve(JSON.stringify(tampered)))
   if (rejected.valid !== false) {
-    throw new Error('tampered artifact was accepted')
+    throw new Error('tampered resolve result was accepted')
   }
 
   const wrongRoot = structuredClone(request)
-  wrongRoot.trusted_root = 'bafkreib6qhwx2g5wgdgczgczumrq6rupl7u36po34ohfhn7rmvtpt7a3om'
-  const rootRejected = JSON.parse(globalThis.maltVerifyArtifact(JSON.stringify(wrongRoot)))
+  wrongRoot.request.root = 'bafkreib6qhwx2g5wgdgczgczumrq6rupl7u36po34ohfhn7rmvtpt7a3om'
+  const rootRejected = JSON.parse(globalThis.maltVerifyResolve(JSON.stringify(wrongRoot)))
   if (rootRejected.valid !== false || !rootRejected.error?.includes('does not match trusted root')) {
     throw new Error(`trusted-root mismatch was not rejected: ${JSON.stringify(rootRejected)}`)
   }
 
   const wrongQuery = structuredClone(request)
-  wrongQuery.expected.query.segments = ['docs']
-  const queryRejected = JSON.parse(globalThis.maltVerifyArtifact(JSON.stringify(wrongQuery)))
-  if (queryRejected.valid !== false || !queryRejected.error?.includes('does not match expected query')) {
+  wrongQuery.request.segments = ['docs']
+  const queryRejected = JSON.parse(globalThis.maltVerifyResolve(JSON.stringify(wrongQuery)))
+  if (queryRejected.valid !== false || !queryRejected.error?.includes('does not match segment path')) {
     throw new Error(`client-query mismatch was not rejected: ${JSON.stringify(queryRejected)}`)
+  }
+
+  if (typeof globalThis.maltVerifyRead !== 'function' || typeof globalThis.maltVerifyArtifact !== 'function') {
+    throw new Error('WASM did not register read and legacy artifact verifier functions')
   }
   console.log('Local WASM verifier contract passed.')
 }
@@ -160,7 +148,10 @@ function verifyProvenance() {
 
 async function waitForProvider() {
   const deadline = Date.now() + 30_000
-  while (typeof globalThis.maltVerifyArtifact !== 'function') {
+  while (
+    typeof globalThis.maltVerifyResolve !== 'function' ||
+    typeof globalThis.maltVerifyRead !== 'function'
+  ) {
     if (globalThis.maltVerifierInitError) {
       throw new Error(globalThis.maltVerifierInitError)
     }

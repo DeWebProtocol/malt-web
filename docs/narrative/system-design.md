@@ -88,6 +88,9 @@ The server runtime exposes resolver and writer ports. Its verifier-facing read
 shape is:
 
 ```text
+Resolve(root, segments) -> target + ProofList
+VerifyResolve(request, result) -> valid / invalid
+
 Read(root, query) -> result + ProofList
 VerifyRead(root, query, result, ProofList) -> valid / invalid
 ```
@@ -125,6 +128,8 @@ and directory behavior while keeping payload identity unchanged.
 
 The current implementation is published as the experimental
 [`v0.0.4`](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.4) source
-release. It adds canonical segment-path composition and the explicit
-`malt.artifact/v0alpha2` resolve/prove/verify profile. It is not yet a
-production managed service or stable API line.
+release. It adds canonical segment-path composition and the frozen
+`malt.artifact/v0alpha2` compatibility profile. The active PR moves new
+integrations to operation-specific `malt.resolve/v0alpha1` and
+`malt.read/v0alpha1`. It is not yet a production managed service or stable API
+line.

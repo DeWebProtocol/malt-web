@@ -9,7 +9,7 @@ verifier-facing evidence, see [ProofLists](/docs/prooflists).
 Released behavior is pinned to MALT `v0.0.4`. The tightened package split and
 reference-executor naming are the active target of
 [draft PR #163](https://github.com/DeWebProtocol/malt/pull/163) at
-`0f2b5b1`; this page uses those draft role names where it discusses
+`db271e7`; this page uses those draft role names where it discusses
 the intended boundary.
 
 ## Roles
@@ -46,6 +46,10 @@ The server runtime does:
 - answer root-relative queries
 - return `result + ProofList`
 - support local client verification
+
+The operation-specific gateway projection is `POST /v1/resolve` and
+`POST /v1/read`. Reference GET/content routes remain UnixFS and local-runtime
+adapters.
 
 The resolver owns traversal and `ProofList` assembly. The writer owns mutation
 application and receipts. List/map interfaces and authenticated operations stay

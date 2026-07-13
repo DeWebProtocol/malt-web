@@ -2,16 +2,17 @@
 import { computed, ref } from 'vue'
 import { withBase } from 'vitepress'
 import {
-  defaultGatewayURL,
-  readContent,
-  readPayloadBlock,
-  resolveArtifactFromProofList,
-  resolvePayloadArtifactFromProofList,
-  resolvePath,
-  resolvePathQuery
+	defaultGatewayURL,
+	readContent,
+	readPayloadBlock,
+	resolvePath
 } from '../malt-client.mjs'
 import { verifyPayloadBytes } from '../malt-payload-verifier.mjs'
-import { verifyArtifactLocally } from '../malt-verifier.mjs'
+import {
+  resolveVerificationFromProofList,
+  verifyContentProofLocally,
+  verifyResolveLocally
+} from '../malt-verifier.mjs'
 
 const baseURL = ref(defaultGatewayURL)
 const root = ref('')
@@ -60,23 +61,21 @@ async function run(nextMode) {
     if (!payload.proofList) {
       throw new Error('response did not include ProofList material')
     }
-    const operation = nextMode === 'content' ? 'resolve_payload' : 'resolve'
-    const buildArtifact =
-      nextMode === 'content' ? resolvePayloadArtifactFromProofList : resolveArtifactFromProofList
-    const proofVerification = await verifyArtifactLocally({
-      artifact:
-        payload.artifact ??
-        buildArtifact({
-          proofList: payload.proofList,
-          root: root.value,
-          path: path.value
-        }),
-      expectedRoot: root.value.trim(),
-      expectedOperation: operation,
-      expectedQuery: resolvePathQuery(path.value),
-      runtimeURL: withBase('/verifier/wasm_exec.js'),
-      wasmURL: withBase('/verifier/malt-verifier.wasm')
-    })
+		const proofVerification =
+			nextMode === 'content'
+				? await verifyContentProofLocally({
+						proofList: payload.proofList,
+						expectedRoot: root.value.trim(),
+						expectedPath: path.value,
+						runtimeURL: withBase('/verifier/wasm_exec.js'),
+						wasmURL: withBase('/verifier/malt-verifier.wasm')
+					})
+				: await verifyResolveLocally({
+						request: payload.request,
+						result: payload.result,
+						runtimeURL: withBase('/verifier/wasm_exec.js'),
+						wasmURL: withBase('/verifier/malt-verifier.wasm')
+					})
     if (!proofVerification.valid) {
       verification.value = proofVerification
       throw new Error(proofVerification.error || 'local proof verification failed')
@@ -119,24 +118,18 @@ function sendToVerifier() {
   if (!proofText.value || typeof window === 'undefined') {
     return
   }
-  const operation = mode.value === 'content' ? 'resolve_payload' : 'resolve'
-  const buildArtifact =
-    mode.value === 'content' ? resolvePayloadArtifactFromProofList : resolveArtifactFromProofList
-  const artifact =
-    result.value?.artifact ??
-    buildArtifact({
-      proofList: result.value?.proofList,
-      root: root.value,
-      path: path.value
-    })
-  window.sessionStorage.setItem(
-    'malt-verification-input',
-    JSON.stringify({
-      artifact,
-      trustedRoot: root.value.trim(),
-      expectedOperation: operation,
-      expectedQuery: resolvePathQuery(path.value)
-    })
+	const verification =
+		mode.value === 'content'
+			? resolveVerificationFromProofList({
+					proofList: result.value?.proofList,
+					root: root.value,
+					path: path.value,
+					payload: 'auto'
+				})
+			: { request: result.value?.request, result: result.value?.result }
+	window.sessionStorage.setItem(
+		'malt-verification-input',
+		JSON.stringify({ verification })
   )
   window.location.href = withBase('/tools/verify')
 }

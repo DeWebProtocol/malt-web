@@ -1,85 +1,70 @@
-# Gateway and Artifact API
+# Gateway Resolve and Read API
 
 The product-facing browser and SDK boundary is the MALT Gateway at
-`http://127.0.0.1:8080` by default. It delegates execution to a MALT reference
-executor but
-preserves the core `malt.artifact/v0alpha2` contract instead of inventing a
-second proof format.
+`http://127.0.0.1:8080` by default. It delegates execution to an untrusted MALT
+reference executor while preserving the operation-specific core contracts.
 
-The gateway routes and `v0alpha2` artifact profile below interoperate with the
-released MALT `v0.0.4` baseline. The browser-local verifier envelope and the
-client/gateway/core package boundary are the active target of
-[draft MALT PR #163](https://github.com/DeWebProtocol/malt/pull/163) at
-`17352b9`, not released `v0.0.4` behavior.
+The current gateway tracks [MALT PR #163](https://github.com/DeWebProtocol/malt/pull/163)
+at commit `db271e7`. Released `v0.0.4` remains the baseline; its
+`malt.artifact/v0alpha2` resolve/prove profile is frozen compatibility behavior,
+not the contract new clients use.
 
-## Resolve, Payload Resolve, Prove, and Diagnostic Verify
+## Resolve, Read, and Diagnostic Verify
 
 ```text
-POST /v1/artifacts/resolve
-POST /v1/artifacts/prove
-POST /v1/artifacts/verify
+POST /v1/resolve
+POST /v1/read
+POST /v1/verify/resolve
+POST /v1/verify/read
 ```
 
-Resolve accepts canonical segments:
+Resolve accepts the trusted root and canonical segments:
 
 ```json
 {
-  "profile": "malt.artifact/v0alpha2",
+  "profile": "malt.resolve/v0alpha1",
   "root": "<trusted MALT root>",
-  "segments": ["a", "b", "c", "d"]
+  "segments": ["a", "b", "@payload"]
 }
 ```
 
-The client does not need to know whether the graph consumes those segments as
-arcs `a/b`, `c`, and `d`. The reference resolver may prefer the longest prefix
-at each root. Verification authenticates the complete returned derivation; it
-does not claim that the chosen derivation was longest or unique.
-
-Prove accepts one primitive typed query:
+It returns an untrusted target plus ProofList:
 
 ```json
 {
-  "profile": "malt.artifact/v0alpha2",
-  "root": "<trusted MALT root>",
+  "profile": "malt.resolve/v0alpha1",
+  "target": "<authenticated target CID>",
+  "prooflist": {"root": {"/": "<trusted MALT root>"}, "steps": []}
+}
+```
+
+The empty steps array above is only illustrative. Non-empty paths require real
+evidence. `segments: []` is strict root identity. Payload selection is an
+explicit final `@payload` segment, not a separate `resolve_payload` operation.
+
+The client does not need to know whether a graph consumes the segments as arcs
+`a/b` and `@payload`, or another complete derivation. Verification proves the
+returned derivation; it intentionally does not prove it was longest or unique.
+
+Read accepts one primitive typed query:
+
+```json
+{
+  "profile": "malt.read/v0alpha1",
+  "root": "<typed map or list root>",
   "query": {"kind": "map_key", "segments": ["account", "name"]}
 }
 ```
 
-Other primitive kinds are `list_index` and `list_range`. Path composition is a
-resolve operation, not a primitive prove query.
+Other query kinds are `list_index` and `list_range`. “Read” replaces the legacy
+Artifact operation name “prove”: proof generation is evidence for a semantic
+operation, not a semantic operation by itself.
 
-The verify endpoint accepts the complete artifact returned by resolve or prove:
-
-```json
-{
-  "profile": "malt.artifact/v0alpha2",
-  "artifact": {"profile": "malt.artifact/v0alpha2", "operation": "resolve"}
-}
-```
-
-The abbreviated artifact above only shows the envelope. A real request carries
-its root, query, target, and ProofList. A response is:
-
-```json
-{"profile":"malt.artifact/v0alpha2","valid":true}
-```
-
-JSON shape validation is not proof verification. The verifier also binds the
-root, query, target, ordered steps, optional range segments, and cryptographic
-evidence. Draft normative schemas and semantics live in the
-[`DeWebProtocol/malt` artifact spec](https://github.com/DeWebProtocol/malt/blob/17352b9a81b7bbcbf9e719de4343a8c5f1fa576c/docs/spec/artifacts.md).
-
-Content clients use the draft `resolve_payload` artifact operation to bind the
-caller-selected segment path to exactly one authenticated `@payload` step. In
-particular, root content uses an empty path plus a non-empty payload ProofList;
-it is not re-labeled as the zero-step `resolve` root identity. The artifact
-target is the payload-binding target even when later range evidence is present.
-
-This endpoint is a diagnostic and conformance surface, not a client trust
-oracle. The active draft browser and SDK clients run the portable verifier
-locally and fail closed when it is unavailable. A gateway may report a
-diagnostic result, but a client must not accept that result in place of local
-verification.
+The browser verifies a caller-constructed request together with the untrusted
+result. The remote verify endpoints accept the same `{request, result}` pair
+and return a diagnostic `{profile, valid, error?}` response. They are not trust
+oracles. Normative schemas and semantics live in the
+[MALT resolve/read spec](https://github.com/DeWebProtocol/malt/blob/db271e725dc0f4a21a7263eff92a14292c6590de/docs/spec/resolve-read-contracts.md).
 
 ## Semantic Mutation Contract
 
@@ -89,9 +74,8 @@ The gateway applies a root-relative semantic mutation through:
 POST /v1/roots/{root}/mutations
 ```
 
-`{root}` is the caller-selected base root. The request body is the released
-`api/http.SemanticMutationRequest` shape: one or more typed map/list deltas,
-each with canonical coordinate changes and optional replay constraints.
+`{root}` is the caller-selected base root. The request contains typed map/list
+deltas with canonical coordinate changes and optional replay constraints.
 
 ```json
 {
@@ -99,7 +83,6 @@ each with canonical coordinate changes and optional replay constraints.
     {
       "kind": "map",
       "object": "<optional semantic-object CID>",
-      "expected_root": "<optional replay-result CID>",
       "changes": [
         {
           "path": "docs/readme.md",
@@ -112,31 +95,14 @@ each with canonical coordinate changes and optional replay constraints.
 }
 ```
 
-A successful application returns `201 Created` with an operational receipt:
-
-```json
-{
-  "base_root": "<requested root>",
-  "new_root": "<candidate root>",
-  "result_root": "<optional materialized root>",
-  "delta_count": 1,
-  "arc_count": 1,
-  "malt_object_count": 1,
-  "map_count": 1,
-  "list_count": 0
-}
-```
-
-`new_root` is a candidate root and the receipt is operational metadata, not a
-portable correctness proof or authoritative head publication. A client must
-derive and verify the intended mutation independently, explicitly accept the
-candidate, or obtain it through its own root-publication policy before using it
-as a trusted root. Reads under an accepted root still require local ProofList
-and response-byte verification.
+A successful application returns `201 Created` with an operational receipt and
+a candidate `new_root`. MALT does not currently provide a delta/state-transition
+proof. The website therefore never promotes that root automatically; the user
+or an independent publication policy must accept it explicitly.
 
 ## Product Content Routes
 
-The current UnixFS product scenario uses gateway content routes:
+The UnixFS product scenario uses:
 
 ```text
 GET|HEAD /v1/roots/{root}/content[/{path...}]
@@ -144,73 +110,26 @@ POST     /v1/roots/{root}/content/{path...}
 POST     /v1/content/new?path={path}
 ```
 
-`GET` returns file bytes or directory JSON. `HEAD` returns stat metadata.
-`POST /v1/content/new` creates a new UnixFS root, while root-scoped `POST`
-writes into an existing UnixFS root and returns the updated root.
+Content responses preserve `X-Malt-ProofList`, its encoding header, target/stat
+headers, and `Vary: X-Malt-Proof`. Gateway CORS merges `Origin` into that
+variance set.
 
-Content reads preserve proof headers from the reference executor:
+For content verification, the website:
 
-```text
-X-Malt-ProofList: <base64url(JSON ProofList)>
-X-Malt-ProofList-Encoding: base64url-json
-X-Malt-Key: <resolved key CID>
-X-Malt-Payload: <optional payload CID>
-Vary: X-Malt-Proof
-```
+1. derives a `ResolveVerification` from the explicit root, application path,
+   and terminal `@payload` when the proof contains that binding;
+2. separately verifies any trailing `list_index` or `list_range` evidence as
+   `ReadVerification` values; and
+3. hashes full raw/manifest bytes to the authenticated CID, or verifies list
+   range bytes against authenticated segment CIDs.
 
-The gateway preserves the upstream proof variance and merges it with
-`Vary: Origin` when browser CORS is active, so cached proof-bearing and
-proof-omitted responses cannot be substituted for one another.
-
-The website reconstructs a `resolve_payload` artifact from the explicit root,
-segment path, authenticated `@payload` target, and ProofList, then verifies it
-locally with the draft portable WebAssembly verifier. For raw payloads and
-directory manifests, it hashes the exact response bytes against the authenticated payload CID. A
-partial raw response is compared with the matching slice of a separately
-fetched and CID-checked complete payload. For list ranges, the client fetches
-the authenticated segment CIDs, checks every segment, and compares the
-assembled authenticated range with the response body. It does not use the
-gateway's `valid` field as a trust decision.
-
-Write responses return candidate roots. The website does not automatically
-promote a gateway-returned `new_root` to a trusted root; accepting or publishing
-that candidate is an explicit application action.
+Raw targets without `@payload` remain ordinary resolves. This composition is a
+UnixFS client concern and does not add another core operation.
 
 ## Trust and Deployment Boundary
 
-The gateway is untrusted for correctness. It can authenticate callers, enforce
-tenant policy, publish roots, cache, and orchestrate storage, but clients accept
-results only after local verification against a root selected by the
-application.
-
-The open gateway currently provides a permissive local product path around a
-configured reference executor. Production identity, authorization, quota, cache, billing,
-abuse controls, and provider-specific S3/IAM policy remain deployment work.
-
-Browser origins are configured through `GATEWAY_CORS_ALLOWED_ORIGINS`. The
-gateway forwards only selected request and response headers required for
-content, byte ranges, and proof transport.
-
-## Reference Executor Routes
-
-The MALT repository retains local/reference routes such as:
-
-```text
-GET /resolve/{root}[/{path...}]
-GET|HEAD /{root}[/{path...}]
-POST /_unixfs?path={path}
-POST /{root}/{path...}
-POST /{root}/_mutate
-POST /verify
-```
-
-These routes support the CLI, evaluation, and compatibility clients. New
-gateway, executor, and SDK integrations should use the profiled artifact contract
-for resolve/prove/verify. Managed products should not copy reference runtime
-admin or mutation routes as their public contract.
-
-## Root Policy
-
-Neither the gateway nor core verification proves that a root is fresh, latest,
-or authorized. Root publication, rollback prevention, and multi-writer policy
-belong to the application or managed gateway layer.
+The gateway may authenticate callers, enforce policy, publish roots, cache, and
+orchestrate storage, but it is untrusted for correctness. Root freshness,
+rollback prevention, and multi-writer policy remain application or managed
+gateway responsibilities. Clients accept results only after local verification
+against their own request and trusted root.

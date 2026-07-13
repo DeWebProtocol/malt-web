@@ -1,30 +1,23 @@
 {
-  "schema": "malt.web.root-content-fixture/v1",
-  "source_commit": "17352b9a81b7bbcbf9e719de4343a8c5f1fa576c",
+  "schema": "malt.web.root-content-fixture/v2",
+  "source_commit": "db271e725dc0f4a21a7263eff92a14292c6590de",
   "source_scenario": "reference daemon GET /{root} after writing docs/readme.txt",
   "request_path": "/bagaybqabaayjgj5qst4x7wig56y7lydcv4y3372zwgwlntowmy2oimn262ea5to32d4xvoalviqbi5okqnzslvk5",
   "body_base64": "eyJlbnRyaWVzIjpbImRvY3MiXX0=",
-  "expected": {
-    "trusted_root": "bagaybqabaayjgj5qst4x7wig56y7lydcv4y3372zwgwlntowmy2oimn262ea5to32d4xvoalviqbi5okqnzslvk5",
-    "operation": "resolve_payload",
-    "query": {
-      "kind": "path",
-      "segments": []
-    }
-  },
-  "artifact": {
-    "profile": "malt.artifact/v0alpha2",
-    "operation": "resolve_payload",
-    "root": "bagaybqabaayjgj5qst4x7wig56y7lydcv4y3372zwgwlntowmy2oimn262ea5to32d4xvoalviqbi5okqnzslvk5",
-    "query": {
-      "kind": "path",
-      "segments": []
+  "verification": {
+    "request": {
+      "profile": "malt.resolve/v0alpha1",
+      "root": "bagaybqabaayjgj5qst4x7wig56y7lydcv4y3372zwgwlntowmy2oimn262ea5to32d4xvoalviqbi5okqnzslvk5",
+      "segments": ["@payload"]
     },
-    "target": "bafkreif4d6coebl34lwwddl7furd2enq4gf7d5ntadhcoifqtzg6zeb6qe",
-    "prooflist": {
+    "result": {
+      "profile": "malt.resolve/v0alpha1",
+      "target": "bafkreif4d6coebl34lwwddl7furd2enq4gf7d5ntadhcoifqtzg6zeb6qe",
+      "prooflist": {
       "root": {
         "/": "bagaybqabaayjgj5qst4x7wig56y7lydcv4y3372zwgwlntowmy2oimn262ea5to32d4xvoalviqbi5okqnzslvk5"
       },
+      "query": "@payload",
       "steps": [
         {
           "kind": "payload_binding",
@@ -40,6 +33,7 @@
           "evidence": "eyJzdGVwcyI6W3sic2xvdCI6IkFWVUFSVzFoYkhRNmJXRndPbkpoWkdsNE9teGxZV1k2ZGpFNkFBaEFjR0Y1Ykc5aFpBRlZFaUM4SDRUaUJYdmk3V0dOZnkwaVBSR3c0WXZ4OWJNQXppY2dzSjVON0pBK2dRPT0iLCJwcm9vZiI6Im1QOUp2NE5sSXFpWkpyNEFWMmlsZ05DV1p6ejRYdG1kRExYL2lPVXlMZDVwdWFuL0pSWEY2SmxGaUE1WDFobHFHd0V2Qi92MTh6eHpqTUg0Q082emNnRkdwMlFzdmVuMU5FMDJGaVJReUpBQUFBQ1cifV19"
         }
       ]
+      }
     }
   }
 }

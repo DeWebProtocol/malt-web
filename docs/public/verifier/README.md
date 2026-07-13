@@ -9,17 +9,23 @@ Regenerate both files from this repository with:
 MALT_SOURCE=/path/to/malt npm run build:verifier
 ```
 
-The WebAssembly module registers one browser function:
+The WebAssembly module registers operation-specific browser functions and one
+frozen compatibility function:
 
 ```text
+globalThis.maltVerifyResolve(resolveVerificationJSON) -> verifyResultJSON
+globalThis.maltVerifyRead(readVerificationJSON) -> verifyResultJSON
 globalThis.maltVerifyArtifact(localVerifyRequestJSON) -> verifyResultJSON
 ```
 
-The request carries `profile`, an independently selected `trusted_root`, an
-`expected` operation/query (plus optional target), and the artifact. The result
-uses the same `malt.artifact/v0alpha2` profile. The module checks all caller
-expectations and runs the portable KZG/IPA verifier locally; it does not call a
-gateway.
+The resolve/read request is constructed from the client's independently
+selected root and intended segments or typed query. The returned result is
+passed separately with its ProofList. The module checks every binding and runs
+the portable KZG/IPA verifier locally; it does not call a gateway.
+
+`maltVerifyArtifact` only preserves the released `malt.artifact/v0alpha2`
+v0.0.4 compatibility contract. New integrations use
+`malt.resolve/v0alpha1` and `malt.read/v0alpha1`.
 
 `PROVENANCE.json` records the exact MALT Git commit, source remote, Go version,
 full Go toolchain string, target, and build flags used for the published

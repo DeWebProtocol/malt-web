@@ -1,110 +1,217 @@
-export const localVerifierProfile = 'malt.artifact/v0alpha2'
+export const resolveVerifierProfile = 'malt.resolve/v0alpha1'
+export const readVerifierProfile = 'malt.read/v0alpha1'
 export const defaultVerifierRuntimeURL = '/verifier/wasm_exec.js'
 export const defaultVerifierWASMURL = '/verifier/malt-verifier.wasm'
 
 const providerPromises = new Map()
 
-/**
- * Verify a complete MALT artifact in the browser. The trusted root and expected
- * query are caller inputs, not values learned from the artifact.
- *
- * Loading failures and malformed provider responses fail closed. A gateway
- * response is never consulted by this function.
- */
-export async function verifyArtifactLocally({
-  artifact,
+export async function verifyResolveLocally({
+  request,
+  result,
+  runtimeURL = defaultVerifierRuntimeURL,
+  wasmURL = defaultVerifierWASMURL,
+  signal,
+  provider
+}) {
+  return verifyLocally({
+    kind: 'resolve',
+    profile: resolveVerifierProfile,
+    value: createResolveVerification({ request, result }),
+    runtimeURL,
+    wasmURL,
+    signal,
+    provider
+  })
+}
+
+export async function verifyReadLocally({
+  request,
+  result,
+  runtimeURL = defaultVerifierRuntimeURL,
+  wasmURL = defaultVerifierWASMURL,
+  signal,
+  provider
+}) {
+  return verifyLocally({
+    kind: 'read',
+    profile: readVerifierProfile,
+    value: createReadVerification({ request, result }),
+    runtimeURL,
+    wasmURL,
+    signal,
+    provider
+  })
+}
+
+export async function verifyContentProofLocally({
+  proofList,
   expectedRoot,
-  expectedOperation,
-  expectedQuery,
-  expectedTarget = '',
+  expectedPath = '',
   runtimeURL = defaultVerifierRuntimeURL,
   wasmURL = defaultVerifierWASMURL,
   signal,
   provider
 }) {
   try {
-    const request = createLocalVerifyRequest({
-      artifact,
-      expectedRoot,
-      expectedOperation,
-      expectedQuery,
-      expectedTarget
+    throwIfAborted(signal)
+    const verifier = provider ?? (await loadBrowserVerifier({ runtimeURL, wasmURL, signal }))
+    const resolve = resolveVerificationFromProofList({
+      proofList,
+      root: expectedRoot,
+      path: expectedPath,
+      payload: 'auto'
     })
-    throwIfAborted(signal)
-    const verify = provider ?? (await loadBrowserVerifier({ runtimeURL, wasmURL, signal }))
-    throwIfAborted(signal)
-    const raw = verify(JSON.stringify(request))
-    const result = parseProviderResult(raw)
+    const resolveResult = await verifyResolveLocally({
+      ...resolve,
+      signal,
+      provider: verifier
+    })
+    if (!resolveResult.valid) {
+      return resolveResult
+    }
+
+    const reads = readVerificationsFromProofList(proofList)
+    const readResults = []
+    for (const value of reads) {
+      throwIfAborted(signal)
+      const checked = await verifyReadLocally({ ...value, signal, provider: verifier })
+      readResults.push(checked)
+      if (!checked.valid) {
+        return {
+          ...checked,
+          resolve: resolveResult,
+          reads: readResults
+        }
+      }
+    }
     return {
-      ...result,
-      source: 'local-wasm',
-      trustedRoot: expectedRoot,
-      query: expectedQuery
+      ...resolveResult,
+      resolve: resolveResult,
+      reads: readResults
     }
   } catch (err) {
-    return {
-      profile: localVerifierProfile,
-      valid: false,
-      source: 'local-wasm',
-      error: errorMessage(err)
+    return invalidResult(resolveVerifierProfile, err)
+  }
+}
+
+export function createResolveVerification({ request, result }) {
+  const normalizedRequest = normalizeResolveRequest(request)
+  const normalizedResult = normalizeResult(result, resolveVerifierProfile, 'resolve')
+  if (cidString(normalizedResult.prooflist.root) !== normalizedRequest.root) {
+    throw new Error('resolve ProofList root does not match the client-selected trusted root')
+  }
+  if (normalizedResult.prooflist.query !== normalizedRequest.segments.join('/')) {
+    throw new Error('resolve ProofList query does not match the client-selected segments')
+  }
+  return { request: normalizedRequest, result: normalizedResult }
+}
+
+export function createReadVerification({ request, result }) {
+  const normalizedRequest = normalizeReadRequest(request)
+  const normalizedResult = normalizeResult(result, readVerifierProfile, 'read')
+  if (cidString(normalizedResult.prooflist.root) !== normalizedRequest.root) {
+    throw new Error('read ProofList root does not match the client-selected trusted root')
+  }
+  return { request: normalizedRequest, result: normalizedResult }
+}
+
+export function resolveVerificationFromProofList({ proofList, root, path = '', payload = false }) {
+  requireProofList(proofList)
+  const trustedRoot = String(root || cidString(proofList.root) || '').trim()
+  if (!trustedRoot) {
+    throw new Error('trusted root is required')
+  }
+  const segments = pathSegments(path)
+  const includePayload =
+    payload === true ||
+    (payload === 'auto' && proofList.steps.some((step) => step?.kind === 'payload_binding'))
+  if (includePayload) {
+    segments.push('@payload')
+  }
+  const steps = []
+  let sawPrimitiveRead = false
+  for (const step of proofList.steps) {
+    if (step?.kind === 'list_index' || step?.kind === 'list_range') {
+      sawPrimitiveRead = true
+      continue
+    }
+    if (sawPrimitiveRead) {
+      throw new Error('resolve traversal evidence appears after primitive read evidence')
+    }
+    steps.push(step)
+  }
+  let target = trustedRoot
+  if (steps.length > 0) {
+    target = cidString(steps[steps.length - 1]?.target)
+  }
+  if (!target) {
+    throw new Error('resolve ProofList target is required')
+  }
+  return {
+    request: { profile: resolveVerifierProfile, root: trustedRoot, segments },
+    result: {
+      profile: resolveVerifierProfile,
+      target,
+      prooflist: {
+        ...proofList,
+        query: segments.join('/'),
+        steps
+      }
     }
   }
 }
 
-export function createLocalVerifyRequest({
-  artifact,
-  expectedRoot,
-  expectedOperation,
-  expectedQuery,
-  expectedTarget = ''
-}) {
-  if (!artifact || typeof artifact !== 'object') {
-    throw new Error('artifact is required for local verification')
-  }
-  if (artifact.profile !== localVerifierProfile) {
-    throw new Error(`unsupported artifact profile ${JSON.stringify(artifact.profile)}`)
-  }
-
-  const trustedRoot = String(expectedRoot || '').trim()
-  if (!trustedRoot) {
-    throw new Error('trusted root is required and must be selected outside the artifact')
-  }
-  if (artifact.root !== trustedRoot) {
-    throw new Error('artifact root does not match the client-selected trusted root')
-  }
-  const operation = String(expectedOperation || '').trim()
-  if (operation !== 'resolve' && operation !== 'resolve_payload' && operation !== 'prove') {
-    throw new Error(
-      'expected operation must be resolve, resolve_payload, or prove and selected outside the artifact'
-    )
-  }
-  if (artifact.operation !== operation) {
-    throw new Error('artifact operation does not match the client-selected operation')
-  }
-  if (!expectedQuery || typeof expectedQuery !== 'object') {
-    throw new Error('expected query is required and must be selected outside the artifact')
-  }
-  const canonicalArtifactQuery = canonicalQuery(artifact.query)
-  const canonicalExpectedQuery = canonicalQuery(expectedQuery)
-  if (!queriesEqual(canonicalArtifactQuery, canonicalExpectedQuery)) {
-    throw new Error('artifact query does not match the client-selected query')
-  }
-
-  const target = String(expectedTarget || '').trim()
-  if (target && artifact.target !== target) {
-    throw new Error('artifact target does not match the client-selected target')
-  }
-
-  const expected = { operation, query: canonicalExpectedQuery }
-  if (target) {
-    expected.target = target
-  }
-  return {
-    profile: localVerifierProfile,
-    trusted_root: trustedRoot,
-    expected,
-    artifact: { ...artifact, query: canonicalArtifactQuery }
-  }
+export function readVerificationsFromProofList(proofList) {
+  requireProofList(proofList)
+  return proofList.steps.flatMap((step) => {
+    if (step?.kind !== 'list_index' && step?.kind !== 'list_range') {
+      return []
+    }
+    const root = cidString(step.from)
+    const target = cidString(step.target)
+    if (!root || !target) {
+      throw new Error('primitive read evidence has no root or target CID')
+    }
+    let query
+    let queryLabel
+    let rangeSegments
+    if (step.kind === 'list_index') {
+      if (!Number.isSafeInteger(step.index) || step.index < 0) {
+        throw new Error('list_index evidence has an invalid index')
+      }
+      query = { kind: 'list_index', index: step.index }
+      queryLabel = `list:${step.index}`
+    } else {
+      if (!Number.isSafeInteger(step.start) || step.start < 0) {
+        throw new Error('list_range evidence has an invalid start')
+      }
+      query = { kind: 'list_range', start: step.start }
+      queryLabel = `range:${step.start}:`
+      if (step.end != null) {
+        query.end = step.end
+        queryLabel = `range:${step.start}:${step.end}`
+      }
+      rangeSegments = (step.segments || []).map(cidString)
+      if (rangeSegments.some((cid) => !cid)) {
+        throw new Error('list_range evidence contains an invalid segment CID')
+      }
+    }
+    return [
+      {
+        request: { profile: readVerifierProfile, root, query },
+        result: {
+          profile: readVerifierProfile,
+          target,
+          ...(rangeSegments ? { range_segments: rangeSegments } : {}),
+          prooflist: {
+            root: step.from,
+            query: queryLabel,
+            steps: [{ ...step, query: queryLabel }]
+          }
+        }
+      }
+    ]
+  })
 }
 
 export async function loadBrowserVerifier({
@@ -127,10 +234,25 @@ export async function loadBrowserVerifier({
   }
 }
 
+async function verifyLocally({ kind, profile, value, runtimeURL, wasmURL, signal, provider }) {
+  try {
+    throwIfAborted(signal)
+    const verifier = provider ?? (await loadBrowserVerifier({ runtimeURL, wasmURL, signal }))
+    const fn = typeof verifier === 'function' ? verifier : verifier?.[kind]
+    if (typeof fn !== 'function') {
+      throw new Error(`local verifier does not provide ${kind}`)
+    }
+    throwIfAborted(signal)
+    const result = parseProviderResult(fn(JSON.stringify(value)), profile)
+    return { ...result, source: 'local-wasm' }
+  } catch (err) {
+    return invalidResult(profile, err)
+  }
+}
+
 async function initializeBrowserVerifier({ runtimeURL, wasmURL, signal }) {
   await loadGoRuntime(runtimeURL, signal)
   throwIfAborted(signal)
-
   if (typeof globalThis.Go !== 'function') {
     throw new Error('Go WebAssembly runtime did not register globalThis.Go')
   }
@@ -139,26 +261,26 @@ async function initializeBrowserVerifier({ runtimeURL, wasmURL, signal }) {
   if (!response.ok) {
     throw new Error(`local verifier WASM request failed (${response.status})`)
   }
-
   let instantiated
   try {
     instantiated = await WebAssembly.instantiateStreaming(response.clone(), go.importObject)
   } catch {
     instantiated = await WebAssembly.instantiate(await response.arrayBuffer(), go.importObject)
   }
-
   const runPromise = go.run(instantiated.instance)
   void runPromise.catch((err) => {
     globalThis.maltVerifierRuntimeError = errorMessage(err)
   })
   await waitForProvider(signal)
-  return (requestJSON) => globalThis.maltVerifyArtifact(requestJSON)
+  return {
+    resolve: (json) => globalThis.maltVerifyResolve(json),
+    read: (json) => globalThis.maltVerifyRead(json),
+    artifact: (json) => globalThis.maltVerifyArtifact(json)
+  }
 }
 
 async function loadGoRuntime(runtimeURL, signal) {
-  if (typeof globalThis.Go === 'function') {
-    return
-  }
+  if (typeof globalThis.Go === 'function') return
   const source = absoluteURL(runtimeURL)
   const existing = document.querySelector(`script[data-malt-verifier-runtime="${cssEscape(source)}"]`)
   if (existing) {
@@ -175,27 +297,16 @@ async function loadGoRuntime(runtimeURL, signal) {
 }
 
 function waitForScript(script, signal) {
-  if (typeof globalThis.Go === 'function') {
-    return Promise.resolve()
-  }
+  if (typeof globalThis.Go === 'function') return Promise.resolve()
   return new Promise((resolve, reject) => {
     const cleanup = () => {
       script.removeEventListener('load', onLoad)
       script.removeEventListener('error', onError)
       signal?.removeEventListener('abort', onAbort)
     }
-    const onLoad = () => {
-      cleanup()
-      resolve()
-    }
-    const onError = () => {
-      cleanup()
-      reject(new Error(`failed to load local verifier runtime ${script.src}`))
-    }
-    const onAbort = () => {
-      cleanup()
-      reject(abortError())
-    }
+    const onLoad = () => { cleanup(); resolve() }
+    const onError = () => { cleanup(); reject(new Error(`failed to load local verifier runtime ${script.src}`)) }
+    const onAbort = () => { cleanup(); reject(abortError()) }
     script.addEventListener('load', onLoad, { once: true })
     script.addEventListener('error', onError, { once: true })
     signal?.addEventListener('abort', onAbort, { once: true })
@@ -204,30 +315,67 @@ function waitForScript(script, signal) {
 
 async function waitForProvider(signal) {
   const deadline = Date.now() + 30_000
-  while (typeof globalThis.maltVerifyArtifact !== 'function') {
+  while (
+    typeof globalThis.maltVerifyResolve !== 'function' ||
+    typeof globalThis.maltVerifyRead !== 'function'
+  ) {
     throwIfAborted(signal)
     const initError = globalThis.maltVerifierInitError || globalThis.maltVerifierRuntimeError
-    if (initError) {
-      throw new Error(`local verifier initialization failed: ${initError}`)
-    }
-    if (Date.now() >= deadline) {
-      throw new Error('local verifier initialization timed out')
-    }
+    if (initError) throw new Error(`local verifier initialization failed: ${initError}`)
+    if (Date.now() >= deadline) throw new Error('local verifier initialization timed out')
     await new Promise((resolve) => setTimeout(resolve, 10))
   }
 }
 
-function parseProviderResult(raw) {
-  if (typeof raw !== 'string') {
-    throw new Error('local verifier returned a non-JSON result')
+function normalizeResolveRequest(request) {
+  if (!request || request.profile !== resolveVerifierProfile) {
+    throw new Error(`unsupported resolve profile ${JSON.stringify(request?.profile)}`)
   }
+  const root = String(request.root || '').trim()
+  if (!root) throw new Error('trusted resolve root is required')
+  if (!Array.isArray(request.segments)) throw new Error('resolve segments array is required')
+  const segments = request.segments.map((segment) => String(segment))
+  if (segments.some((segment) => !segment || segment.includes('/'))) {
+    throw new Error('resolve segments must be non-empty and cannot contain /')
+  }
+  return { profile: resolveVerifierProfile, root, segments }
+}
+
+function normalizeReadRequest(request) {
+  if (!request || request.profile !== readVerifierProfile) {
+    throw new Error(`unsupported read profile ${JSON.stringify(request?.profile)}`)
+  }
+  const root = String(request.root || '').trim()
+  if (!root) throw new Error('trusted read root is required')
+  if (!request.query || typeof request.query !== 'object') throw new Error('read query is required')
+  return { profile: readVerifierProfile, root, query: structuredClone(request.query) }
+}
+
+function normalizeResult(result, profile, label) {
+  if (!result || result.profile !== profile) {
+    throw new Error(`unsupported ${label} result profile ${JSON.stringify(result?.profile)}`)
+  }
+  const target = String(result.target || '').trim()
+  if (!target) throw new Error(`${label} target is required`)
+  requireProofList(result.prooflist)
+  return structuredClone(result)
+}
+
+function requireProofList(proofList) {
+  if (!proofList || typeof proofList !== 'object' || !Array.isArray(proofList.steps)) {
+    throw new Error('ProofList JSON must contain a steps array')
+  }
+}
+
+function parseProviderResult(raw, expectedProfile) {
+  if (typeof raw !== 'string') throw new Error('local verifier returned a non-JSON result')
   let result
   try {
     result = JSON.parse(raw)
   } catch (err) {
     throw new Error(`local verifier returned invalid JSON: ${errorMessage(err)}`)
   }
-  if (!result || result.profile !== localVerifierProfile || typeof result.valid !== 'boolean') {
+  if (!result || result.profile !== expectedProfile || typeof result.valid !== 'boolean') {
     throw new Error('local verifier returned an invalid result envelope')
   }
   return {
@@ -237,34 +385,17 @@ function parseProviderResult(raw) {
   }
 }
 
-function queriesEqual(actual, expected) {
-  if (!actual || !expected || actual.kind !== expected.kind) {
-    return false
-  }
-  const fields = ['segments', 'index', 'start', 'end']
-  return fields.every((field) => valuesEqual(actual[field], expected[field]))
+function pathSegments(rawPath = '') {
+  return String(rawPath || '').split('/').filter(Boolean).map((segment) => decodeURIComponent(segment))
 }
 
-function canonicalQuery(query) {
-  if (!query || typeof query !== 'object') {
-    return query
-  }
-  if (query.kind === 'path' && !Object.hasOwn(query, 'segments')) {
-    return { ...query, segments: [] }
-  }
-  return query
+function cidString(value) {
+  if (typeof value === 'string') return value
+  return value && typeof value['/'] === 'string' ? value['/'] : ''
 }
 
-function valuesEqual(left, right) {
-  if (Array.isArray(left) || Array.isArray(right)) {
-    return (
-      Array.isArray(left) &&
-      Array.isArray(right) &&
-      left.length === right.length &&
-      left.every((value, index) => value === right[index])
-    )
-  }
-  return left == null ? right == null : left === right
+function invalidResult(profile, err) {
+  return { profile, valid: false, source: 'local-wasm', error: errorMessage(err) }
 }
 
 function absoluteURL(raw) {
@@ -276,9 +407,7 @@ function cssEscape(value) {
 }
 
 function throwIfAborted(signal) {
-  if (signal?.aborted) {
-    throw abortError()
-  }
+  if (signal?.aborted) throw abortError()
 }
 
 function abortError() {

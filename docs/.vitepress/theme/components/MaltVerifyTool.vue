@@ -1,45 +1,46 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { withBase } from 'vitepress'
 import {
-  artifactProfile,
   defaultGatewayURL,
-  diagnoseProofListRemotely,
-  extractArtifactInput
+  diagnoseReadRemotely,
+  diagnoseResolveRemotely,
+  readProfile,
+  resolveProfile
 } from '../malt-client.mjs'
-import { verifyArtifactLocally } from '../malt-verifier.mjs'
+import { verifyReadLocally, verifyResolveLocally } from '../malt-verifier.mjs'
 
 const baseURL = ref(defaultGatewayURL)
-const trustedRoot = ref('')
-const expectedOperation = ref('resolve')
-const expectedQuery = ref('{"kind":"path","segments":[]}')
-const expectedTarget = ref('')
-const proofInput = ref('')
+const contract = ref('resolve')
+const requestInput = ref('')
+const resultInput = ref('')
 const busy = ref(false)
 const error = ref('')
 const verification = ref(null)
 const diagnostic = ref(null)
+const activeProfile = computed(() => (contract.value === 'read' ? readProfile : resolveProfile))
 
 onMounted(() => {
-  const verificationInput = window.sessionStorage.getItem('malt-verification-input')
-  if (verificationInput) {
-    try {
-      const stored = JSON.parse(verificationInput)
-      proofInput.value = JSON.stringify(stored.artifact, null, 2)
-      trustedRoot.value = String(stored.trustedRoot || '')
-      expectedOperation.value = String(stored.expectedOperation || 'resolve')
-      expectedQuery.value = JSON.stringify(stored.expectedQuery || { kind: 'path', segments: [] })
-      expectedTarget.value = String(stored.expectedTarget || '')
-      return
-    } catch {
-      window.sessionStorage.removeItem('malt-verification-input')
-    }
-  }
-  const stored = window.sessionStorage.getItem('malt-prooflist')
-  if (stored) {
-    proofInput.value = stored
+  const raw = window.sessionStorage.getItem('malt-verification-input')
+  if (!raw) return
+  try {
+    const stored = JSON.parse(raw)
+    const value = stored.verification ?? stored
+    if (!value?.request || !value?.result) return
+    contract.value = value.request.profile === readProfile ? 'read' : 'resolve'
+    requestInput.value = JSON.stringify(value.request, null, 2)
+    resultInput.value = JSON.stringify(value.result, null, 2)
+  } catch {
+    window.sessionStorage.removeItem('malt-verification-input')
   }
 })
+
+function verificationValue() {
+  return {
+    request: JSON.parse(requestInput.value),
+    result: JSON.parse(resultInput.value)
+  }
+}
 
 async function runVerify() {
   error.value = ''
@@ -47,17 +48,19 @@ async function runVerify() {
   diagnostic.value = null
   busy.value = true
   try {
-    const artifact = extractArtifactInput(proofInput.value)
-    const query = JSON.parse(expectedQuery.value)
-    verification.value = await verifyArtifactLocally({
-      artifact,
-      expectedRoot: trustedRoot.value,
-      expectedOperation: expectedOperation.value,
-      expectedQuery: query,
-      expectedTarget: expectedTarget.value,
-      runtimeURL: withBase('/verifier/wasm_exec.js'),
-      wasmURL: withBase('/verifier/malt-verifier.wasm')
-    })
+    const value = verificationValue()
+    verification.value =
+      contract.value === 'read'
+        ? await verifyReadLocally({
+            ...value,
+            runtimeURL: withBase('/verifier/wasm_exec.js'),
+            wasmURL: withBase('/verifier/malt-verifier.wasm')
+          })
+        : await verifyResolveLocally({
+            ...value,
+            runtimeURL: withBase('/verifier/wasm_exec.js'),
+            wasmURL: withBase('/verifier/malt-verifier.wasm')
+          })
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
   } finally {
@@ -70,8 +73,11 @@ async function runGatewayDiagnostic() {
   diagnostic.value = null
   busy.value = true
   try {
-    const artifact = extractArtifactInput(proofInput.value)
-    diagnostic.value = await diagnoseProofListRemotely({ baseURL: baseURL.value, artifact })
+    const value = verificationValue()
+    diagnostic.value =
+      contract.value === 'read'
+        ? await diagnoseReadRemotely({ baseURL: baseURL.value, ...value })
+        : await diagnoseResolveRemotely({ baseURL: baseURL.value, ...value })
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
   } finally {
@@ -84,7 +90,7 @@ async function runGatewayDiagnostic() {
   <section class="malt-tool" aria-labelledby="malt-verify-heading">
     <div class="malt-tool__head">
       <div>
-        <p class="malt-tool__eyebrow">ProofList</p>
+        <p class="malt-tool__eyebrow">Resolve / Read</p>
         <h2 id="malt-verify-heading">Verify</h2>
       </div>
       <span class="malt-tool__status" :class="{ 'is-valid': verification?.valid }">
@@ -94,47 +100,38 @@ async function runGatewayDiagnostic() {
 
     <div class="malt-tool__grid is-single">
       <label>
-        <span>Trusted root</span>
-        <input v-model="trustedRoot" autocomplete="off" spellcheck="false" />
-      </label>
-      <label>
-        <span>Expected query JSON</span>
-        <input v-model="expectedQuery" autocomplete="off" spellcheck="false" />
-      </label>
-      <label>
-        <span>Expected operation</span>
-        <select v-model="expectedOperation">
+        <span>Contract</span>
+        <select v-model="contract">
           <option value="resolve">resolve</option>
-          <option value="resolve_payload">resolve_payload</option>
-          <option value="prove">prove</option>
+          <option value="read">read</option>
         </select>
       </label>
       <label>
-        <span>Expected target (optional)</span>
-        <input v-model="expectedTarget" autocomplete="off" spellcheck="false" />
+        <span>Caller-selected request JSON</span>
+        <textarea v-model="requestInput" spellcheck="false" rows="8" />
+      </label>
+      <label>
+        <span>Untrusted result JSON</span>
+        <textarea v-model="resultInput" spellcheck="false" rows="14" />
       </label>
       <label>
         <span>Gateway URL (diagnostic only)</span>
         <input v-model="baseURL" autocomplete="off" spellcheck="false" />
       </label>
-      <label>
-        <span>Artifact or ProofList JSON</span>
-        <textarea v-model="proofInput" spellcheck="false" rows="14" />
-      </label>
     </div>
 
     <div class="malt-tool__actions">
-      <button type="button" :disabled="busy || !proofInput.trim() || !trustedRoot.trim()" @click="runVerify">
+      <button type="button" :disabled="busy || !requestInput.trim() || !resultInput.trim()" @click="runVerify">
         Verify locally
       </button>
-      <button type="button" :disabled="busy || !proofInput.trim()" @click="runGatewayDiagnostic">
+      <button type="button" :disabled="busy || !requestInput.trim() || !resultInput.trim()" @click="runGatewayDiagnostic">
         Run gateway diagnostic
       </button>
     </div>
 
     <p class="malt-tool__note">
-      The local WebAssembly verifier is the trust decision. Gateway verification is a diagnostic
-      comparison only.
+      The request is the caller-selected trust input. The local WebAssembly verifier is the trust
+      decision; gateway verification is a diagnostic comparison only.
     </p>
 
     <p v-if="error" class="malt-tool__error">{{ error }}</p>
@@ -143,11 +140,7 @@ async function runGatewayDiagnostic() {
       <dl>
         <div>
           <dt>Provider</dt>
-          <dd>local WebAssembly ({{ artifactProfile }})</dd>
-        </div>
-        <div>
-          <dt>Trusted root</dt>
-          <dd>{{ trustedRoot }}</dd>
+          <dd>local WebAssembly ({{ activeProfile }})</dd>
         </div>
         <div>
           <dt>Result</dt>
