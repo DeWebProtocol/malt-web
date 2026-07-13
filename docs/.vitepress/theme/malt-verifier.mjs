@@ -14,6 +14,7 @@ const providerPromises = new Map()
 export async function verifyArtifactLocally({
   artifact,
   expectedRoot,
+  expectedOperation,
   expectedQuery,
   expectedTarget = '',
   runtimeURL = defaultVerifierRuntimeURL,
@@ -25,6 +26,7 @@ export async function verifyArtifactLocally({
     const request = createLocalVerifyRequest({
       artifact,
       expectedRoot,
+      expectedOperation,
       expectedQuery,
       expectedTarget
     })
@@ -49,7 +51,13 @@ export async function verifyArtifactLocally({
   }
 }
 
-export function createLocalVerifyRequest({ artifact, expectedRoot, expectedQuery, expectedTarget = '' }) {
+export function createLocalVerifyRequest({
+  artifact,
+  expectedRoot,
+  expectedOperation,
+  expectedQuery,
+  expectedTarget = ''
+}) {
   if (!artifact || typeof artifact !== 'object') {
     throw new Error('artifact is required for local verification')
   }
@@ -64,6 +72,13 @@ export function createLocalVerifyRequest({ artifact, expectedRoot, expectedQuery
   if (artifact.root !== trustedRoot) {
     throw new Error('artifact root does not match the client-selected trusted root')
   }
+  const operation = String(expectedOperation || '').trim()
+  if (operation !== 'resolve' && operation !== 'prove') {
+    throw new Error('expected operation must be resolve or prove and selected outside the artifact')
+  }
+  if (artifact.operation !== operation) {
+    throw new Error('artifact operation does not match the client-selected operation')
+  }
   if (!expectedQuery || typeof expectedQuery !== 'object') {
     throw new Error('expected query is required and must be selected outside the artifact')
   }
@@ -76,7 +91,11 @@ export function createLocalVerifyRequest({ artifact, expectedRoot, expectedQuery
     throw new Error('artifact target does not match the client-selected target')
   }
 
-  return { profile: localVerifierProfile, trusted_root: trustedRoot, artifact }
+  const expected = { operation, query: expectedQuery }
+  if (target) {
+    expected.target = target
+  }
+  return { profile: localVerifierProfile, trusted_root: trustedRoot, expected, artifact }
 }
 
 export async function loadBrowserVerifier({

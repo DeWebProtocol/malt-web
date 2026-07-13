@@ -1,9 +1,9 @@
-# MALT UnixFS Layout
+# MALT UnixFS Application Model
 
-UnixFS is an application layout above MALT list/map semantics and immutable
+UnixFS is an application model above MALT list/map semantics and immutable
 payload objects. It is not the core MALT abstraction.
 
-The layout demonstrates how practical file and directory semantics can be built
+The model demonstrates how practical file and directory semantics can be built
 without embedding every verifier-facing relation inside immutable parent
 objects.
 
@@ -22,19 +22,20 @@ In pure MALT structure UnixFS:
 Payload and chunks remain ordinary CAS data. MALT authenticates the structure
 that binds paths, payloads, and chunk lists together.
 
-UnixFS requires `@payload` on its file and directory maps. That is a layout
+UnixFS requires `@payload` on its file and directory maps. That is an application
 invariant, not a generic map rule: relation-only MALT maps may omit or delete
 the reserved coordinate.
 
 For byte ranges, ProofList verification authenticates fixed chunk metadata and
 the ordered segment CIDs. A caller accepting returned range bytes must also use
-`layout/unixfs.VerifyRangeBody` or an equivalent check to bind those bytes to
+`sdk/unixfs.VerifyRangeBody` or an equivalent check to bind those bytes to
 the authenticated segments.
 
-## Current MALT Layout Flags
+## Current Materialization Flags
 
-`flat` and `hierarchical` are the current user-facing MALT UnixFS layout names.
-`flat` is the default.
+`flat` and `hierarchical` are the current user-facing values of the retained
+`malt add --layout` materialization flag. `flat` is the default. The flag names
+a UnixFS materialization strategy; it does not make UnixFS a MALT core layout.
 
 In the current `malt add` implementation, both names use the same staged hybrid
 materialization path:
@@ -48,7 +49,7 @@ This current behavior is not a pure separation between `flat` root-map
 materialization and `hierarchical` per-directory materialization. That split is
 a design and evaluation dimension to stabilize separately.
 
-## Intended Layout Split
+## Intended Materialization Split
 
 The intended terminology remains:
 

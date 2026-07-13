@@ -11,6 +11,7 @@ import { verifyArtifactLocally } from '../malt-verifier.mjs'
 
 const baseURL = ref(defaultGatewayURL)
 const trustedRoot = ref('')
+const expectedOperation = ref('resolve')
 const expectedQuery = ref('{"kind":"path","segments":[]}')
 const expectedTarget = ref('')
 const proofInput = ref('')
@@ -26,6 +27,7 @@ onMounted(() => {
       const stored = JSON.parse(verificationInput)
       proofInput.value = JSON.stringify(stored.artifact, null, 2)
       trustedRoot.value = String(stored.trustedRoot || '')
+      expectedOperation.value = String(stored.expectedOperation || 'resolve')
       expectedQuery.value = JSON.stringify(stored.expectedQuery || { kind: 'path', segments: [] })
       expectedTarget.value = String(stored.expectedTarget || '')
       return
@@ -50,6 +52,7 @@ async function runVerify() {
     verification.value = await verifyArtifactLocally({
       artifact,
       expectedRoot: trustedRoot.value,
+      expectedOperation: expectedOperation.value,
       expectedQuery: query,
       expectedTarget: expectedTarget.value,
       runtimeURL: withBase('/verifier/wasm_exec.js'),
@@ -97,6 +100,13 @@ async function runGatewayDiagnostic() {
       <label>
         <span>Expected query JSON</span>
         <input v-model="expectedQuery" autocomplete="off" spellcheck="false" />
+      </label>
+      <label>
+        <span>Expected operation</span>
+        <select v-model="expectedOperation">
+          <option value="resolve">resolve</option>
+          <option value="prove">prove</option>
+        </select>
       </label>
       <label>
         <span>Expected target (optional)</span>

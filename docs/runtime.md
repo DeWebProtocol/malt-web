@@ -47,8 +47,8 @@ under the semantic layer rather than being redefined as graph node interfaces.
 
 ## Local CAS Boundary
 
-The daemon uses an external CAS endpoint from `cas.base_url`; the current
-prototype no longer embeds mock CAS inside the `malt` daemon. For local
+The reference executor uses an external CAS endpoint from `cas.base_url`; the
+current prototype no longer embeds mock CAS inside the `malt` process. For local
 development, build the standalone `cas` binary from `cmd/cas` and run it as the
 local Kubo-compatible mock CAS service, usually at `http://127.0.0.1:4318`.
 `cas` is its own CLI, not a `malt` subcommand.

@@ -491,15 +491,22 @@ assert.deepEqual(
   createLocalVerifyRequest({
     artifact: identityArtifact,
     expectedRoot: rootCID,
+    expectedOperation: 'resolve',
     expectedQuery: { kind: 'path', segments: [] }
   }),
-  { profile: localVerifierProfile, trusted_root: rootCID, artifact: identityArtifact }
+  {
+    profile: localVerifierProfile,
+    trusted_root: rootCID,
+    expected: { operation: 'resolve', query: { kind: 'path', segments: [] } },
+    artifact: identityArtifact
+  }
 )
 assert.throws(
   () =>
     createLocalVerifyRequest({
       artifact: identityArtifact,
       expectedRoot: '',
+      expectedOperation: 'resolve',
       expectedQuery: identityArtifact.query
     }),
   /trusted root is required/
@@ -509,6 +516,7 @@ assert.throws(
     createLocalVerifyRequest({
       artifact: identityArtifact,
       expectedRoot: rootCID,
+      expectedOperation: 'resolve',
       expectedQuery: { kind: 'path', segments: ['different'] }
     }),
   /client-selected query/
@@ -516,6 +524,7 @@ assert.throws(
 const localValid = await verifyArtifactLocally({
   artifact: identityArtifact,
   expectedRoot: rootCID,
+  expectedOperation: 'resolve',
   expectedQuery: identityArtifact.query,
   provider: () =>
     JSON.stringify({ profile: localVerifierProfile, valid: true })
@@ -525,6 +534,7 @@ assert.equal(localValid.source, 'local-wasm')
 const malformedProvider = await verifyArtifactLocally({
   artifact: identityArtifact,
   expectedRoot: rootCID,
+  expectedOperation: 'resolve',
   expectedQuery: identityArtifact.query,
   provider: () => '{"valid":true}'
 })
@@ -552,12 +562,12 @@ assert.equal(isAppStateRoute('/app', '/app/bafkqaaa'), true)
 assert.equal(isAppStateRoute('/app', '/app/bafkqaaa/docs/read%20me'), true)
 assert.equal(isAppStateRoute('/app', '/app'), false)
 assert.equal(isAppStateRoute('/app', '/docs/runtime'), false)
-assert.deepEqual(ancestorDirectoryPaths('malt/layout/unixfs/internal/format'), [
+assert.deepEqual(ancestorDirectoryPaths('malt/model/unixfs/internal/format'), [
   '',
   'malt',
-  'malt/layout',
-  'malt/layout/unixfs',
-  'malt/layout/unixfs/internal'
+  'malt/model',
+  'malt/model/unixfs',
+  'malt/model/unixfs/internal'
 ])
 assert.deepEqual(ancestorDirectoryPaths('malt'), [''])
 assert.deepEqual(ancestorDirectoryPaths(''), [])

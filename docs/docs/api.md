@@ -1,7 +1,8 @@
 # Gateway and Artifact API
 
 The product-facing browser and SDK boundary is the MALT Gateway at
-`http://127.0.0.1:8080` by default. It delegates execution to a MALT daemon but
+`http://127.0.0.1:8080` by default. It delegates execution to a MALT reference
+executor but
 preserves the core `malt.artifact/v0alpha2` contract instead of inventing a
 second proof format.
 
@@ -81,7 +82,7 @@ POST     /v1/content/new?path={path}
 `POST /v1/content/new` creates a new UnixFS root, while root-scoped `POST`
 writes into an existing UnixFS root and returns the updated root.
 
-Content reads preserve proof headers from the reference daemon:
+Content reads preserve proof headers from the reference executor:
 
 ```text
 X-Malt-ProofList: <base64url(JSON ProofList)>
@@ -103,14 +104,14 @@ results only after local verification against a root selected by the
 application.
 
 The open gateway currently provides a permissive local product path around a
-configured daemon. Production identity, authorization, quota, cache, billing,
+configured reference executor. Production identity, authorization, quota, cache, billing,
 abuse controls, and provider-specific S3/IAM policy remain deployment work.
 
 Browser origins are configured through `GATEWAY_CORS_ALLOWED_ORIGINS`. The
 gateway forwards only selected request and response headers required for
 content, byte ranges, and proof transport.
 
-## Reference Daemon Routes
+## Reference Executor Routes
 
 The MALT repository retains local/reference routes such as:
 
@@ -124,7 +125,7 @@ POST /verify
 ```
 
 These routes support the CLI, evaluation, and compatibility clients. New
-gateway, daemon, and SDK integrations should use the profiled artifact contract
+gateway, executor, and SDK integrations should use the profiled artifact contract
 for resolve/prove/verify. Managed products should not copy reference runtime
 admin or mutation routes as their public contract.
 

@@ -12,7 +12,7 @@ VerifyRead(root, query, result, ProofList) -> valid / invalid
 The root is supplied by the caller. The server runtime may assemble the
 `ProofList`, but the reader verifies the result locally with the portable
 `auth/verifier` kernel. Verification does not require ArcTable, CAS, a graph
-runtime, a layout, a server, a daemon, or network access.
+runtime, an application adapter, a server, a reference executor, or network access.
 
 ## What a ProofList Covers
 
@@ -33,7 +33,7 @@ That step carries authenticated fixed chunk metadata, the segment CIDs covering
 the requested range, and a proof payload composed from metadata and index
 proofs. The ProofList authenticates the metadata and ordered segment CIDs. A
 UnixFS caller that accepts returned bytes must additionally call
-`layout/unixfs.VerifyRangeBody` (or perform an equivalent binding check) to
+`sdk/unixfs.VerifyRangeBody` (or perform an equivalent binding check) to
 fetch/check those CIDs and bind the exact response body to the authenticated
 range.
 
@@ -71,7 +71,7 @@ bindings and cryptographic evidence.
 
 Resolution is existential. A valid artifact proves the complete ordered
 derivation returned for the requested segments, not that this derivation was
-longest or unique. Namespace overlap policy belongs to the application/layout.
+longest or unique. Namespace overlap policy belongs to the application.
 
 `@payload` is reserved but optional for generic maps. UnixFS requires it for its
 file and directory maps, so UnixFS proof paths include the terminal

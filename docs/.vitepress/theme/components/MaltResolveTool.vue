@@ -57,6 +57,7 @@ async function run(nextMode) {
           path: path.value
         }),
       expectedRoot: root.value.trim(),
+      expectedOperation: 'resolve',
       expectedQuery: resolvePathQuery(path.value),
       runtimeURL: withBase('/verifier/wasm_exec.js'),
       wasmURL: withBase('/verifier/malt-verifier.wasm')
@@ -87,6 +88,7 @@ function sendToVerifier() {
     JSON.stringify({
       artifact,
       trustedRoot: root.value.trim(),
+      expectedOperation: 'resolve',
       expectedQuery: resolvePathQuery(path.value)
     })
   )

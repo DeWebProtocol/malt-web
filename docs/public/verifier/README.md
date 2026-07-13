@@ -15,10 +15,11 @@ The WebAssembly module registers one browser function:
 globalThis.maltVerifyArtifact(localVerifyRequestJSON) -> verifyResultJSON
 ```
 
-The request carries `profile`, an independently selected `trusted_root`, and
-the artifact. The result uses the same `malt.artifact/v0alpha2` profile. The
-module checks the trusted-root binding and runs the portable KZG/IPA verifier
-locally; it does not call a gateway.
+The request carries `profile`, an independently selected `trusted_root`, an
+`expected` operation/query (plus optional target), and the artifact. The result
+uses the same `malt.artifact/v0alpha2` profile. The module checks all caller
+expectations and runs the portable KZG/IPA verifier locally; it does not call a
+gateway.
 
 `SHA256SUMS` records the checksums for the deployed module and matching Go
 runtime. Regenerate it after rebuilding either artifact.

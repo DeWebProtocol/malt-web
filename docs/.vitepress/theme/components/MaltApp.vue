@@ -1300,6 +1300,7 @@ async function verifyAndMark(path, proofList) {
     verifyArtifactLocally({
       artifact,
       expectedRoot: root.value.trim(),
+      expectedOperation: 'resolve',
       expectedQuery: resolvePathQuery(path),
       runtimeURL: withBase('/verifier/wasm_exec.js'),
       wasmURL: withBase('/verifier/malt-verifier.wasm'),
@@ -1404,6 +1405,7 @@ function openVerifierPage() {
           path
         }),
         trustedRoot: root.value.trim(),
+        expectedOperation: 'resolve',
         expectedQuery: resolvePathQuery(path)
       })
     )

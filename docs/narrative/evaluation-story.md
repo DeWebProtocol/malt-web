@@ -25,7 +25,7 @@ The current MALT path uses measured-list `list_range` evidence for large-file
 range reads. The step carries authenticated fixed chunk metadata, covered
 segment CIDs, and metadata/index proof payload. ProofList verification binds
 that metadata and the ordered segment CIDs; UnixFS callers accepting returned
-bytes additionally use `layout/unixfs.VerifyRangeBody` (or an equivalent check)
+bytes additionally use `sdk/unixfs.VerifyRangeBody` (or an equivalent check)
 to bind the response body to those authenticated segments.
 
 Metrics should include:

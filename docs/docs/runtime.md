@@ -14,14 +14,18 @@ explicit `malt.artifact/v0alpha2` resolve/prove/verify profile and schemas.
 
 ## Portable Core Surface
 
-The module-root `package malt` is the application-neutral integration facade.
-It exposes typed `Query`, `ReadRequest`, `ReadResult`, and
-`Engine.Read`/`Apply`/`VerifyRead` operations for primitive map, list-index, and
-measured-list-range queries.
+The module-root `package malt` is the trusted, application-neutral facade. It
+exposes typed `Query`, `ReadRequest`, `ReadResult`, mutation/receipt value
+aliases, and `VerifyRead` for primitive map, list-index, and measured-list-range
+queries. It owns no ArcTable, CAS, HTTP client, or execution engine.
+
+The separate `execution.Executor` performs untrusted `Read` and `Apply` work.
+Clients may use any local executor or gateway that returns the same artifacts;
+correctness comes from local verification, not from that executor.
 
 `auth/verifier` is the portable authentication kernel. It verifies runtime-
-generated map, list, and range ProofLists without ArcTable, CAS, layout,
-server, daemon, or network access. `graph/verifier` is a thin adapter that lets
+generated map, list, and range ProofLists without ArcTable, CAS, application
+adapter, server, reference executor, or network access. `graph/verifier` is a thin adapter that lets
 the reference graph runtime use that same kernel; it is not a second verifier
 implementation.
 
@@ -36,33 +40,34 @@ The current public `malt` CLI is intentionally small:
 
 - `malt init`: create or initialize local configuration
 - `malt start/status/stop/restart`: detach, inspect, stop, or restart a managed
-  local background daemon
-- `malt add`: import data through the daemon/client path and return a root
+  local reference executor
+- `malt add`: import data through the executor/client path and return a root
 - `malt resolve`: print a root-relative resolve response
-- `malt verify`: verify ProofList material, including responses that contain a
-  `prooflist` field
+- `malt verify`: locally verify ProofList material against an explicit trusted
+  root and caller-selected canonical query
 
-The product path goes through daemon-client APIs. Removed direct in-process
+Remote product work goes through gateway/executor APIs. Verification stays in
+the client. Removed direct in-process
 helpers are not part of the public command surface.
 
 The local mock CAS is not a `malt` subcommand. It is a separate `cas` binary
 built from `cmd/cas`; local development normally runs it at
-`http://127.0.0.1:4318` and points daemon `cas.base_url` at that external CAS
+`http://127.0.0.1:4318` and points the reference executor's `cas.base_url` at that external CAS
 endpoint.
 
 The website App calls the local MALT Gateway at `http://127.0.0.1:8080`. The
-gateway delegates to the daemon at `http://127.0.0.1:4317`, streams UnixFS
+gateway delegates to the reference executor at `http://127.0.0.1:4317`, streams UnixFS
 content, and exposes the profiled artifact endpoints. The App can upload files
 or browser-selected folders, resolve from the resulting root, and verify the
 complete returned artifact.
 When the current root is not already a UnixFS root, browser uploads fail fast;
-legacy-root migration is a daemon compatibility opt-in rather than a default
+legacy-root migration is a reference-executor compatibility opt-in rather than a default
 browser action.
 
 ## Mutation Materialization
 
 The current write boundary is root-scoped writer mutation application.
-Application layouts produce canonical arc deltas and submit them through the
+Application adapters produce canonical arc deltas and submit them through the
 writer route; the writer applies those deltas to map/list semantic backends and
 returns a write receipt.
 
@@ -110,10 +115,12 @@ prototype modules mapped to the semantic model:
 
 | Package | Role |
 |---|---|
-| module-root `package malt` | Experimental typed read, mutation, and verification facade for application-neutral integrations. |
+| module-root `package malt` | Trusted typed-query, mutation/receipt value, and `VerifyRead` facade; no execution or storage ownership. |
+| `mutation` | Pure semantic mutation, delta, commit-descriptor, and write-receipt values plus validation. |
+| `execution` | Untrusted `Read`/`Apply` executor over injected semantic/runtime ports. |
 | `artifact` | Profiled resolve/prove/verify envelopes, verification binding, schemas, and conformance fixtures. |
 | `auth/verifier` | Portable ProofList verification kernel with built-in KZG and IPA verification support. |
-| `auth/commitment` | Stateless primitive commitment backends for cell-vector commit/prove/verify/update. |
+| `auth/commitment` | Verification-only and prover/updater commitment capabilities, with built-in KZG and IPA backends. |
 | `auth/arcset` | Canonical path and arcset representation. |
 | `runtime/arctable` | Root-recoverable arcset persistence and materialization. |
 | `runtime/arctable/bloom` | Optional negative-lookup optimization hook, disabled unless configured with a BloomCache. |
@@ -122,9 +129,9 @@ prototype modules mapped to the semantic model:
 | `auth/semantic/mapping` | Public map semantic abstraction, shared types, binding CID encoding, and storage-free single-step `Commitment` primitives. |
 | `runtime/semantic/mapping/radix` | Primary map runtime implementation, composing auth/mapping slot proofs with ArcTable-backed radix traversal. |
 | `cmd/eval/internal/baseline/indexedmap` | Baseline comparison map implementation, not the current runtime map path. |
-| `layout/unixfs` | Current UnixFS layout over list/map semantics and CAS-backed immutable payloads. |
-| `layout/unixfs/internal/manifest` | UnixFS directory-manifest helper used by the application layout. |
-| `layout/unixfs/internal/format` | UnixFS persisted-format helpers for manifest CID codecs, storage-kind projection, and directory-root bindings. |
+| `model/unixfs` | Pure UnixFS application model, manifests, path policy, chunk rules, and mutation plans. |
+| `sdk/unixfs` | Client-side UnixFS staging, loading, upload planning, and authenticated range-body binding. |
+| `runtime/unixfs` | Optional in-process UnixFS execution adapter over semantic and CAS ports. |
 | `wire/maltcid` | Typed MALT map/list root CID helpers. |
 | `storage/cas` | Content-addressed storage interfaces and adapters. |
 | `cmd/cas` | Standalone local mock CAS HTTP server for development and controlled-latency evaluation. |
@@ -136,7 +143,10 @@ prototype modules mapped to the semantic model:
 | `runtime/graph` | Concrete graph runtime composition around resolver and writer executors. |
 | `runtime/node` | Node/runtime factory. |
 | `api/http` | HTTP DTOs and JSON contracts. |
-| `sdk/client` | Daemon client facade. |
+| `sdk/client` | Thin reference-executor HTTP client; it is not the local trust boundary. |
+| `sdk/verifier` | Authoritative local verifier envelope binding trusted root and caller-selected request expectations. |
+| `reference/executor` | All-in-one untrusted reference backend used by CLI development and evaluation flows. |
+| `daemon` | Process lifecycle management for the reference executor; not a client daemon. |
 | `graph/querypath` | Root-relative query path canonicalization helper. |
 
 `graph` is the graph boundary around resolver and writer ports. `runtime/graph`
@@ -144,7 +154,7 @@ wires concrete executors. Neither is the list/map semantic owner.
 
 ## Runtime Boundary
 
-The daemon, resolver adapters, ArcTable, graph runtime metadata, and caches are
+The reference executor, resolver adapters, ArcTable, graph runtime metadata, and caches are
 untrusted execution state. They may affect latency or availability, but
 accepted correctness comes from local verification against a trusted root.
 
@@ -152,5 +162,5 @@ MALT core does not define root freshness, latest-root discovery, global
 availability, tenant policy, quota, ACL, pinning, garbage collection, or
 multi-writer merge policy. Those belong to applications or deployments built
 around MALT. Managed gateway service behavior now belongs in the separate
-`DeWebProtocol/gateway` repository; this repository's daemon/server remains a
+`DeWebProtocol/gateway` repository; this repository's reference executor remains a
 reference runtime and evaluation surface for explicit-root behavior.

@@ -13,7 +13,7 @@ The website has two main lanes:
 - [Research Narrative](/narrative/problem): problem framing, abstraction,
   system design, and evaluation story.
 - [Technical Docs](/docs/runtime): current prototype status, HTTP API,
-  ProofLists, UnixFS layout, and benchmark protocol.
+  ProofLists, UnixFS application model, and benchmark protocol.
 
 ## Core Claim
 
@@ -33,7 +33,7 @@ MALT changes the boundary:
 - clients submit segment arrays without discovering how a graph groups a long
   path into authenticated arcs
 - the `malt.artifact/v0alpha2` envelope standardizes resolve, primitive prove,
-  and verify across gateways, daemons, and SDKs
+  and verify across gateways, executors, and SDKs
 - resolver and writer ports expose this runtime behavior without owning the
   list/map semantics
 - immutable payloads can remain ordinary CAS data
@@ -46,7 +46,7 @@ implicit ancestor-rewrite costs with explicit, verifiable structure maintenance.
 ```text
 Payload storage       Arc authentication          Execution and access
 CAS objects + CIDs    typed arcs + VC proofs      layouts, ArcTable, caches,
-        |              auth/verifier               daemons, gateways
+        |              auth/verifier               executors, gateways
         |                     ^                            |
         +--- payload CID -----+--- result + ProofList -----+
 ```

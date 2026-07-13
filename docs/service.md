@@ -25,7 +25,7 @@ This service provides the integration boundary for:
 - examples for CLI and HTTP clients
 - reproducible benchmark datasets
 - profiled `resolve` and `prove` artifacts, plus diagnostic `verify`
-- UnixFS content streaming and browser uploads through a local daemon backend
+- UnixFS content streaming and browser uploads through a local reference executor
 
 It should not claim to provide global freshness or latest-head discovery unless
 an application publication layer is added.

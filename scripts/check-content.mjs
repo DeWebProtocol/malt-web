@@ -62,7 +62,7 @@ const requiredPhrases = new Map([
     [
       'Read(root, query) -> result + ProofList',
       'X-Malt-ProofList-Encoding',
-			'layout/unixfs.VerifyRangeBody',
+			'sdk/unixfs.VerifyRangeBody',
 			'malt.artifact/v0alpha2'
     ]
   ],

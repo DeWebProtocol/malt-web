@@ -20,7 +20,7 @@ features:
   - title: Research narrative
     details: Problem framing, abstraction, system design, and evaluation story aligned with the current paper memory.
   - title: Technical docs
-    details: The v0.0.4 segment-path core, profiled resolve/prove/verify artifacts, portable verifier, gateway product path, UnixFS layout, and benchmark protocol.
+    details: The v0.0.4 segment-path core, profiled resolve/prove/verify artifacts, portable verifier, gateway product path, UnixFS application model, and benchmark protocol.
   - title: Root-centric verification
     details: Readers verify result plus ProofList against an explicit trusted root. The server runtime does not publish heads or decide freshness.
 ---
@@ -43,7 +43,7 @@ import { withBase } from 'vitepress'
       <p>
         Immutable payloads can still live naturally in CAS. MALT keeps their
         storage separate from arc authentication and from execution/access.
-        ArcTable, caches, daemons, and gateways are untrusted materialization
+        ArcTable, caches, executors, and gateways are untrusted materialization
         and delivery components; reads return results plus ProofLists that
         clients verify locally.
       </p>

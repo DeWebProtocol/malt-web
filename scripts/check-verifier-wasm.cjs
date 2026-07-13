@@ -20,6 +20,10 @@ const root = 'bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku'
 const request = {
   profile: 'malt.artifact/v0alpha2',
   trusted_root: root,
+  expected: {
+    operation: 'resolve',
+    query: { kind: 'path', segments: [] }
+  },
   artifact: {
     profile: 'malt.artifact/v0alpha2',
     operation: 'resolve',
@@ -55,6 +59,13 @@ async function main() {
   const rootRejected = JSON.parse(globalThis.maltVerifyArtifact(JSON.stringify(wrongRoot)))
   if (rootRejected.valid !== false || !rootRejected.error?.includes('does not match trusted root')) {
     throw new Error(`trusted-root mismatch was not rejected: ${JSON.stringify(rootRejected)}`)
+  }
+
+  const wrongQuery = structuredClone(request)
+  wrongQuery.expected.query.segments = ['docs']
+  const queryRejected = JSON.parse(globalThis.maltVerifyArtifact(JSON.stringify(wrongQuery)))
+  if (queryRejected.valid !== false || !queryRejected.error?.includes('does not match expected query')) {
+    throw new Error(`client-query mismatch was not rejected: ${JSON.stringify(queryRejected)}`)
   }
   console.log('Local WASM verifier contract passed.')
 }

@@ -17,8 +17,8 @@ couples:
 - **Payload storage:** immutable bytes retain ordinary CIDs and live in CAS.
 - **Relation authentication:** typed arcs are committed and proved by a VC
   backend under a MALT root.
-- **Execution and access:** layouts, ArcTable materialization, caches, daemons,
-  and gateways locate or serve relations and proofs.
+- **Execution and access:** application adapters, ArcTable materialization,
+  caches, executors, and gateways locate or serve relations and proofs.
 
 MALT roots authenticate semantic-layer state. A reader obtains a trusted root
 from an application publication layer, asks a server runtime or local runtime
@@ -74,7 +74,7 @@ Native writes:
 - replace
 - truncate
 
-List does not define path-resolution semantics. A file layout can translate
+List does not define path-resolution semantics. A file application can translate
 byte ranges into list queries. The current fixed-width measured list
 authenticates `child_count`, `total_size`, and `chunk_size` metadata and emits
 range evidence as path/`@payload` proof plus one measured-list `list_range`
@@ -114,7 +114,7 @@ relation-only map with no payload binding is valid MALT state. When present,
 `@payload` is a terminal materialization relation and its proof uses
 `payload_binding` semantics rather than ordinary traversal.
 
-The UnixFS layout requires `@payload` for its file and directory maps. A small
+The UnixFS application model requires `@payload` for its file and directory maps. A small
 file can bind it directly to a CAS blob; a large file can bind it to a list node
 whose entries are chunk CIDs. That requirement belongs to UnixFS, not to the
 generic map abstraction.
