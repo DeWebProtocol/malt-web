@@ -19,6 +19,7 @@ require(path.join(verifierRoot, 'wasm_exec.js'))
 const root = 'bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku'
 const request = {
   profile: 'malt.artifact/v0alpha2',
+  trusted_root: root,
   artifact: {
     profile: 'malt.artifact/v0alpha2',
     operation: 'resolve',
@@ -47,6 +48,13 @@ async function main() {
   const rejected = JSON.parse(globalThis.maltVerifyArtifact(JSON.stringify(tampered)))
   if (rejected.valid !== false) {
     throw new Error('tampered artifact was accepted')
+  }
+
+  const wrongRoot = structuredClone(request)
+  wrongRoot.trusted_root = 'bafkreib6qhwx2g5wgdgczgczumrq6rupl7u36po34ohfhn7rmvtpt7a3om'
+  const rootRejected = JSON.parse(globalThis.maltVerifyArtifact(JSON.stringify(wrongRoot)))
+  if (rootRejected.valid !== false || !rootRejected.error?.includes('does not match trusted root')) {
+    throw new Error(`trusted-root mismatch was not rejected: ${JSON.stringify(rootRejected)}`)
   }
   console.log('Local WASM verifier contract passed.')
 }

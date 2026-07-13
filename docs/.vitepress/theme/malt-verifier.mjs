@@ -76,7 +76,7 @@ export function createLocalVerifyRequest({ artifact, expectedRoot, expectedQuery
     throw new Error('artifact target does not match the client-selected target')
   }
 
-  return { profile: localVerifierProfile, artifact }
+  return { profile: localVerifierProfile, trusted_root: trustedRoot, artifact }
 }
 
 export async function loadBrowserVerifier({

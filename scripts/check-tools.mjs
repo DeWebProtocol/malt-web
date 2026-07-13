@@ -493,7 +493,7 @@ assert.deepEqual(
     expectedRoot: rootCID,
     expectedQuery: { kind: 'path', segments: [] }
   }),
-  { profile: localVerifierProfile, artifact: identityArtifact }
+  { profile: localVerifierProfile, trusted_root: rootCID, artifact: identityArtifact }
 )
 assert.throws(
   () =>
