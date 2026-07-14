@@ -27,16 +27,17 @@ This service provides the integration boundary for:
 - profiled `resolve` and primitive `read` results, plus diagnostic verification
 - generic CAS/root operations composed into UnixFS behavior by trusted clients
 
-It should not claim to provide global freshness or latest-head discovery unless
-an application publication layer is added.
+The gateway now has an operator-controlled named-root publication registry with
+monotonic revisions and irreversible freeze. This is application metadata, not
+global freshness, consensus, or an automatic client trust decision.
 
 For the current API surface, see [Gateway Resolve and Read API](/docs/api).
 
 ## Managed Gateway Repository
 
 The managed gateway service belongs in `DeWebProtocol/gateway`, not in MALT
-core. That repository owns tenant policy, identity, authorization, root
-publication, backend orchestration, cache policy, S3/Filecoin/IPFS integration,
+core. That repository owns future tenant policy, identity, authorization,
+root publication, backend orchestration, cache policy, S3/Filecoin/IPFS integration,
 quota, and product-level end-to-end tests.
 
 The gateway embeds the untrusted core executor so behavior can be exercised end

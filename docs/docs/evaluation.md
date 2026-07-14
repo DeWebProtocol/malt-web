@@ -12,8 +12,10 @@ from older results that omitted them.
 That frozen runner depends on the v0.0.5 reference runtime and storage adapters;
 it must not be presented as a v0.0.6 product test. Current v0.0.6 product
 correctness belongs to the gateway-owned CAS-to-gateway-to-client E2E suite.
-Benchmark suites will migrate to the public v0.0.6 gateway/client boundaries
-individually rather than copying product implementations back into core.
+The isolated `malt-evaluation/current` track now implements resolve/read local
+verification, CAS binding, client read/candidate acceptance adapters, a real
+depth/path matrix, logical storage accounting, and immutable baseline links.
+Fresh measurements remain separate from the frozen v0.0.5 records.
 
 The benchmark protocol is designed to compare MALT, IPLD UnixFS, and IPLD
 UnixFS+HAMT as the implementation and artifacts mature.

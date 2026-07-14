@@ -26,6 +26,9 @@ ArcTable format, CAS, HTTP, CLI, daemon, UnixFS, or service policy.
 [`DeWebProtocol/gateway`](https://github.com/DeWebProtocol/gateway) embeds the
 core executor and owns concrete ArcTable/KV/CAS implementations. It exposes
 generic resolve, read, mutation, root-creation, CAS, and diagnostic routes.
+Its runtime composes separate native MALT, CAS, and Merkle DAG compatibility
+profiles per execution scope. Named-root publication is a separate managed
+policy registry and never selects the root of a resolve/read request.
 
 The gateway is a proof producer and storage service, not a correctness
 authority. A client supplies the root it trusts and checks every accepted
@@ -34,8 +37,12 @@ result locally.
 ## Trusted Clients
 
 [`DeWebProtocol/malt-client`](https://github.com/DeWebProtocol/malt-client)
-owns the `malt` CLI, local trusted-root daemon, gateway transport, and UnixFS
-application model. It parses UnixFS `/` paths into segment arrays, verifies
+owns the `malt` CLI and local daemon. Active
+[PR #3](https://github.com/DeWebProtocol/malt-client/pull/3) separates
+`transport`, `trust`, `unixfs`, and `merkledag` so untrusted I/O, root policy,
+MALT-authenticated UnixFS, and CID/link replay remain independently reviewable.
+Until it merges, those new package paths are a draft target rather than current
+`main`. The client parses UnixFS `/` paths into segment arrays, verifies
 resolve/read results, binds returned payload bytes to authenticated CIDs, and
 keeps gateway-produced roots as candidates until explicit acceptance. It can
 also import IPFS-compatible Merkle DAG UnixFS with
@@ -59,16 +66,20 @@ client instead of becoming a gateway or core route.
 | `malt/graph/*`, `malt/execution` | Generic resolver/writer/executor composition |
 | `gateway/internal/arctable`, `gateway/internal/kv` | Persistent materialization owned by the service |
 | `gateway/internal/backend/embedded` | Embedded untrusted core execution and CAS |
+| `gateway/internal/runtime`, `gateway/internal/profile/*` | Per-scope composition and isolated native/CAS/compatibility ports |
+| `gateway/internal/policy/publication` | Named-root revision metadata and freeze policy; not client trust |
 | `malt-client/cmd/malt` | CLI and local daemon lifecycle |
-| `malt-client/unixfs/*` | UnixFS application rules and payload verification |
+| `malt-client/transport`, `malt-client/trust` | PR #3 target: untrusted HTTP capabilities and explicit accepted/candidate policy |
+| `malt-client/unixfs/*` | PR #3 target: UnixFS application rules and payload verification |
+| `malt-client/merkledag/*` | PR #3 target: Merkle DAG import and local CID/link replay compatibility |
 | `malt/sdk/verifier` | Local trusted verifier envelope, including WASM export |
 
 ## Mutation Limit
 
 Mutation receipts report operational work and a candidate root. They are not
-state-transition proofs. Until a transition-proof or independent publication
-protocol exists, clients must explicitly accept or independently obtain each
-new trusted root.
+state-transition proofs. Gateway publication can name and freeze a root, but
+does not make it trusted automatically; clients must explicitly accept or
+independently authenticate each new trusted root.
 
 The browser verifier's
 [provenance record](/verifier/PROVENANCE.json) identifies the exact MALT commit

@@ -73,7 +73,8 @@ range reads. The step carries authenticated fixed chunk metadata, covered
 segment CIDs, and metadata/index proof payload. ProofList verification binds
 that metadata and the ordered segment CIDs; UnixFS callers accepting returned
 bytes additionally perform an equivalent body-binding check. The
-`malt-client/unixfs/sdk.VerifyRangeBody` helper is a client-side check rather
+`malt-client/unixfs/sdk.VerifyRangeBody` helper (moving to
+`malt-client/unixfs.VerifyRangeBody` in client PR #3) is a client-side check rather
 than part of MALT core.
 
 Encrypted private-CAS read:
@@ -90,6 +91,7 @@ See [Benchmark Protocol](/docs/evaluation) for the historical harness contract.
 The runner is preserved in
 [`DeWebProtocol/malt-evaluation`](https://github.com/DeWebProtocol/malt-evaluation)
 with an intentional v0.0.5 dependency pin. Current v0.0.6 product correctness
-is exercised by gateway-owned CAS-to-gateway-to-client E2E tests; benchmark
-suites migrate to that boundary separately. Evaluation CLI ownership remains
-outside the SDK-only core.
+is exercised by gateway-owned CAS-to-gateway-to-client E2E tests. The current
+evaluation track now runs public resolve/read/CAS/client adapters and the real
+read-depth matrix; fresh result publication remains separate. Evaluation CLI
+ownership remains outside the SDK-only core.

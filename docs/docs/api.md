@@ -125,6 +125,24 @@ A successful mutation returns `201 Created` with an operational receipt and a
 candidate `new_root`. MALT v0.0.6 does not provide a state-transition proof, so
 the Web App and `malt-client` never promote this root automatically.
 
+## Operator Root Publication
+
+When `GATEWAY_ADMIN_TOKEN` is configured, the Gateway exposes bearer-protected
+managed-policy routes:
+
+```text
+GET  /admin/v1/scopes/{scope}/roots
+POST /admin/v1/scopes/{scope}/roots
+GET  /admin/v1/scopes/{scope}/roots/{name}
+POST /admin/v1/scopes/{scope}/roots/{name}/freeze
+```
+
+A publish request is `{"name":"main","root":"bafy..."}`. Records carry a
+monotonic revision, previous root, timestamp, and optional frozen state.
+Freezing is irreversible. Publication does not modify ArcTable state, prove a
+mutation, choose the root of a request, or automatically update a client's
+accepted root.
+
 ## Trust Boundary
 
 The gateway may enforce access policy, cache results, orchestrate storage, and

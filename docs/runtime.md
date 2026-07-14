@@ -27,15 +27,22 @@ boundary. Its generic API is `POST /v1/resolve`, `POST /v1/read`, root-scoped
 mutations, root creation, and `/v1/cas` payload access. See the
 [Gateway API](/docs/api).
 
+Internally it presents separate native MALT, CAS, and Merkle DAG compatibility
+profiles over a per-scope composition. Root publication is managed policy
+metadata rather than part of those proof contracts.
+
 It does not choose which root a reader trusts. Diagnostic verify routes are
 useful for integration checks but cannot replace client-side verification.
 
 ## Client
 
-`malt-client` is the native CLI/daemon application. The Web App is the browser
-application. Both own application path parsing and UnixFS semantics, pass
-segment arrays to the gateway, verify ProofLists locally, and bind bytes to
-authenticated CIDs.
+`malt-client` is the native CLI/daemon application. Its active
+[boundary PR](https://github.com/DeWebProtocol/malt-client/pull/3) separates
+untrusted transport, accepted/candidate root policy, UnixFS behavior, and
+Merkle DAG compatibility; these package paths are not current `main` until the
+PR merges. The Web App is the browser application. Both own application path
+parsing and UnixFS semantics, pass segment arrays to the gateway, verify
+ProofLists locally, and bind bytes to authenticated CIDs.
 
 `/` is therefore a UnixFS/HTTP presentation detail. MALT core operates on
 segments and canonical arcs; it does not interpret `/`, `.`, or `[]` as a
