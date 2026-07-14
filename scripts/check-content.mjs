@@ -69,7 +69,7 @@ const requiredPhrases = new Map([
   ],
   [
     'docs/unixfs-layout.md',
-    ['flat', 'hierarchical', 'dir-layout=basic|hamt|adaptive']
+    ['--layout hybrid', 'no longer accepted', 'dir-layout=basic|hamt|adaptive']
   ],
   [
     'docs/evaluation.md',

@@ -2,24 +2,36 @@
 
 This page records the pre-v0.0.6 evaluation harness contract. It is not a
 paper-results page or a current core CLI contract. The SDK-only core no longer
-ships `malt-eval`; a future evaluation application must depend on the public
-core and gateway/client boundaries instead of being reintroduced into core.
+ships `malt-eval`. The complete historical runner now lives in
+[`DeWebProtocol/malt-evaluation`](https://github.com/DeWebProtocol/malt-evaluation)
+and intentionally pins MALT v0.0.5 so the historical implementation remains
+reconstructible. New runs record normalized plans, build provenance, and exact
+write-trace commits; this does not retroactively recover moving `HEAD` inputs
+from older results that omitted them.
+
+That frozen runner depends on the v0.0.5 reference runtime and storage adapters;
+it must not be presented as a v0.0.6 product test. Current v0.0.6 product
+correctness belongs to the gateway-owned CAS-to-gateway-to-client E2E suite.
+Benchmark suites will migrate to the public v0.0.6 gateway/client boundaries
+individually rather than copying product implementations back into core.
 
 The benchmark protocol is designed to compare MALT, IPLD UnixFS, and IPLD
 UnixFS+HAMT as the implementation and artifacts mature.
 
 ## Systems
 
-Historical readbench systems:
+Frozen v0.0.5 readbench systems:
 
 - `maltflat`: pure MALT structure UnixFS over map/list semantics plus
   CAS-backed immutable payloads
 - `merkledag`: IPLD UnixFS with basic directory materialization
 - `hamt`: IPLD UnixFS with HAMT directory materialization
 
-`maltflat` is the current benchmark system identifier for the MALT UnixFS path.
-It does not mean the current implementation has a behaviorally separate pure
-flat materialization from `layout=hierarchical`.
+`maltflat` identifies the frozen v0.0.5 evaluator's full-path flat-map baseline
+and is preserved by its result schemas. It is not a `malt-client` layout value
+and does not name the current client's `hybrid` materialization. New
+client/product tests should describe the actual target and `layout=hybrid`
+instead of reusing this label.
 
 The read command selects systems with:
 
@@ -32,9 +44,10 @@ The compact system list is `maltflat,merkledag,hamt`.
 HAMT is a directory/map-relation baseline. It is not the large-file content
 layout baseline.
 
-## Historical Framework Runner
+## Frozen v0.0.5 Framework Runner
 
-The former framework entrypoint was:
+The historical runner remains available in `malt-evaluation` with this
+entrypoint:
 
 ```text
 malt-eval run --plan <plan.json> [--out <dir>] [--run-id <id>]
@@ -47,7 +60,7 @@ records, proof overhead, storage overhead, and common envelope fields.
 
 ## Read Latency
 
-The former entrypoint was:
+The v0.0.5 entrypoint was:
 
 ```text
 malt-eval read --config <config> \
@@ -108,8 +121,8 @@ Each JSONL record corresponds to one system after one source commit. The source
 commit supplies live files, live payload bytes, file and directory counts, path
 depths, and file mutations.
 
-The historical write-trace schema and artifacts remain available in Git
-history. They are not shipped by MALT core v0.0.6.
+The historical write-trace schema, adapters, tests, and artifacts are preserved
+in `malt-evaluation`. They are not shipped by MALT core v0.0.6.
 
 Required write metrics include:
 

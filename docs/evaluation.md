@@ -5,8 +5,8 @@ MALT evaluation has two public documentation layers:
 - [Evaluation Story](/narrative/evaluation-story): research framing for read
   latency, write amplification, cost breakdown, sensitivity studies, and
   semantic reachability.
-- [Benchmark Protocol](/docs/evaluation): current `malt-eval` command shape,
-  systems, operations, metrics, and artifact caveats.
+- [Benchmark Protocol](/docs/evaluation): the frozen v0.0.5 `malt-eval`
+  command shape, systems, operations, metrics, and artifact caveats.
 
 The main quantitative evaluation focuses on read latency and write
 amplification. Cost breakdown explains the results; it is not a separate main
@@ -14,16 +14,18 @@ claim.
 
 ## Systems
 
-Primary systems:
+Frozen v0.0.5 evaluator systems:
 
 - `MALT-flat`: pure MALT structure UnixFS using list/map semantics plus
   CAS-backed immutable payloads
 - `IPLD UnixFS`: implicit Merkle-DAG baseline
 - `IPLD UnixFS + HAMT`: strong large-directory authenticated-map baseline
 
-`MALT-flat` is the benchmark label for the current MALT UnixFS path. It should
-not be read as a claim that the current implementation already separates pure
-flat and pure hierarchical MALT materialization.
+`MALT-flat` identifies the frozen v0.0.5 evaluator's full-path flat-map
+baseline and is preserved by existing result artifacts. It is not a current
+`malt-client` layout value: the native client exposes `layout=hybrid`. New
+product tests should name that actual strategy instead of treating
+`MALT-flat` as a client configuration.
 
 HAMT is a directory or map-relation baseline. It is not the large-file content
 layout baseline.
@@ -84,6 +86,10 @@ The encrypted setting tests the deployment assumption that embedded Merkle-DAG
 links can create sequential reveal dependencies when the storage service cannot
 inspect plaintext structure.
 
-See [Benchmark Protocol](/docs/evaluation) for the historical harness contract
-and the requirements for the next reproducible evaluation runner. Evaluation
-CLI ownership is intentionally outside the SDK-only core.
+See [Benchmark Protocol](/docs/evaluation) for the historical harness contract.
+The runner is preserved in
+[`DeWebProtocol/malt-evaluation`](https://github.com/DeWebProtocol/malt-evaluation)
+with an intentional v0.0.5 dependency pin. Current v0.0.6 product correctness
+is exercised by gateway-owned CAS-to-gateway-to-client E2E tests; benchmark
+suites migrate to that boundary separately. Evaluation CLI ownership remains
+outside the SDK-only core.

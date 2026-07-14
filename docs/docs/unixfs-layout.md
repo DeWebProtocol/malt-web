@@ -7,6 +7,13 @@ With core `v0.0.6`, UnixFS lives entirely in application clients. The native
 implementation is in `DeWebProtocol/malt-client/unixfs`; the Web App implements
 the same client-side model for browser upload, preview, and verification.
 
+The native client supports two UnixFS targets. `malt add --target malt`
+materializes MALT-authenticated structure and returns a MALT root whose reads
+can carry ProofLists. `malt add --target merkle-dag` constructs an
+IPFS-compatible Merkle DAG, writes its blocks to CAS, and returns the DAG root
+CID. The latter is interoperability support: it does not turn Merkle DAG
+relations into MALT-authenticated arcs or produce a ProofList.
+
 The model demonstrates how practical file and directory semantics can be built
 without embedding every verifier-facing relation inside immutable parent
 objects.
@@ -35,42 +42,49 @@ the ordered segment CIDs. A caller accepting returned range bytes must also use
 `malt-client/unixfs/sdk.VerifyRangeBody` or an equivalent check to bind those bytes to
 the authenticated segments.
 
-## Released Materialization Flags
+## Current Hybrid Materialization
 
-`flat` and `hierarchical` are current user-facing values of the
-`malt-client` `malt add --layout` flag. `flat` is the default. The flag names
-a UnixFS materialization strategy; it does not make UnixFS a MALT core layout.
+The native `malt-client` currently accepts one MALT materialization value:
+`malt add --layout hybrid`. It is also the default. The flag names a UnixFS
+application strategy; it does not make UnixFS a MALT core layout.
 
-In the current `malt add` implementation, both names use the same staged hybrid
-materialization path:
+The hybrid materialization path:
 
 - ordinary directories are materialized as authenticated map roots
 - directory/root maps also keep descendant full-path bindings
 - path lookup can use longest-prefix reads that skip intermediate maps
 - directory manifests list names as CAS payloads
 
-This current behavior is not a pure separation between `flat` root-map
-materialization and `hierarchical` per-directory materialization. That split is
-a design and evaluation dimension to stabilize separately.
+Earlier pre-release clients exposed `flat` and `hierarchical`, but both names
+selected this same implementation. They are no longer accepted as current CLI
+values. Pure flat root-map and pure per-directory hierarchical materialization
+remain possible future design/evaluation dimensions, not shipped client modes.
 
-## Intended Materialization Split
+## Possible Future Materialization Split
 
-The intended terminology remains:
+If those strategies are implemented as behaviorally distinct modes, their
+intended meanings are:
 
 - `flat`: full-path root-map materialization for update locality and shallow
   lookup
 - `hierarchical`: directory/root-boundary materialization for explicit
   per-directory authentication boundaries
 
-## Symlink Directory Boundary
+## MALT Target Symlink Directory Boundary
 
-A symlink whose target is a directory is materialized as an authenticated map
-boundary in the current staged path. This lets symlinked directory mounts become
-explicit authenticated subroots.
+For `malt add --target malt`, a symlink whose target is a directory is followed
+and materialized as an authenticated map boundary. This lets symlinked
+directory mounts become explicit authenticated subroots. A symlink to a file
+is likewise followed and imported as its target payload.
+
+The separate `--target merkle-dag` compatibility path does not follow local
+symlinks. It preserves each link as an IPFS UnixFS symlink node containing the
+link target text.
 
 ## Merkle-DAG UnixFS Terminology
 
-For Merkle-DAG UnixFS baselines, avoid overloading `layout`.
+For Merkle-DAG UnixFS compatibility imports and baselines, avoid overloading
+`layout`. The native CLI selects this target with `--target merkle-dag`.
 
 File chunk-tree layout:
 

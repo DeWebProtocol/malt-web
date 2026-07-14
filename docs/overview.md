@@ -20,6 +20,11 @@ core baseline. It makes `malt` an SDK-only repository, moves persistent
 ArcTable/KV/CAS execution into `gateway`, and moves CLI/daemon/UnixFS ownership
 into `malt-client` and browser clients.
 
+The native `malt-client` deliberately supports both MALT-authenticated UnixFS
+and IPFS-compatible Merkle DAG UnixFS import. Those are separate targets under
+one client workflow: Merkle DAG compatibility does not change MALT core
+semantics or imply ProofList authentication for the returned DAG root.
+
 ## Core Claim
 
 Merkle DAG systems commit traversal structure implicitly inside parent object
@@ -64,8 +69,10 @@ No persistent ArcTable, CAS, HTTP server, CLI, daemon, or UnixFS package is part
 of core.
 
 UnixFS is one application model/profile that composes these primitives; it is
-not the definition of the core abstraction. `flat` and `hierarchical` name
-materialization layouts within that application model.
+not the definition of the core abstraction. The native client currently uses
+one `hybrid` materialization strategy: directories form authenticated map roots
+while ancestor maps may also retain descendant full-path bindings. Layout
+selection remains a client/application concern rather than a core semantic.
 
 ## Read Interface
 

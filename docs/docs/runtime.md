@@ -37,7 +37,10 @@ result locally.
 owns the `malt` CLI, local trusted-root daemon, gateway transport, and UnixFS
 application model. It parses UnixFS `/` paths into segment arrays, verifies
 resolve/read results, binds returned payload bytes to authenticated CIDs, and
-keeps gateway-produced roots as candidates until explicit acceptance.
+keeps gateway-produced roots as candidates until explicit acceptance. It can
+also import IPFS-compatible Merkle DAG UnixFS with
+`malt add --target merkle-dag`; that compatibility target returns a DAG CID and
+does not claim a MALT root or ProofList.
 
 This Web App is another client. It uses the same generic gateway routes and the
 WASM verifier built from core. UnixFS preview/upload logic stays in the browser
