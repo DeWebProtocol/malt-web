@@ -28,10 +28,10 @@ Depending on the operation, ProofList may include:
 - measured `list_range` evidence with authenticated segment CIDs.
 
 Resolve accepts traversal evidence. Primitive list evidence is verified as a
-read result, not hidden inside resolve semantics. A UnixFS content response may
-transport both in one ProofList for convenience; the browser splits it into a
-resolve verification and zero or more read verifications before checking body
-bytes.
+read result, not hidden inside resolve semantics. A UnixFS client may compose
+resolve and read ProofLists in memory for content verification; the browser
+still verifies the resolve and zero or more read operations separately before
+checking body bytes.
 
 For list ranges, ProofList authenticates metadata and ordered segment CIDs, not
 the response body by itself. A client must fetch/check those CIDs and bind the
@@ -58,17 +58,17 @@ is application policy; any correctly verified derivation is valid core output.
 
 ## HTTP Transport
 
-Content reads use:
+The generic gateway returns ProofList directly in operation result JSON:
 
 ```text
-X-Malt-ProofList: <base64url(JSON ProofList)>
-X-Malt-ProofList-Encoding: base64url-json
-Vary: X-Malt-Proof
+POST /v1/resolve -> { profile, target, prooflist }
+POST /v1/read    -> { profile, target, range_segments?, prooflist }
 ```
 
-The operation-specific gateway endpoints return ProofList in JSON under the
-`prooflist` field. Remote verification is diagnostic only; the authoritative
-path runs in the client through Go or browser WASM.
+CAS bytes are fetched separately from `/v1/cas/{cid}` and bound to the target
+or authenticated range segments by the client. Remote verification is
+diagnostic only; the authoritative path runs in the client through Go or
+browser WASM.
 
 ## Compatibility
 

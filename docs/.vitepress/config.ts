@@ -60,8 +60,8 @@ export default defineConfig({
       { text: 'Runtime', link: '/runtime' },
       { text: 'Service', link: '/service' },
       {
-        text: 'v0.0.5',
-        link: 'https://github.com/DeWebProtocol/malt/releases/tag/v0.0.5'
+        text: 'v0.0.6',
+        link: 'https://github.com/DeWebProtocol/malt/releases/tag/v0.0.6'
       }
     ],
     sidebar: [
@@ -95,7 +95,7 @@ export default defineConfig({
           { text: 'Runtime and Prototype', link: '/docs/runtime' },
           { text: 'HTTP API', link: '/docs/api' },
           { text: 'ProofLists', link: '/docs/prooflists' },
-          { text: 'UnixFS Layout', link: '/docs/unixfs-layout' },
+          { text: 'UnixFS Application', link: '/docs/unixfs-layout' },
           { text: 'Benchmark Protocol', link: '/docs/evaluation' }
         ]
       },

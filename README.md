@@ -12,8 +12,8 @@ locate and serve proofs. UnixFS is one application model over that core; its
 
 ## Current Release
 
-[`v0.0.5`](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.5) is the
-current experimental source release. New integrations use
+[`v0.0.6`](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.6) is the
+current experimental core SDK release. New integrations use
 `malt.resolve/v0alpha1` and `malt.read/v0alpha1`; the v0.0.4
 `malt.artifact/v0alpha2` resolve/prove/verify profile remains frozen
 compatibility behavior. APIs and wire shapes remain pre-v1 and are not yet
@@ -63,8 +63,10 @@ to the implementation repository for source-of-truth technical details.
 
 ## Related Repositories
 
-- [`DeWebProtocol/malt`](https://github.com/dewebprotocol/malt) — Go implementation, implementation-bound docs, MIPs, benchmarks, and evaluation artifacts
-- [`DeWebProtocol/malt-web`](https://github.com/dewebprotocol/malt-web) — public website, conceptual docs, tutorials, and user-facing design narrative
+- [`DeWebProtocol/malt`](https://github.com/dewebprotocol/malt) — application-neutral authentication SDK, normative contracts, MIPs, and verifier
+- [`DeWebProtocol/gateway`](https://github.com/dewebprotocol/gateway) — managed gateway, ArcTable/KV/CAS materialization, and service integration
+- [`DeWebProtocol/malt-client`](https://github.com/dewebprotocol/malt-client) — trusted CLI/daemon and UnixFS client application
+- [`DeWebProtocol/malt-web`](https://github.com/dewebprotocol/malt-web) — browser client, public website, conceptual docs, and tutorials
 - [`DeWebProtocol/.github`](https://github.com/dewebprotocol/.github) — organization profile and community defaults
 
 ## License

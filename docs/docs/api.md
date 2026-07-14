@@ -1,24 +1,24 @@
-# Gateway Resolve and Read API
+# Gateway API
 
-The product-facing browser and SDK boundary is the MALT Gateway at
-`http://127.0.0.1:8080` by default. It delegates execution to an untrusted MALT
-reference executor while preserving the operation-specific core contracts.
+The browser and `malt-client` use the MALT Gateway at
+`http://127.0.0.1:8080` by default. The gateway embeds the untrusted graph
+executor and owns ArcTable/KV/CAS persistence. It returns results and proofs;
+clients decide trust locally.
 
-The current gateway tracks the
-[MALT v0.0.5 release](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.5).
-Its operation-specific resolve/read contracts are the current integration
-surface; `malt.artifact/v0alpha2` remains frozen v0.0.4 compatibility behavior.
+The current gateway tracks
+[MALT v0.0.6](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.6).
+Normative resolve/read schemas remain in the
+[MALT core repository](https://github.com/DeWebProtocol/malt/blob/v0.0.6/docs/spec/resolve-read-contracts.md).
 
-## Resolve, Read, and Diagnostic Verify
+## Resolve and Read
 
 ```text
 POST /v1/resolve
 POST /v1/read
-POST /v1/verify/resolve
-POST /v1/verify/read
 ```
 
-Resolve accepts the trusted root and canonical segments:
+Resolve accepts a caller-selected root and an array of application-produced
+segments:
 
 ```json
 {
@@ -28,23 +28,10 @@ Resolve accepts the trusted root and canonical segments:
 }
 ```
 
-It returns an untrusted target plus ProofList:
-
-```json
-{
-  "profile": "malt.resolve/v0alpha1",
-  "target": "<authenticated target CID>",
-  "prooflist": {"root": {"/": "<trusted MALT root>"}, "steps": []}
-}
-```
-
-The empty steps array above is only illustrative. Non-empty paths require real
-evidence. `segments: []` is strict root identity. Payload selection is an
-explicit final `@payload` segment, not a separate `resolve_payload` operation.
-
-The client does not need to know whether a graph consumes the segments as arcs
-`a/b` and `@payload`, or another complete derivation. Verification proves the
-returned derivation; it intentionally does not prove it was longest or unique.
+It returns an untrusted target and ProofList. `segments: []` means strict root
+identity. A resolver may group segments into authenticated arcs in more than
+one valid way; verification proves the returned derivation, not that it was
+longest or unique.
 
 Read accepts one primitive typed query:
 
@@ -56,26 +43,65 @@ Read accepts one primitive typed query:
 }
 ```
 
-Other query kinds are `list_index` and `list_range`. “Read” replaces the legacy
-Artifact operation name “prove”: proof generation is evidence for a semantic
-operation, not a semantic operation by itself.
+Other query kinds are `list_index` and `list_range`. Clients construct the
+expected request themselves and verify `{request, result}` locally with MALT
+core or the published WASM verifier.
 
-The browser verifies a caller-constructed request together with the untrusted
-result. The remote verify endpoints accept the same `{request, result}` pair
-and return a diagnostic `{profile, valid, error?}` response. They are not trust
-oracles. Normative schemas and semantics live in the
-[MALT resolve/read spec](https://github.com/DeWebProtocol/malt/blob/v0.0.5/docs/spec/resolve-read-contracts.md).
+## Diagnostic Verification
+
+```text
+POST /v1/verify/resolve
+POST /v1/verify/read
+```
+
+These endpoints are for conformance and troubleshooting. Responses carry
+`X-Malt-Verification-Role: diagnostic`; they are not trust oracles and do not
+replace local verification.
+
+## CAS
+
+```text
+POST /v1/cas?codec=<multicodec>
+GET  /v1/cas/{cid}
+HEAD /v1/cas/{cid}
+```
+
+`POST` accepts an immutable payload body up to 64 MiB and returns
+`201 Created` with `{"cid":"..."}`. `GET` and `HEAD` return immutable bytes
+with CID-derived `ETag` and long-lived cache headers. Clients still hash
+returned bytes and compare them with the authenticated CID before use.
+
+CAS stores payload bytes; it does not define MALT authentication semantics.
+
+## Create a Structure
+
+```text
+POST /v1/roots
+```
+
+The request contains a canonical arc map:
+
+```json
+{
+  "arcs": {
+    "@payload": "<payload CID>",
+    "docs/readme.md": "<target CID>"
+  }
+}
+```
+
+The response is `201 Created` with `{"root":"<new root>"}`. The returned root
+is an untrusted candidate until the caller explicitly accepts it or verifies an
+independent publication/transition policy.
 
 ## Semantic Mutation Contract
-
-The gateway applies a root-relative semantic mutation through:
 
 ```text
 POST /v1/roots/{root}/mutations
 ```
 
 `{root}` is the caller-selected base root. The request contains typed map/list
-deltas with canonical coordinate changes and optional replay constraints.
+deltas with canonical coordinate changes and optional replay constraints:
 
 ```json
 {
@@ -95,41 +121,13 @@ deltas with canonical coordinate changes and optional replay constraints.
 }
 ```
 
-A successful application returns `201 Created` with an operational receipt and
-a candidate `new_root`. MALT does not currently provide a delta/state-transition
-proof. The website therefore never promotes that root automatically; the user
-or an independent publication policy must accept it explicitly.
+A successful mutation returns `201 Created` with an operational receipt and a
+candidate `new_root`. MALT v0.0.6 does not provide a state-transition proof, so
+the Web App and `malt-client` never promote this root automatically.
 
-## Product Content Routes
+## Trust Boundary
 
-The UnixFS product scenario uses:
-
-```text
-GET|HEAD /v1/roots/{root}/content[/{path...}]
-POST     /v1/roots/{root}/content/{path...}
-POST     /v1/content/new?path={path}
-```
-
-Content responses preserve `X-Malt-ProofList`, its encoding header, target/stat
-headers, and `Vary: X-Malt-Proof`. Gateway CORS merges `Origin` into that
-variance set.
-
-For content verification, the website:
-
-1. derives a `ResolveVerification` from the explicit root, application path,
-   and terminal `@payload` when the proof contains that binding;
-2. separately verifies any trailing `list_index` or `list_range` evidence as
-   `ReadVerification` values; and
-3. hashes full raw/manifest bytes to the authenticated CID, or verifies list
-   range bytes against authenticated segment CIDs.
-
-Raw targets without `@payload` remain ordinary resolves. This composition is a
-UnixFS client concern and does not add another core operation.
-
-## Trust and Deployment Boundary
-
-The gateway may authenticate callers, enforce policy, publish roots, cache, and
-orchestrate storage, but it is untrusted for correctness. Root freshness,
-rollback prevention, and multi-writer policy remain application or managed
-gateway responsibilities. Clients accept results only after local verification
-against their own request and trusted root.
+The gateway may enforce access policy, cache results, orchestrate storage, and
+publish roots, but it is untrusted for correctness. Root freshness, rollback
+prevention, and multi-writer policy remain application or managed-service
+responsibilities.

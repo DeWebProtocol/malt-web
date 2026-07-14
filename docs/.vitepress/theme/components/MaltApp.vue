@@ -7,7 +7,6 @@ import {
   ancestorDirectoryPaths,
   appFallbackStorageKey,
   buildAppStatePath,
-  defaultCASURL,
   defaultGatewayURL,
   joinMaltPath,
   normalizeUploadPath,
@@ -26,11 +25,11 @@ import {
 import { verifyPayloadBytes } from '../malt-payload-verifier.mjs'
 import {
   resolveVerificationFromProofList,
-  verifyContentProofLocally
+  verifyContentProofLocally,
+  verifyResolveLocally
 } from '../malt-verifier.mjs'
 
 const baseURL = ref(defaultGatewayURL)
-const casURL = ref(defaultCASURL)
 const profileInput = ref('')
 const activeProfile = ref('')
 const root = ref('')
@@ -252,7 +251,6 @@ function signIn() {
   const routeState = currentAppRouteState()
   const hasRouteRoot = Boolean(routeState?.root)
   baseURL.value = saved.baseURL || baseURL.value || defaultGatewayURL
-  casURL.value = saved.casURL || casURL.value || defaultCASURL
   root.value = hasRouteRoot ? routeState.root : saved.root || ''
   currentPath.value = root.value ? (hasRouteRoot ? routeState.path : saved.currentPath || '') : ''
   prefix.value = saved.prefix || ''
@@ -281,7 +279,6 @@ function signOut() {
   activeProfile.value = ''
   profileInput.value = ''
   baseURL.value = defaultGatewayURL
-  casURL.value = defaultCASURL
   root.value = ''
   currentPath.value = ''
   prefix.value = ''
@@ -313,7 +310,6 @@ function persistProfile() {
     profileStorageKey(activeProfile.value),
     JSON.stringify({
       baseURL: baseURL.value,
-      casURL: casURL.value,
       root: root.value,
       currentPath: currentPath.value,
       prefix: prefix.value,
@@ -896,7 +892,38 @@ async function uploadDropped(uploadItems) {
             root: currentRoot,
             path: writePath,
             file: item.file,
-            signal
+            signal,
+            verifyExistingContent: async (existingPath, payload, verifySignal) => {
+              const proofVerification = await verifyContentProofLocally({
+                proofList: payload.proofList,
+                expectedRoot: currentRoot,
+                expectedPath: existingPath,
+                runtimeURL: withBase('/verifier/wasm_exec.js'),
+                wasmURL: withBase('/verifier/malt-verifier.wasm'),
+                signal: verifySignal
+              })
+              if (!proofVerification.valid) {
+                throw new Error(proofVerification.error || 'existing directory proof is invalid')
+              }
+              await verifyPayloadBytes({
+                proofList: payload.proofList,
+                body: payload.bytes,
+                fetchSegment: (cid) =>
+                  readPayloadBlock({ baseURL: baseURL.value, cid, signal: verifySignal })
+              })
+            },
+            verifyExistingResolve: async (_existingPath, stat, verifySignal) => {
+              const verification = await verifyResolveLocally({
+                request: stat.request,
+                result: stat.result,
+                runtimeURL: withBase('/verifier/wasm_exec.js'),
+                wasmURL: withBase('/verifier/malt-verifier.wasm'),
+                signal: verifySignal
+              })
+              if (!verification.valid) {
+                throw new Error(verification.error || 'existing path proof is invalid')
+              }
+            }
           }),
         uploadRequestTimeoutMs
       )
@@ -1751,10 +1778,6 @@ function formatSize(size) {
           <label>
             <span>Gateway URL</span>
             <input v-model="baseURL" autocomplete="off" spellcheck="false" />
-          </label>
-          <label>
-            <span>CAS URL</span>
-            <input v-model="casURL" autocomplete="off" spellcheck="false" />
           </label>
           <label>
             <span>Upload prefix</span>

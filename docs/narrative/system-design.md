@@ -18,12 +18,12 @@ CAS + payload CIDs     canonical arcs, list/map proofs,      layouts, ArcTable,
         +------ authenticated target+------ result + proof --------+
 ```
 
-Application layouts translate source-domain data into semantic mutations. The
-module-root `malt` package exposes typed read, apply, and verify operations.
+Application clients translate source-domain data into semantic mutations. The
+module-root `malt` package exposes typed resolve/read values and verification.
 `auth/verifier` checks real list/map/range ProofLists without ArcTable, CAS, a
-runtime, a layout, a server, or network access. ArcTable and other execution
-components may accelerate proof generation but cannot make an invalid answer
-acceptable.
+runtime, an application, a server, or network access. A gateway-owned
+materializer and other execution components may accelerate proof generation
+but cannot make an invalid answer acceptable.
 
 ## Semantic Layer
 
@@ -33,7 +33,7 @@ The semantic layer is the architectural center.
 - `map` describes authenticated keyed or path-like relations.
 - `@payload` is reserved but optional for generic maps; layouts may require it.
 
-Layouts produce semantic mutations, and graph ports expose resolver reads and
+Applications produce semantic mutations, and graph ports expose resolver reads and
 writer mutations over list/map semantics. This keeps the public model
 independent of current package boundaries.
 
@@ -69,14 +69,15 @@ It is not responsible for map key semantics, list range semantics, resolver
 policy, application layout, root publication, or freshness.
 
 The current implementation separates that primitive layer from semantic
-single-step facades:
+single-step facades and algorithms:
 
 - `auth/semantic/list.Commitment`
 - `auth/semantic/mapping.Commitment`
 
 Those facades expose storage-free `Commit`, `ProveSlot`, and `VerifySlot`
-operations. `runtime/semantic/list/tree` and `runtime/semantic/mapping/radix`
-compose them with ArcTable access and multi-step traversal.
+operations. `auth/semantic/list/tree` and `auth/semantic/mapping/radix` compose
+them with an injected `auth/arcset/materializer.Store` capability and multi-step
+traversal. Persistent ArcTable implementations live in the gateway.
 
 The portable authentication kernel in `auth/verifier` selects a supported VC
 verification backend from the typed MALT root. The current built-in backends
@@ -126,9 +127,10 @@ In the current MALT UnixFS direction:
 This layout demonstrates that the semantic layer can support practical file
 and directory behavior while keeping payload identity unchanged.
 
-The current implementation is published as the experimental
-[`v0.0.5`](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.5) source
-release. New integrations use operation-specific `malt.resolve/v0alpha1` and
+The core implementation is published as the experimental
+[`v0.0.6`](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.6) source
+release. Native UnixFS and CLI behavior live in `malt-client`. New integrations
+use operation-specific `malt.resolve/v0alpha1` and
 `malt.read/v0alpha1`; the `malt.artifact/v0alpha2` operation set remains frozen
 v0.0.4 compatibility behavior. It is not yet a production managed service or
 stable API line.

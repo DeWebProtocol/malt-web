@@ -2,14 +2,16 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { CID } from 'multiformats/cid'
+import * as raw from 'multiformats/codecs/raw'
+import { sha256 } from 'multiformats/hashes/sha2'
 
 import {
 	appFallbackStorageKey,
 	ancestorDirectoryPaths,
 	buildAppStatePath,
-	buildContentURL,
+	buildCASURL,
 	buildReadURL,
-	buildUnixFSWriteURL,
 	buildResolveURL,
 	buildVerifyReadURL,
 	buildVerifyResolveURL,
@@ -23,7 +25,9 @@ import {
   pathBasename,
   pathParent,
 	profileStorageKey,
+	readPayloadBlock,
 	readProfile,
+	normalizeUploadPath,
 	resolveProfile
 } from '../docs/.vitepress/theme/malt-client.mjs'
 import {
@@ -128,7 +132,6 @@ for (const pattern of [
   /settingsOpen/,
   /malt-app__settings/,
   /Gateway URL/,
-  /CAS URL/,
   /compareEntries/,
   /entryKindOrder/,
   /directoryCache/,
@@ -336,6 +339,9 @@ const uploadDroppedSource = appSource.match(
 assert.ok(uploadDroppedSource, 'uploadDropped function is missing')
 assert.doesNotMatch(uploadDroppedSource, /root\.value\s*=\s*currentRoot/)
 assert.match(uploadDroppedSource, /candidateRoot:\s*currentRoot/)
+assert.match(uploadDroppedSource, /verifyExistingContent/)
+assert.match(uploadDroppedSource, /verifyExistingResolve/)
+assert.match(uploadDroppedSource, /verifyResolveLocally/)
 assert.doesNotMatch(appSource, /readDirectoryByPayload/)
 assert.doesNotMatch(appSource, /runEntryAction\('preview'/)
 assert.doesNotMatch(appSource, /malt-app__browser-head/)
@@ -349,12 +355,16 @@ assert.match(themeSource, /DefaultTheme\.Layout/)
 
 const clientSource = fs.readFileSync(path.join(docsRoot, '.vitepress/theme/malt-client.mjs'), 'utf8')
 assert.match(clientSource, /readDirectoryByPayload/)
-assert.match(clientSource, /X-Malt-Proof['"],\s*['"]omit/)
+assert.match(clientSource, /buildCASURL/)
+assert.match(clientSource, /putPayloadBlock/)
+assert.match(clientSource, /createStructure/)
 assert.match(clientSource, /appFallbackStorageKey/)
 assert.match(clientSource, /parseAppFallbackRoute/)
 assert.match(clientSource, /isAppStateRoute/)
 assert.match(clientSource, /ancestorDirectoryPaths/)
 assert.match(clientSource, /export async function readPayloadBlock/)
+assert.match(clientSource, /assertBlockMatchesCID/)
+assert.match(clientSource, /verified existing-root callbacks are required/)
 
 const verifierSource = fs.readFileSync(
   path.join(docsRoot, '.vitepress/theme/malt-verifier.mjs'),
@@ -483,17 +493,29 @@ assert.equal(
   'http://127.0.0.1:8080/v1/verify/read'
 )
 assert.equal(
-  buildContentURL('http://127.0.0.1:8080', 'bafkqaaa', 'docs/read me').toString(),
-  'http://127.0.0.1:8080/v1/roots/bafkqaaa/content/docs/read%20me'
+  buildCASURL('http://127.0.0.1:8080', 'bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku').toString(),
+  'http://127.0.0.1:8080/v1/cas/bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku'
 )
-assert.equal(
-  buildUnixFSWriteURL('http://127.0.0.1:8080', '', 'docs/read me').toString(),
-  'http://127.0.0.1:8080/v1/content/new?path=docs%2Fread+me'
+assert.equal(normalizeUploadPath('dir/read me.txt'), 'dir/read me.txt')
+assert.equal(normalizeUploadPath('100%/value%2F.txt'), '100%/value%2F.txt')
+for (const invalidPath of ['/absolute', 'trailing/', 'a//b', 'a/../b', '@payload']) {
+  assert.throws(() => normalizeUploadPath(invalidPath), /upload path|unsupported UnixFS path/)
+}
+
+const originalFetch = globalThis.fetch
+const casBytes = new TextEncoder().encode('verified CAS bytes')
+const casCID = CID.createV1(raw.code, await sha256.digest(casBytes)).toString()
+globalThis.fetch = async () => new Response(casBytes)
+assert.deepEqual(
+  await readPayloadBlock({ baseURL: 'http://127.0.0.1:8080', cid: casCID }),
+  casBytes
 )
-assert.equal(
-  buildUnixFSWriteURL('http://127.0.0.1:8080', 'bafkqaaa', 'docs/read me').toString(),
-  'http://127.0.0.1:8080/v1/roots/bafkqaaa/content/docs/read%20me'
+globalThis.fetch = async () => new Response(new TextEncoder().encode('tampered CAS bytes'))
+await assert.rejects(
+  readPayloadBlock({ baseURL: 'http://127.0.0.1:8080', cid: casCID }),
+  /do not match requested CID/
 )
+globalThis.fetch = originalFetch
 
 const rootCID = 'bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku'
 const identityVerification = {

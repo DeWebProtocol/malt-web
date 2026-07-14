@@ -42,10 +42,10 @@ const requiredPhrases = new Map([
   [
     'docs/runtime.md',
     [
-      'package malt',
+      'MALT Core SDK',
       'auth/verifier',
-      'graph/verifier',
-      'graph boundary around resolver and writer ports'
+      'auth/arcset/materializer',
+      'malt-client'
     ]
   ],
   [
@@ -54,14 +54,15 @@ const requiredPhrases = new Map([
       'POST /v1/resolve',
       'POST /v1/read',
       'POST /v1/verify/resolve',
-      'GET|HEAD /v1/roots/{root}/content'
+      'POST /v1/cas',
+      'POST /v1/roots/{root}/mutations'
     ]
   ],
   [
     'docs/prooflists.md',
     [
       'Read(root, query) -> result + ProofList',
-      'X-Malt-ProofList-Encoding',
+      'POST /v1/resolve -> { profile, target, prooflist }',
       'malt.resolve/v0alpha1',
       'malt.read/v0alpha1'
     ]

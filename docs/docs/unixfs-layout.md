@@ -3,10 +3,9 @@
 UnixFS is an application model above MALT list/map semantics and immutable
 payload objects. It is not the core MALT abstraction.
 
-Released `v0.0.5` separates UnixFS ownership across `model/unixfs`,
-`sdk/unixfs`, and `runtime/unixfs`. Those packages respectively own the
-application model, client planning/body verification, and optional reference
-execution adapter described here.
+With core `v0.0.6`, UnixFS lives entirely in application clients. The native
+implementation is in `DeWebProtocol/malt-client/unixfs`; the Web App implements
+the same client-side model for browser upload, preview, and verification.
 
 The model demonstrates how practical file and directory semantics can be built
 without embedding every verifier-facing relation inside immutable parent
@@ -33,13 +32,13 @@ the reserved coordinate.
 
 For byte ranges, ProofList verification authenticates fixed chunk metadata and
 the ordered segment CIDs. A caller accepting returned range bytes must also use
-`sdk/unixfs.VerifyRangeBody` or an equivalent check to bind those bytes to
+`malt-client/unixfs/sdk.VerifyRangeBody` or an equivalent check to bind those bytes to
 the authenticated segments.
 
 ## Released Materialization Flags
 
-`flat` and `hierarchical` are the current user-facing values of the retained
-`malt add --layout` materialization flag. `flat` is the default. The flag names
+`flat` and `hierarchical` are current user-facing values of the
+`malt-client` `malt add --layout` flag. `flat` is the default. The flag names
 a UnixFS materialization strategy; it does not make UnixFS a MALT core layout.
 
 In the current `malt add` implementation, both names use the same staged hybrid

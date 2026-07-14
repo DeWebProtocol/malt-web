@@ -13,14 +13,14 @@ hero:
       text: Technical docs
       link: /docs/runtime
     - theme: alt
-      text: v0.0.5 release
-      link: https://github.com/DeWebProtocol/malt/releases/tag/v0.0.5
+      text: v0.0.6 release
+      link: https://github.com/DeWebProtocol/malt/releases/tag/v0.0.6
 
 features:
   - title: Research narrative
     details: Problem framing, abstraction, system design, and evaluation story aligned with the current paper memory.
   - title: Technical docs
-    details: The released v0.0.5 operation-specific resolve/read contracts and client/gateway/core boundaries, with frozen v0.0.4 artifact compatibility.
+    details: The released v0.0.6 SDK-only core plus independent gateway and trusted clients, with frozen v0.0.4 artifact compatibility.
   - title: Root-centric verification
     details: Readers verify result plus ProofList against an explicit trusted root. The server runtime does not publish heads or decide freshness.
 ---

@@ -71,8 +71,8 @@ range reads. The step carries authenticated fixed chunk metadata, covered
 segment CIDs, and metadata/index proof payload. ProofList verification binds
 that metadata and the ordered segment CIDs; UnixFS callers accepting returned
 bytes additionally perform an equivalent body-binding check. The
-`sdk/unixfs.VerifyRangeBody` helper is part of the released `v0.0.5` client
-surface.
+`malt-client/unixfs/sdk.VerifyRangeBody` helper is a client-side check rather
+than part of MALT core.
 
 Encrypted private-CAS read:
 
@@ -84,5 +84,6 @@ The encrypted setting tests the deployment assumption that embedded Merkle-DAG
 links can create sequential reveal dependencies when the storage service cannot
 inspect plaintext structure.
 
-See [Benchmark Protocol](/docs/evaluation) for the current implemented
-`malt-eval run`, `malt-eval read`, and `malt-eval write` entrypoints.
+See [Benchmark Protocol](/docs/evaluation) for the historical harness contract
+and the requirements for the next reproducible evaluation runner. Evaluation
+CLI ownership is intentionally outside the SDK-only core.

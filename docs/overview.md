@@ -15,9 +15,10 @@ The website has two main lanes:
 - [Technical Docs](/docs/runtime): current prototype status, HTTP API,
   ProofLists, UnixFS application model, and benchmark protocol.
 
-Status labels matter in the technical lane: `v0.0.5` is the current released
-baseline and includes the tightened client/gateway/core package split,
-operation-specific resolve/read contracts, and browser-local verifier.
+Status labels matter in the technical lane: `v0.0.6` is the current released
+core baseline. It makes `malt` an SDK-only repository, moves persistent
+ArcTable/KV/CAS execution into `gateway`, and moves CLI/daemon/UnixFS ownership
+into `malt-client` and browser clients.
 
 ## Core Claim
 
@@ -31,8 +32,8 @@ MALT changes the boundary:
 - `list` and `map` define typed semantic reads and writes
 - VC backends produce verifier-facing commitments and proofs
 - the portable `auth/verifier` checks proofs without runtime or storage access
-- ArcTable materializes root-relative state for efficient access but remains
-  untrusted execution state
+- core algorithms consume an injected materializer capability, while gateway
+  ArcTable/KV implementations remain untrusted execution state
 - reads return `result + ProofList` for local verification
 - clients submit segment arrays without discovering how a graph groups a long
   path into authenticated arcs
@@ -56,11 +57,11 @@ CAS objects + CIDs    typed arcs + VC proofs      layouts, ArcTable, caches,
         +--- payload CID -----+--- result + ProofList -----+
 ```
 
-In v0.0.5, the module-root `malt` package is the application-neutral facade for
-resolve/read values, mutations, and verification. The semantic interfaces live with
-`auth/semantic/list` and `auth/semantic/mapping`; `auth/verifier` is the
-portable authentication kernel. The graph runtime is a composition boundary
-around resolver and writer ports, not a second node-interface hierarchy.
+In v0.0.6, the module-root `malt` package is the application-neutral facade for
+resolve/read values, mutations, and verification. Semantic algorithms live
+under `auth/semantic`; `auth/verifier` is the portable authentication kernel.
+No persistent ArcTable, CAS, HTTP server, CLI, daemon, or UnixFS package is part
+of core.
 
 UnixFS is one application model/profile that composes these primitives; it is
 not the definition of the core abstraction. `flat` and `hierarchical` name
@@ -105,7 +106,7 @@ availability, or define tenant and quota policy. Those are application or
 deployment concerns built around MALT. Managed gateway service behavior belongs
 in the separate `DeWebProtocol/gateway` repository.
 
-The current [`v0.0.5`](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.5)
+The current [`v0.0.6`](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.6)
 source release publishes the operation-specific resolve/read profiles and
 retains the frozen v0alpha2 Artifact compatibility contract from v0.0.4.
 It remains pre-`v1` and is not a production stability promise.

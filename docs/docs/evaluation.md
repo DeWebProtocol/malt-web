@@ -1,14 +1,16 @@
 # Benchmark Protocol
 
-This page summarizes the current evaluation data loop. It is not a
-paper-results page.
+This page records the pre-v0.0.6 evaluation harness contract. It is not a
+paper-results page or a current core CLI contract. The SDK-only core no longer
+ships `malt-eval`; a future evaluation application must depend on the public
+core and gateway/client boundaries instead of being reintroduced into core.
 
 The benchmark protocol is designed to compare MALT, IPLD UnixFS, and IPLD
 UnixFS+HAMT as the implementation and artifacts mature.
 
 ## Systems
 
-Current readbench systems:
+Historical readbench systems:
 
 - `maltflat`: pure MALT structure UnixFS over map/list semantics plus
   CAS-backed immutable payloads
@@ -30,9 +32,9 @@ The compact system list is `maltflat,merkledag,hamt`.
 HAMT is a directory/map-relation baseline. It is not the large-file content
 layout baseline.
 
-## Framework Runner
+## Historical Framework Runner
 
-Current framework entrypoint:
+The former framework entrypoint was:
 
 ```text
 malt-eval run --plan <plan.json> [--out <dir>] [--run-id <id>]
@@ -45,7 +47,7 @@ records, proof overhead, storage overhead, and common envelope fields.
 
 ## Read Latency
 
-Current entrypoint:
+The former entrypoint was:
 
 ```text
 malt-eval read --config <config> \
@@ -59,7 +61,7 @@ malt-eval read --config <config> \
   [--range <http-range>]
 ```
 
-Current operations:
+The harness operations were:
 
 - `resolve_path`: resolves the deterministic small-file path and returns the
   target plus `ProofList` evidence for MALT, or comparable traversal evidence
@@ -83,13 +85,13 @@ blocks needed for verifier-side reconstruction.
 
 ## Write Amplification
 
-Current entrypoint:
+The former framework entrypoint was:
 
 ```text
 malt-eval run --plan <plan.json>
 ```
 
-Focused helper entrypoint:
+The former focused helper entrypoint was:
 
 ```text
 malt-eval write \
@@ -106,8 +108,8 @@ Each JSONL record corresponds to one system after one source commit. The source
 commit supplies live files, live payload bytes, file and directory counts, path
 depths, and file mutations.
 
-The current write-trace schema is checked in as
-`cmd/eval/schemas/write-trace-result.schema.json`.
+The historical write-trace schema and artifacts remain available in Git
+history. They are not shipped by MALT core v0.0.6.
 
 Required write metrics include:
 

@@ -1,9 +1,12 @@
+import { CID } from 'multiformats/cid'
+import { sha256 } from 'multiformats/hashes/sha2'
+
 export const resolveProfile = 'malt.resolve/v0alpha1'
 export const readProfile = 'malt.read/v0alpha1'
 export const defaultGatewayURL = 'http://127.0.0.1:8080'
 // Compatibility alias for persisted profiles created before the gateway split.
 export const defaultDaemonURL = defaultGatewayURL
-export const defaultCASURL = 'http://127.0.0.1:4318'
+export const defaultCASURL = defaultGatewayURL
 export const appFallbackStorageKey = 'malt-app-fallback-path'
 
 export function buildResolveURL(baseURL, root, rawPath = '') {
@@ -24,18 +27,8 @@ export function buildVerifyReadURL(baseURL) {
   return buildGatewayURL(baseURL, ['v1', 'verify', 'read'])
 }
 
-export function buildContentURL(baseURL, root, rawPath = '') {
-  return buildGatewayURL(baseURL, ['v1', 'roots', root, 'content', ...pathSegments(rawPath)])
-}
-
-export function buildUnixFSWriteURL(baseURL, root, rawPath) {
-  const cleanPath = normalizeUploadPath(rawPath)
-  if (String(root || '').trim()) {
-    return buildContentURL(baseURL, root, cleanPath)
-  }
-  const url = buildGatewayURL(baseURL, ['v1', 'content', 'new'])
-  url.searchParams.set('path', cleanPath)
-  return url
+export function buildCASURL(baseURL, cid = '') {
+  return buildGatewayURL(baseURL, ['v1', 'cas', ...(cid ? [cid] : [])])
 }
 
 export function buildAppStatePath(appBasePath, root, rawPath = '') {
@@ -142,16 +135,23 @@ export function extractVerificationInput(input) {
 }
 
 export function normalizeUploadPath(rawPath) {
-  const path = String(rawPath || '')
-    .replace(/\\/g, '/')
-    .split('/')
-    .map((segment) => segment.trim())
-    .filter(Boolean)
-    .join('/')
-  if (!path) {
+  const path = String(rawPath || '').replace(/\\/g, '/')
+  if (!path || path.startsWith('/') || path.endsWith('/')) {
     throw new Error('upload path is required')
   }
-  return path
+  const segments = path.split('/')
+  for (const segment of segments) {
+    if (
+      !segment ||
+      segment === '.' ||
+      segment === '..' ||
+      segment.startsWith('@') ||
+      segment.includes('\0')
+    ) {
+      throw new Error(`unsupported UnixFS path segment ${JSON.stringify(segment)}`)
+    }
+  }
+  return segments.join('/')
 }
 
 export function uploadPathForFile(file) {
@@ -231,88 +231,141 @@ export async function readQuery({ baseURL, root, query, signal }) {
   }
 }
 
-export async function uploadUnixFSFile({ baseURL, root, path, file, signal }) {
-  const url = buildUnixFSWriteURL(baseURL, root, path)
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/octet-stream' },
-    body: file,
-    signal
-  })
-  const payload = await readJSONResponse(response)
+export async function uploadUnixFSFile({
+  baseURL,
+  root,
+  path,
+  file,
+  signal,
+  verifyExistingContent,
+  verifyExistingResolve
+}) {
+  const cleanPath = normalizeUploadPath(path)
+  const oldRoot = String(root || '').trim()
+  const tree = oldRoot
+    ? await loadUnixFSTree({
+        baseURL,
+        root: oldRoot,
+        signal,
+        verifyExistingContent,
+        verifyExistingResolve
+      })
+    : directoryNode()
+  const bytes = new Uint8Array(await file.arrayBuffer())
+  const fileCID = await putPayloadBlock({ baseURL, bytes, signal })
+  setTreeFile(tree, pathSegments(cleanPath), fileCID)
+  const materialized = await materializeUnixFSTree({ baseURL, node: tree, signal })
   return {
-    endpoint: url.toString(),
-    status: response.status,
-    path: payload.path ?? path,
-    kind: payload.kind ?? 'file',
-    oldRoot: payload.old_root ?? '',
-    newRoot: payload.new_root ?? '',
-    arcCount: payload.arc_count ?? 0,
-    response: payload
+    endpoint: buildGatewayURL(baseURL, ['v1', 'roots']).toString(),
+    status: 201,
+    path: cleanPath,
+    kind: 'file',
+    oldRoot,
+    newRoot: materialized.cid,
+    arcCount: materialized.arcCount,
+    response: { old_root: oldRoot, new_root: materialized.cid }
   }
 }
 
 export async function statPath({ baseURL, root, path, signal }) {
-  const url = buildContentURL(baseURL, root, path)
-  const response = await fetch(url, { method: 'HEAD', signal })
-  if (!response.ok) {
-    throw new Error(await responseErrorMessage(response))
+  const resolved = await resolvePath({ baseURL, root, path, signal })
+  const codec = parseCID(resolved.result.target).code
+  const kind = isMapCodec(codec) ? 'dir' : 'file'
+  let payload = ''
+  if (kind === 'dir') {
+    const payloadResult = await resolvePath({
+      baseURL,
+      root,
+      path: joinMaltPath(path, '@payload'),
+      signal
+    })
+    payload = payloadResult.result.target
   }
   return {
-    endpoint: url.toString(),
-    status: response.status,
-    kind: response.headers.get('X-Malt-Kind') ?? '',
-    storageKind: response.headers.get('X-Malt-Storage-Kind') ?? '',
-    key: response.headers.get('X-Malt-Key') ?? '',
-    payload: response.headers.get('X-Malt-Payload') ?? '',
-    size: parseContentLength(response.headers.get('Content-Length'))
+    endpoint: resolved.endpoint,
+    status: resolved.status,
+    request: resolved.request,
+    result: resolved.result,
+    proofList: resolved.proofList,
+    kind,
+    storageKind: storageKind(codec),
+    key: resolved.result.target,
+    payload,
+    size: null
   }
 }
 
 export async function readContent({ baseURL, root, path, range, signal, omitProof = false }) {
-  const url = buildContentURL(baseURL, root, path)
-  const headers = new Headers()
-  if (range?.trim()) {
-    headers.set('Range', range.trim())
+  void omitProof
+  const resolved = await resolvePath({ baseURL, root, path, signal })
+  const target = resolved.result.target
+  const codec = parseCID(target).code
+  let proofList = resolved.proofList
+  let bytes
+  let contentType = 'application/octet-stream'
+  let contentRange = ''
+  let rangeHandled = false
+  if (isMapCodec(codec)) {
+    const payloadResolve = await resolvePath({
+      baseURL,
+      root,
+      path: joinMaltPath(path, '@payload'),
+      signal
+    })
+    proofList = payloadResolve.proofList
+    bytes = await readPayloadBlock({ baseURL, cid: payloadResolve.result.target, signal })
+    contentType = 'application/json'
+  } else if (isListCodec(codec)) {
+    const requested = parseRequestedRange(range)
+    const query = { kind: 'list_range', start: requested?.start ?? 0 }
+    if (requested?.end != null) query.end = requested.end
+    const read = await readQuery({
+      baseURL,
+      root: target,
+      query,
+      signal
+    })
+    proofList = combineProofLists(resolved.proofList, read.proofList, pathSegments(path).join('/'))
+    const chunks = await Promise.all(
+      (read.result.range_segments || []).map((cid) => readPayloadBlock({ baseURL, cid, signal }))
+    )
+    const step = [...(read.proofList?.steps || [])]
+      .reverse()
+      .find((item) => item?.kind === 'list_range')
+    if (!step) throw new Error('list read did not return list_range evidence')
+    const assembled = concatBytes(chunks)
+    const start = Number(step.start)
+    const end = Number(step.end)
+    const total = Number(step.total_size)
+    const chunkSize = Number(step.chunk_size)
+    const offset = start % chunkSize
+    bytes = assembled.subarray(offset, offset + (end - start))
+    if (start !== 0 || end !== total) contentRange = `bytes ${start}-${end - 1}/${total}`
+    rangeHandled = true
+  } else {
+    bytes = await readPayloadBlock({ baseURL, cid: target, signal })
   }
-  if (omitProof) {
-    headers.set('X-Malt-Proof', 'omit')
-  }
-  const response = await fetch(url, { headers, signal })
-  if (!response.ok) {
-    throw new Error(await responseErrorMessage(response))
-  }
-  const proofHeader = response.headers.get('X-Malt-ProofList')
-  const bytes = new Uint8Array(await response.arrayBuffer())
+  const selected = rangeHandled
+    ? { bytes, contentRange, partial: Boolean(contentRange) }
+    : applyByteRange(bytes, range)
+  bytes = selected.bytes
+  contentRange = selected.contentRange
   return {
-    endpoint: url.toString(),
-    status: response.status,
-    contentType: response.headers.get('Content-Type') ?? '',
-    contentRange: response.headers.get('Content-Range') ?? '',
-    proofList: proofHeader ? decodeProofListHeader(proofHeader) : null,
+    endpoint: resolved.endpoint,
+    status: selected.partial ? 206 : 200,
+    contentType,
+    contentRange,
+    proofList,
     bytes,
     body: new TextDecoder().decode(bytes)
   }
 }
 
 export async function readContentBlob({ baseURL, root, path, range, signal }) {
-  const url = buildContentURL(baseURL, root, path)
-  const headers = new Headers()
-  if (range?.trim()) {
-    headers.set('Range', range.trim())
-  }
-  const response = await fetch(url, { headers, signal })
-  if (!response.ok) {
-    throw new Error(await responseErrorMessage(response))
-  }
-  const proofHeader = response.headers.get('X-Malt-ProofList')
+  const payload = await readContent({ baseURL, root, path, range, signal })
   return {
-    endpoint: url.toString(),
-    status: response.status,
-    contentType: response.headers.get('Content-Type') ?? '',
-    contentRange: response.headers.get('Content-Range') ?? '',
-    proofList: proofHeader ? decodeProofListHeader(proofHeader) : null,
-    blob: await response.blob()
+    ...payload,
+    blob: new Blob([payload.bytes], { type: payload.contentType })
   }
 }
 
@@ -324,15 +377,14 @@ export async function readPayloadBlock({ baseURL, cid, signal }) {
   if (!blockCID) {
     throw new Error('payload block CID is required')
   }
-  const url = buildContentURL(baseURL, blockCID)
-  const response = await fetch(url, {
-    headers: { 'X-Malt-Proof': 'omit' },
-    signal
-  })
+  const url = buildCASURL(baseURL, blockCID)
+  const response = await fetch(url, { signal })
   if (!response.ok) {
     throw new Error(await responseErrorMessage(response))
   }
-  return new Uint8Array(await response.arrayBuffer())
+  const bytes = new Uint8Array(await response.arrayBuffer())
+  await assertBlockMatchesCID(blockCID, bytes)
+  return bytes
 }
 
 export async function readDirectory({ baseURL, root, path, signal, omitProof = false }) {
@@ -357,7 +409,10 @@ export async function readDirectoryByPayload({ baseURL, payload, signal }) {
   if (!payloadCID) {
     throw new Error('directory payload CID is required')
   }
-  return readDirectory({ baseURL, root: payloadCID, path: '', signal, omitProof: true })
+  const bytes = await readPayloadBlock({ baseURL, cid: payloadCID, signal })
+  const body = new TextDecoder().decode(bytes)
+  const manifest = JSON.parse(body)
+  return { bytes, body, proofList: null, entries: (manifest.entries || []).map(String).sort() }
 }
 
 export async function diagnoseResolveRemotely({ baseURL, request, result, signal }) {
@@ -394,6 +449,205 @@ export async function diagnoseReadRemotely({ baseURL, request, result, signal })
     source: 'gateway-diagnostic',
     response: payload
   }
+}
+
+async function putPayloadBlock({ baseURL, bytes, codec = 0x55, signal }) {
+  const body = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
+  const url = buildCASURL(baseURL)
+  url.searchParams.set('codec', String(codec))
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/octet-stream' },
+    body,
+    signal
+  })
+  const payload = await readJSONResponse(response)
+  const digest = await sha256.digest(body)
+  const expected = CID.createV1(codec, digest).toString()
+  if (String(payload.cid || '') !== expected) {
+    throw new Error(`gateway returned CAS CID ${JSON.stringify(payload.cid)}, expected ${expected}`)
+  }
+  return expected
+}
+
+async function createStructure({ baseURL, arcs, signal }) {
+  const url = buildGatewayURL(baseURL, ['v1', 'roots'])
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ arcs }),
+    signal
+  })
+  const payload = await readJSONResponse(response)
+  if (!payload.root) throw new Error('gateway did not return a structure root')
+  const root = String(payload.root)
+  if (!isMapCodec(parseCID(root).code)) {
+    throw new Error('gateway did not return a MALT map root')
+  }
+  return root
+}
+
+function directoryNode() {
+  return { kind: 'dir', children: new Map() }
+}
+
+async function loadUnixFSTree(options) {
+  return loadUnixFSDirectory({ ...options, path: '' })
+}
+
+async function loadUnixFSDirectory({
+  baseURL,
+  root,
+  path,
+  signal,
+  verifyExistingContent,
+  verifyExistingResolve
+}) {
+  if (typeof verifyExistingContent !== 'function' || typeof verifyExistingResolve !== 'function') {
+    throw new Error('verified existing-root callbacks are required for UnixFS updates')
+  }
+  const manifest = await readDirectory({ baseURL, root, path, signal })
+  await verifyExistingContent(path, manifest, signal)
+  const node = directoryNode()
+  for (const name of manifest.entries) {
+    const childPath = joinMaltPath(path, name)
+    const stat = await statPath({ baseURL, root, path: childPath, signal })
+    await verifyExistingResolve(childPath, stat, signal)
+    if (stat.kind === 'dir') {
+      node.children.set(
+        name,
+        await loadUnixFSDirectory({
+          baseURL,
+          root,
+          path: childPath,
+          signal,
+          verifyExistingContent,
+          verifyExistingResolve
+        })
+      )
+    } else {
+      node.children.set(name, { kind: 'file', cid: stat.key })
+    }
+  }
+  return node
+}
+
+function setTreeFile(root, segments, cid) {
+  if (!segments.length) throw new Error('upload path is required')
+  let current = root
+  for (const segment of segments.slice(0, -1)) {
+    let child = current.children.get(segment)
+    if (!child || child.kind !== 'dir') {
+      child = directoryNode()
+      current.children.set(segment, child)
+    }
+    current = child
+  }
+  current.children.set(segments[segments.length - 1], { kind: 'file', cid })
+}
+
+async function materializeUnixFSTree({ baseURL, node, signal }) {
+	const names = [...node.children.keys()].sort()
+	const arcs = {}
+	const descendants = new Map()
+	let arcCount = 1
+	for (const name of names) {
+		const child = node.children.get(name)
+		let childCID
+		if (child.kind === 'dir') {
+			const materialized = await materializeUnixFSTree({ baseURL, node: child, signal })
+			childCID = materialized.cid
+			arcCount += materialized.arcCount
+			for (const [relative, target] of materialized.descendants) {
+				descendants.set(`${name}/${relative}`, target)
+			}
+		} else {
+			childCID = child.cid
+		}
+		arcs[name] = childCID
+		descendants.set(name, childCID)
+	}
+	const manifestBytes = new TextEncoder().encode(JSON.stringify({ entries: names }))
+	arcs['@payload'] = await putPayloadBlock({ baseURL, bytes: manifestBytes, signal })
+	for (const [relative, target] of descendants) {
+		if (relative.includes('/')) arcs[relative] = target
+	}
+	const cid = await createStructure({ baseURL, arcs, signal })
+	return { cid, descendants, arcCount: arcCount + Object.keys(arcs).length }
+}
+
+function combineProofLists(resolveProof, readProof, query) {
+  if (!resolveProof || !readProof) throw new Error('resolve and read ProofLists are required')
+  return {
+    root: resolveProof.root,
+    query,
+    steps: [...(resolveProof.steps || []), ...(readProof.steps || [])]
+  }
+}
+
+function parseCID(value) {
+  try {
+    return CID.parse(String(value || '').trim())
+  } catch (err) {
+    throw new Error(`invalid CID ${JSON.stringify(value)}: ${err.message}`)
+  }
+}
+
+async function assertBlockMatchesCID(value, bytes) {
+  const expected = parseCID(value)
+  const actual = CID.createV1(expected.code, await sha256.digest(bytes))
+  if (!actual.equals(expected)) {
+    throw new Error(`gateway CAS bytes do not match requested CID ${expected}`)
+  }
+}
+
+function isMapCodec(codec) {
+	return codec === 0x300001 || codec === 0x300003
+}
+
+function isListCodec(codec) {
+	return codec === 0x300002 || codec === 0x300004
+}
+
+function storageKind(codec) {
+	if (isMapCodec(codec)) return 'map'
+	if (isListCodec(codec)) return 'list'
+	return 'raw'
+}
+
+function concatBytes(chunks) {
+	const length = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0)
+	const out = new Uint8Array(length)
+	let offset = 0
+	for (const chunk of chunks) {
+		out.set(chunk, offset)
+		offset += chunk.byteLength
+	}
+	return out
+}
+
+function parseRequestedRange(raw) {
+	const value = String(raw || '').trim()
+	if (!value) return null
+	const match = /^bytes=(\d+)-(\d+)$/.exec(value)
+	if (!match) throw new Error('range must use bytes=start-end')
+	const start = Number(match[1])
+	const endInclusive = Number(match[2])
+	if (!Number.isSafeInteger(start) || !Number.isSafeInteger(endInclusive) || endInclusive < start) {
+		throw new Error('invalid byte range')
+	}
+	return { start, end: endInclusive + 1 }
+}
+
+function applyByteRange(bytes, raw) {
+	const requested = parseRequestedRange(raw)
+	if (!requested) return { bytes, contentRange: '', partial: false }
+	if (requested.end > bytes.byteLength) throw new Error('byte range exceeds payload length')
+	return {
+		bytes: bytes.subarray(requested.start, requested.end),
+		contentRange: `bytes ${requested.start}-${requested.end - 1}/${bytes.byteLength}`,
+		partial: true
+	}
 }
 
 function buildGatewayURL(baseURL, segments) {
@@ -478,6 +732,6 @@ async function responseErrorMessage(response) {
 }
 
 function apiErrorMessage(response, payload, text) {
-  const message = payload?.error || text?.trim() || response.statusText || 'request failed'
+	const message = payload?.message || payload?.error || text?.trim() || response.statusText || 'request failed'
   return `gateway API error (${response.status}): ${message}`
 }

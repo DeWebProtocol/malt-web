@@ -26,8 +26,8 @@ range reads. The step carries authenticated fixed chunk metadata, covered
 segment CIDs, and metadata/index proof payload. ProofList verification binds
 that metadata and the ordered segment CIDs; UnixFS callers accepting returned
 bytes additionally perform an equivalent body-binding check. The
-`sdk/unixfs.VerifyRangeBody` package path is part of the released v0.0.5 client
-surface.
+`malt-client/unixfs/sdk.VerifyRangeBody` helper is part of the native client
+implementation rather than MALT core.
 
 Metrics should include:
 
