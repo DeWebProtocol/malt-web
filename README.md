@@ -69,8 +69,8 @@ to the implementation repository for source-of-truth technical details.
 
 - [`DeWebProtocol/malt`](https://github.com/dewebprotocol/malt) — application-neutral authentication SDK, normative contracts, MIPs, and verifier
 - [`DeWebProtocol/gateway`](https://github.com/dewebprotocol/gateway) — managed gateway, ArcTable/KV/CAS materialization, and service integration
-- [`DeWebProtocol/malt-client`](https://github.com/dewebprotocol/malt-client) — trusted CLI/daemon, MALT-authenticated UnixFS, and IPFS-compatible Merkle DAG UnixFS import; the four-layer package split is active PR #3
-- [`DeWebProtocol/malt-evaluation`](https://github.com/dewebprotocol/malt-evaluation) — historical and current evaluation tracks; the unified boundary gate is active PR #2
+- [`DeWebProtocol/malt-client`](https://github.com/dewebprotocol/malt-client) — trusted CLI/daemon, MALT-authenticated UnixFS, and IPFS-compatible Merkle DAG UnixFS import, separated into transport, trust, application, and compatibility layers
+- [`DeWebProtocol/malt-evaluation`](https://github.com/dewebprotocol/malt-evaluation) — preserved historical evaluation plus an isolated current-product track and unified boundary gate
 - [`DeWebProtocol/malt-web`](https://github.com/dewebprotocol/malt-web) — browser client, public website, conceptual docs, and tutorials
 - [`DeWebProtocol/.github`](https://github.com/dewebprotocol/.github) — organization profile and community defaults
 

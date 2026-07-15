@@ -36,11 +36,9 @@ useful for integration checks but cannot replace client-side verification.
 
 ## Client
 
-`malt-client` is the native CLI/daemon application. Its active
-[boundary PR](https://github.com/DeWebProtocol/malt-client/pull/3) separates
-untrusted transport, accepted/candidate root policy, UnixFS behavior, and
-Merkle DAG compatibility; these package paths are not current `main` until the
-PR merges. The Web App is the browser application. Both own application path
+`malt-client` is the native CLI/daemon application. Its current package split
+separates untrusted transport, accepted/candidate root policy, UnixFS behavior,
+and Merkle DAG compatibility. The Web App is the browser application. Both own application path
 parsing and UnixFS semantics, pass segment arrays to the gateway, verify
 ProofLists locally, and bind bytes to authenticated CIDs.
 

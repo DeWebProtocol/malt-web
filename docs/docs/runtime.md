@@ -37,12 +37,10 @@ result locally.
 ## Trusted Clients
 
 [`DeWebProtocol/malt-client`](https://github.com/DeWebProtocol/malt-client)
-owns the `malt` CLI and local daemon. Active
-[PR #3](https://github.com/DeWebProtocol/malt-client/pull/3) separates
+owns the `malt` CLI and local daemon. Its current package structure separates
 `transport`, `trust`, `unixfs`, and `merkledag` so untrusted I/O, root policy,
 MALT-authenticated UnixFS, and CID/link replay remain independently reviewable.
-Until it merges, those new package paths are a draft target rather than current
-`main`. The client parses UnixFS `/` paths into segment arrays, verifies
+The client parses UnixFS `/` paths into segment arrays, verifies
 resolve/read results, binds returned payload bytes to authenticated CIDs, and
 keeps gateway-produced roots as candidates until explicit acceptance. It can
 also import IPFS-compatible Merkle DAG UnixFS with
@@ -69,9 +67,9 @@ client instead of becoming a gateway or core route.
 | `gateway/internal/runtime`, `gateway/internal/profile/*` | Per-scope composition and isolated native/CAS/compatibility ports |
 | `gateway/internal/policy/publication` | Named-root revision metadata and freeze policy; not client trust |
 | `malt-client/cmd/malt` | CLI and local daemon lifecycle |
-| `malt-client/transport`, `malt-client/trust` | PR #3 target: untrusted HTTP capabilities and explicit accepted/candidate policy |
-| `malt-client/unixfs/*` | PR #3 target: UnixFS application rules and payload verification |
-| `malt-client/merkledag/*` | PR #3 target: Merkle DAG import and local CID/link replay compatibility |
+| `malt-client/transport`, `malt-client/trust` | Untrusted HTTP capabilities and explicit accepted/candidate policy |
+| `malt-client/unixfs/*` | UnixFS application rules and payload verification |
+| `malt-client/merkledag/*` | Merkle DAG import and local CID/link replay compatibility |
 | `malt/sdk/verifier` | Local trusted verifier envelope, including WASM export |
 
 ## Mutation Limit

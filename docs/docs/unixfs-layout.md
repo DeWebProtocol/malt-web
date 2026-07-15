@@ -39,9 +39,8 @@ the reserved coordinate.
 
 For byte ranges, ProofList verification authenticates fixed chunk metadata and
 the ordered segment CIDs. A caller accepting returned range bytes must also use
-`malt-client/unixfs/sdk.VerifyRangeBody` (moving to
-`malt-client/unixfs.VerifyRangeBody` in client PR #3) or an equivalent check to bind those bytes to
-the authenticated segments.
+`malt-client/unixfs.VerifyRangeBody` or an equivalent check to bind those bytes
+to the authenticated segments.
 
 ## Current Hybrid Materialization
 
