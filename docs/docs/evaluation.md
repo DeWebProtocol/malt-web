@@ -2,20 +2,26 @@
 
 This page records the pre-v0.0.6 evaluation harness contract. It is not a
 paper-results page or a current core CLI contract. The SDK-only core no longer
-ships `malt-eval`. The complete historical runner now lives in
+ships `malt-eval`. The former v0.0.5 evaluator is retired from the active
 [`DeWebProtocol/malt-evaluation`](https://github.com/DeWebProtocol/malt-evaluation)
-and intentionally pins MALT v0.0.5 so the historical implementation remains
-reconstructible. New runs record normalized plans, build provenance, and exact
-write-trace commits; this does not retroactively recover moving `HEAD` inputs
-from older results that omitted them.
+tree. Its source remains recoverable from the
+[standalone import commit](https://github.com/DeWebProtocol/malt-evaluation/commit/774854b5d90c1ba5d57c3d74619dd97a78fd9dcf),
+repository history, and the
+[MALT v0.0.5 release](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.5).
+Historical result files remain provenance only and must not be relabeled as
+current results.
 
-That frozen runner depends on the v0.0.5 reference runtime and storage adapters;
-it must not be presented as a v0.0.6 product test. Current v0.0.6 product
-correctness belongs to the gateway-owned CAS-to-gateway-to-client E2E suite.
-The isolated `malt-evaluation/current` track now implements resolve/read local
-verification, CAS binding, client read/candidate acceptance adapters, a real
-depth/path matrix, logical storage accounting, and immutable baseline links.
-Fresh measurements remain separate from the frozen v0.0.5 records.
+The active evaluator now lives at the `malt-evaluation` repository root; there
+is no nested `current/` module. Its current-product workload implements
+resolve/read local verification, CAS binding, client read/candidate acceptance
+adapters, a deterministic depth/path matrix, logical storage accounting, and
+immutable baseline links. New runs record normalized plans, build provenance,
+and exact write-trace commits; this does not retroactively recover moving
+`HEAD` inputs
+from older results that omitted them. Current product pass/fail correctness
+belongs to the gateway-owned CAS-to-gateway-to-client E2E suite, while the
+evaluator records reproducible measurements over that boundary. Fresh
+measurements remain separate from the frozen v0.0.5 records.
 
 The benchmark protocol is designed to compare MALT, IPLD UnixFS, and IPLD
 UnixFS+HAMT as the implementation and artifacts mature.
@@ -30,8 +36,9 @@ Frozen v0.0.5 readbench systems:
 - `hamt`: IPLD UnixFS with HAMT directory materialization
 
 `maltflat` identifies the frozen v0.0.5 evaluator's full-path flat-map baseline
-and is preserved by its result schemas. It is not a `malt-client` layout value
-and does not name the current client's `hybrid` materialization. New
+and remains the label in its historical result schemas. It is not a
+`malt-client` layout value and does not name the current client's `hybrid`
+materialization. New
 client/product tests should describe the actual target and `layout=hybrid`
 instead of reusing this label.
 
@@ -48,15 +55,16 @@ layout baseline.
 
 ## Frozen v0.0.5 Framework Runner
 
-The historical runner remains available in `malt-evaluation` with this
-entrypoint:
+The historical runner is no longer compiled or maintained on
+`malt-evaluation`'s active branch. When reconstruction is required, use the
+immutable sources linked above. Its entrypoint was:
 
 ```text
 malt-eval run --plan <plan.json> [--out <dir>] [--run-id <id>]
 ```
 
-The run directory contains raw suite JSONL envelopes, `manifest.json`, logs,
-and generated summary CSVs. `malt-eval schema` lists or prints embedded schemas
+A run directory contained raw suite JSONL envelopes, `manifest.json`, logs, and
+generated summary CSVs. `malt-eval schema` listed or printed embedded schemas
 for run plans, run manifests, write traces, read queries, CAS cost-model
 records, proof overhead, storage overhead, and common envelope fields.
 
@@ -123,8 +131,9 @@ Each JSONL record corresponds to one system after one source commit. The source
 commit supplies live files, live payload bytes, file and directory counts, path
 depths, and file mutations.
 
-The historical write-trace schema, adapters, tests, and artifacts are preserved
-in `malt-evaluation`. They are not shipped by MALT core v0.0.6.
+The historical write-trace schema, adapters, tests, and artifacts belong to the
+retired evaluator and remain recoverable from the immutable sources linked
+above. They are not shipped by MALT core v0.0.6.
 
 Required write metrics include:
 
@@ -141,10 +150,11 @@ The main write comparison must include ArcTable and commitment costs.
 
 ## Artifact Status
 
-The first checked-in smoke artifact predates the current three-system read
-schema. It is retained as a command wiring artifact, not a paper-grade result.
+The first historical smoke artifact predates the current three-system read
+schema. It is recoverable with the retired evaluator as a command-wiring
+artifact, not a paper-grade result.
 
-It verifies a MALT-only read path and does not include the current required
+It verified a MALT-only read path and did not include the current required
 `system` or `evidence_item_count` fields. New paper-result artifacts must
 record machine profile, OS, CPU, memory, Go version, CAS latency configuration,
 warmup policy, run count, and statistical aggregation policy.
