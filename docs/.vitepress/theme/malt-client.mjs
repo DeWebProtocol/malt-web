@@ -86,7 +86,7 @@ export async function pushBucketRoot({
 			base_commit: String(baseCommit || '').trim(),
 			base_root: String(baseRoot || '').trim(),
 			candidate_root: String(candidateRoot || '').trim(),
-			expected_head_revision: Number(baseRevision || 0),
+			base_revision: Number(baseRevision || 0),
 			message: String(message || '').trim()
 		}),
 		signal
@@ -99,6 +99,9 @@ export async function pushBucketRoot({
 		throw new Error(`invalid JSON response: ${err.message}`)
 	}
 	if (response.status !== 201 && response.status !== 409) {
+		throw new Error(apiErrorMessage(response, payload, text))
+	}
+	if (response.status === 409 && payload.status !== 'branched') {
 		throw new Error(apiErrorMessage(response, payload, text))
 	}
 	if (!['fast_forward', 'merged', 'branched'].includes(payload.status)) {

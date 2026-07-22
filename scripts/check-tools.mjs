@@ -338,13 +338,13 @@ assert.match(appSource, /async function acceptCandidateRoot\(\)/)
 assert.match(appSource, />\s*Accept candidate root\s*</)
 assert.match(appSource, /Gateway API key/)
 assert.match(appSource, /Refresh Bucket head/)
-assert.match(appSource, /async function pushUploadedCandidate\(candidateRoot\)/)
+assert.match(appSource, /async function pushUploadedCandidate\(candidateRoot, base\)/)
 assert.match(appSource, /async function retryBucketStash\(stash\)/)
 assert.match(appSource, /async function restoreBucketStash\(stash\)/)
 assert.match(appSource, />\s*Retry push\s*</)
 assert.match(appSource, />\s*Use candidate\s*</)
 const pushUploadedCandidateSource = appSource.match(
-	/async function pushUploadedCandidate\(candidateRoot\) \{[\s\S]*?\n\}/
+	/async function pushUploadedCandidate\(candidateRoot, base\) \{[\s\S]*?\n\}/
 )?.[0]
 assert.ok(pushUploadedCandidateSource, 'Bucket push orchestration is missing')
 assert.ok(
@@ -361,6 +361,11 @@ const uploadDroppedSource = appSource.match(
   /async function uploadDropped\(uploadItems\) \{[\s\S]*?\n\}\n\nasync function acceptCandidateRoot/
 )?.[0]
 assert.ok(uploadDroppedSource, 'uploadDropped function is missing')
+assert.ok(
+	uploadDroppedSource.indexOf('captureBucketBase') < uploadDroppedSource.indexOf('uploadUnixFSFile'),
+	'Bucket base must be captured before materialization starts'
+)
+assert.match(uploadDroppedSource, /pushUploadedCandidate\(currentRoot, bucketBase\)/)
 assert.doesNotMatch(uploadDroppedSource, /root\.value\s*=\s*currentRoot/)
 assert.match(uploadDroppedSource, /candidateRoot:\s*currentRoot/)
 assert.match(uploadDroppedSource, /verifyExistingContent/)
@@ -605,7 +610,28 @@ const pushed = await pushBucketRoot({
 	candidateRoot: casCID
 })
 assert.equal(pushed.status, 'branched')
-assert.equal(JSON.parse(bucketRequest.options.body).base_commit, 'cmt_one')
+const bucketPushBody = JSON.parse(bucketRequest.options.body)
+assert.equal(bucketPushBody.base_commit, 'cmt_one')
+assert.equal(bucketPushBody.base_revision, 1)
+assert.equal('expected_head_revision' in bucketPushBody, false)
+globalThis.fetch = async () =>
+	new Response(JSON.stringify({ error: 'bucket push ID was already used for a different request' }), {
+		status: 409,
+		headers: { 'Content-Type': 'application/json' }
+	})
+await assert.rejects(
+	pushBucketRoot({
+		baseURL: 'http://127.0.0.1:8080',
+		bucketID: 'bkt_one',
+		apiKey: 'secret',
+		pushID: 'push_one',
+		baseCommit: 'cmt_one',
+		baseRoot: casCID,
+		baseRevision: 1,
+		candidateRoot: casCID
+	}),
+	/already used for a different request/
+)
 globalThis.fetch = originalFetch
 
 const rootCID = 'bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku'

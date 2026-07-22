@@ -424,6 +424,17 @@ function bucketStashStorageKey() {
 	return `malt-app-bucket-stashes:${activeProfile.value}:${bucketID.value.trim()}`
 }
 
+function newBucketStashID() {
+	if (typeof globalThis.crypto?.randomUUID === 'function') {
+		return globalThis.crypto.randomUUID()
+	}
+	if (typeof globalThis.crypto?.getRandomValues !== 'function') {
+		throw new Error('secure randomness is required to create a Bucket push ID')
+	}
+	const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16))
+	return Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('')
+}
+
 function loadBucketStashes() {
 	if (!activeProfile.value || !bucketID.value.trim()) {
 		bucketStashes.value = []
@@ -450,7 +461,7 @@ function loadBucketStashes() {
 
 function saveBucketStash(candidateRoot, base) {
 	const stash = {
-		id: globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+		id: newBucketStashID(),
 		candidateRoot,
 		base: {
 			commitID: String(base?.commit_id || ''),
@@ -499,7 +510,11 @@ async function retryBucketStash(stash) {
 	error.value = ''
 	busy.value = true
 	try {
-		await observeBucketHead()
+		try {
+			await observeBucketHead()
+		} catch {
+			bucketStatus.value = 'Could not refresh the Bucket head; retrying the preserved push directly.'
+		}
 		const result = await withDaemonTimeout(
 			'retry Bucket push',
 			(signal) =>
@@ -544,12 +559,20 @@ async function restoreBucketStash(stash) {
 	await loadRoot('', { history: 'replace' })
 }
 
-async function pushUploadedCandidate(candidateRoot) {
-	if (!bucketConfigured.value) return null
+function captureBucketBase(selectedRoot) {
 	const base = bucketHead.value
-	if (!base || String(base.root || '') !== root.value.trim()) {
-		throw new Error('selected root is not the observed Bucket head; refresh and explicitly select the head before pushing')
+	if (!base || String(base.root || '') !== String(selectedRoot || '').trim()) {
+		throw new Error('selected root is not the observed Bucket head; refresh and explicitly select the head before uploading')
 	}
+	return Object.freeze({
+		commit_id: String(base.commit_id || ''),
+		root: String(base.root || ''),
+		revision: Number(base.revision || 0)
+	})
+}
+
+async function pushUploadedCandidate(candidateRoot, base) {
+	if (!bucketConfigured.value) return null
 	// Persist local intent before any remote fetch. Observing a newer head below
 	// updates only Bucket metadata and cannot erase this candidate or its base.
 	const stash = saveBucketStash(candidateRoot, base)
@@ -1120,7 +1143,11 @@ async function uploadDropped(uploadItems) {
 
   busy.value = true
   try {
-    let currentRoot = root.value.trim()
+		const materializationRoot = root.value.trim()
+		// Capture the exact base before the first asynchronous materialization
+		// request. Later head observations cannot rebind this candidate.
+		const bucketBase = bucketConfigured.value ? captureBucketBase(materializationRoot) : null
+    let currentRoot = materializationRoot
     const writes = []
     for (const [index, item] of uploadItems.entries()) {
       const writePath = targetUploadPath(item.path)
@@ -1176,7 +1203,7 @@ async function uploadDropped(uploadItems) {
       currentRoot = write.newRoot
     }
     uploadResult.value = {
-      baseRoot: root.value.trim(),
+			baseRoot: materializationRoot,
       candidateRoot: currentRoot,
       newRoot: currentRoot,
       accepted: false,
@@ -1184,7 +1211,7 @@ async function uploadDropped(uploadItems) {
     }
 		if (bucketConfigured.value) {
 			uploadStatus.value = 'Local candidate stashed. Fetching the latest Bucket head before push…'
-			const pushed = await pushUploadedCandidate(currentRoot)
+			const pushed = await pushUploadedCandidate(currentRoot, bucketBase)
 			const selectedCandidate = pushed.status === 'branched' ? currentRoot : pushed.head.root
 			uploadResult.value = {
 				...uploadResult.value,
@@ -2033,23 +2060,23 @@ function formatSize(size) {
         <div class="malt-app__settings-grid">
           <label>
             <span>Root</span>
-            <input v-model="root" autocomplete="off" spellcheck="false" />
+            <input v-model="root" :disabled="busy" autocomplete="off" spellcheck="false" />
           </label>
           <label>
             <span>Gateway URL</span>
-            <input v-model="baseURL" autocomplete="off" spellcheck="false" />
+            <input v-model="baseURL" :disabled="busy" autocomplete="off" spellcheck="false" />
           </label>
 			<label>
 				<span>Bucket ID</span>
-				<input v-model="bucketID" autocomplete="off" spellcheck="false" />
+				<input v-model="bucketID" :disabled="busy" autocomplete="off" spellcheck="false" />
 			</label>
 			<label>
 				<span>Gateway API key</span>
-				<input v-model="apiKey" type="password" autocomplete="off" spellcheck="false" />
+				<input v-model="apiKey" :disabled="busy" type="password" autocomplete="off" spellcheck="false" />
 			</label>
           <label>
             <span>Upload prefix</span>
-            <input v-model="prefix" autocomplete="off" spellcheck="false" />
+            <input v-model="prefix" :disabled="busy" autocomplete="off" spellcheck="false" />
           </label>
         </div>
         <div class="malt-app__button-row">
