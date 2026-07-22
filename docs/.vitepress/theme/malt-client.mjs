@@ -9,14 +9,14 @@ export const defaultDaemonURL = defaultGatewayURL
 export const defaultCASURL = defaultGatewayURL
 export const appFallbackStorageKey = 'malt-app-fallback-path'
 
-export function buildResolveURL(baseURL, root, rawPath = '') {
-  void root
-  void rawPath
-  return buildGatewayURL(baseURL, ['v1', 'resolve'])
+export function buildResolveURL(baseURL, root, rawPath = '', bucketID = '') {
+	void root
+	void rawPath
+	return buildNativeGatewayURL(baseURL, bucketID, ['resolve'])
 }
 
-export function buildReadURL(baseURL) {
-  return buildGatewayURL(baseURL, ['v1', 'read'])
+export function buildReadURL(baseURL, bucketID = '') {
+	return buildNativeGatewayURL(baseURL, bucketID, ['read'])
 }
 
 export function buildVerifyResolveURL(baseURL) {
@@ -27,8 +27,91 @@ export function buildVerifyReadURL(baseURL) {
   return buildGatewayURL(baseURL, ['v1', 'verify', 'read'])
 }
 
-export function buildCASURL(baseURL, cid = '') {
-  return buildGatewayURL(baseURL, ['v1', 'cas', ...(cid ? [cid] : [])])
+export function buildCASURL(baseURL, cid = '', bucketID = '') {
+	return buildNativeGatewayURL(baseURL, bucketID, ['cas', ...(cid ? [cid] : [])])
+}
+
+export function buildBucketURL(baseURL, bucketID, suffix = []) {
+	const selected = String(bucketID || '').trim()
+	if (!selected) throw new Error('Bucket ID is required')
+	return buildGatewayURL(baseURL, ['v1', 'buckets', selected, ...suffix])
+}
+
+export async function fetchBuckets({ baseURL, apiKey, signal }) {
+	const url = buildGatewayURL(baseURL, ['v1', 'buckets'])
+	const response = await fetch(url, gatewayRequestOptions(url, apiKey, { signal }))
+	const payload = await readJSONResponse(response)
+	if (!Array.isArray(payload.buckets)) throw new Error('gateway did not return a Bucket list')
+	return payload.buckets
+}
+
+export async function fetchBucketHead({ baseURL, bucketID, apiKey, signal }) {
+	const url = buildBucketURL(baseURL, bucketID, ['head'])
+	const response = await fetch(url, gatewayRequestOptions(url, apiKey, { signal }))
+	const head = await readJSONResponse(response)
+	if (head.bucket_id !== String(bucketID || '').trim() || head.name !== 'main') {
+		throw new Error('gateway returned a head for a different Bucket or ref')
+	}
+	if (head.commit_id) {
+		parseCID(head.root)
+		if (!Number.isSafeInteger(head.revision) || head.revision < 1) {
+			throw new Error('gateway returned an invalid Bucket head revision')
+		}
+	} else if (head.root || head.revision !== 0) {
+		throw new Error('gateway returned an invalid empty Bucket head')
+	}
+	return head
+}
+
+export async function pushBucketRoot({
+	baseURL,
+	bucketID,
+	apiKey,
+	pushID,
+	baseCommit,
+	baseRoot,
+	baseRevision,
+	candidateRoot,
+	message,
+	signal
+}) {
+	parseCID(candidateRoot)
+	if (baseRoot) parseCID(baseRoot)
+	const url = buildBucketURL(baseURL, bucketID, ['push'])
+	const response = await fetch(url, gatewayRequestOptions(url, apiKey, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({
+			push_id: String(pushID || '').trim(),
+			base_commit: String(baseCommit || '').trim(),
+			base_root: String(baseRoot || '').trim(),
+			candidate_root: String(candidateRoot || '').trim(),
+			expected_head_revision: Number(baseRevision || 0),
+			message: String(message || '').trim()
+		}),
+		signal
+	}))
+	const text = await response.text()
+	let payload
+	try {
+		payload = JSON.parse(text)
+	} catch (err) {
+		throw new Error(`invalid JSON response: ${err.message}`)
+	}
+	if (response.status !== 201 && response.status !== 409) {
+		throw new Error(apiErrorMessage(response, payload, text))
+	}
+	if (!['fast_forward', 'merged', 'branched'].includes(payload.status)) {
+		throw new Error('gateway returned an unsupported Bucket push status')
+	}
+	if (!payload.head || payload.head.bucket_id !== String(bucketID || '').trim()) {
+		throw new Error('gateway returned an invalid Bucket push head')
+	}
+	if (payload.head.root) parseCID(payload.head.root)
+	if ((payload.status === 'branched') !== Boolean(payload.branch)) {
+		throw new Error('gateway returned an inconsistent Bucket conflict result')
+	}
+	return payload
 }
 
 export function buildAppStatePath(appBasePath, root, rawPath = '') {
@@ -187,19 +270,19 @@ export function activeProfileStorageKey() {
   return 'malt-app-active-profile'
 }
 
-export async function resolvePath({ baseURL, root, path, signal }) {
-  const url = buildResolveURL(baseURL, root, path)
+export async function resolvePath({ baseURL, root, path, bucketID, apiKey, signal }) {
+	const url = buildResolveURL(baseURL, root, path, bucketID)
   const request = {
     profile: resolveProfile,
     root: String(root || '').trim(),
     segments: pathSegments(path)
   }
-  const response = await fetch(url, {
+  const response = await fetch(url, gatewayRequestOptions(url, apiKey, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+		headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(request),
     signal
-  })
+  }))
   const payload = await readJSONResponse(response)
   return {
     endpoint: url.toString(),
@@ -211,15 +294,15 @@ export async function resolvePath({ baseURL, root, path, signal }) {
   }
 }
 
-export async function readQuery({ baseURL, root, query, signal }) {
-  const url = buildReadURL(baseURL)
+export async function readQuery({ baseURL, root, query, bucketID, apiKey, signal }) {
+	const url = buildReadURL(baseURL, bucketID)
   const request = { profile: readProfile, root: String(root || '').trim(), query }
-  const response = await fetch(url, {
+  const response = await fetch(url, gatewayRequestOptions(url, apiKey, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+		headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(request),
     signal
-  })
+  }))
   const payload = await readJSONResponse(response)
   return {
     endpoint: url.toString(),
@@ -235,7 +318,9 @@ export async function uploadUnixFSFile({
   baseURL,
   root,
   path,
-  file,
+	file,
+	bucketID,
+	apiKey,
   signal,
   verifyExistingContent,
   verifyExistingResolve
@@ -244,7 +329,9 @@ export async function uploadUnixFSFile({
   const oldRoot = String(root || '').trim()
   const tree = oldRoot
     ? await loadUnixFSTree({
-        baseURL,
+		baseURL,
+		bucketID,
+		apiKey,
         root: oldRoot,
         signal,
         verifyExistingContent,
@@ -252,11 +339,11 @@ export async function uploadUnixFSFile({
       })
     : directoryNode()
   const bytes = new Uint8Array(await file.arrayBuffer())
-  const fileCID = await putPayloadBlock({ baseURL, bytes, signal })
+	const fileCID = await putPayloadBlock({ baseURL, bucketID, apiKey, bytes, signal })
   setTreeFile(tree, pathSegments(cleanPath), fileCID)
-  const materialized = await materializeUnixFSTree({ baseURL, node: tree, signal })
+	const materialized = await materializeUnixFSTree({ baseURL, bucketID, apiKey, node: tree, signal })
   return {
-    endpoint: buildGatewayURL(baseURL, ['v1', 'roots']).toString(),
+		endpoint: buildNativeGatewayURL(baseURL, bucketID, ['roots']).toString(),
     status: 201,
     path: cleanPath,
     kind: 'file',
@@ -267,14 +354,16 @@ export async function uploadUnixFSFile({
   }
 }
 
-export async function statPath({ baseURL, root, path, signal }) {
-  const resolved = await resolvePath({ baseURL, root, path, signal })
+export async function statPath({ baseURL, root, path, bucketID, apiKey, signal }) {
+	const resolved = await resolvePath({ baseURL, root, path, bucketID, apiKey, signal })
   const codec = parseCID(resolved.result.target).code
   const kind = isMapCodec(codec) ? 'dir' : 'file'
   let payload = ''
   if (kind === 'dir') {
     const payloadResult = await resolvePath({
-      baseURL,
+		baseURL,
+		bucketID,
+		apiKey,
       root,
       path: joinMaltPath(path, '@payload'),
       signal
@@ -295,9 +384,9 @@ export async function statPath({ baseURL, root, path, signal }) {
   }
 }
 
-export async function readContent({ baseURL, root, path, range, signal, omitProof = false }) {
+export async function readContent({ baseURL, root, path, range, bucketID, apiKey, signal, omitProof = false }) {
   void omitProof
-  const resolved = await resolvePath({ baseURL, root, path, signal })
+	const resolved = await resolvePath({ baseURL, root, path, bucketID, apiKey, signal })
   const target = resolved.result.target
   const codec = parseCID(target).code
   let proofList = resolved.proofList
@@ -307,27 +396,31 @@ export async function readContent({ baseURL, root, path, range, signal, omitProo
   let rangeHandled = false
   if (isMapCodec(codec)) {
     const payloadResolve = await resolvePath({
-      baseURL,
+		baseURL,
+		bucketID,
+		apiKey,
       root,
       path: joinMaltPath(path, '@payload'),
       signal
     })
     proofList = payloadResolve.proofList
-    bytes = await readPayloadBlock({ baseURL, cid: payloadResolve.result.target, signal })
+		bytes = await readPayloadBlock({ baseURL, bucketID, apiKey, cid: payloadResolve.result.target, signal })
     contentType = 'application/json'
   } else if (isListCodec(codec)) {
     const requested = parseRequestedRange(range)
     const query = { kind: 'list_range', start: requested?.start ?? 0 }
     if (requested?.end != null) query.end = requested.end
     const read = await readQuery({
-      baseURL,
+		baseURL,
+		bucketID,
+		apiKey,
       root: target,
       query,
       signal
     })
     proofList = combineProofLists(resolved.proofList, read.proofList, pathSegments(path).join('/'))
     const chunks = await Promise.all(
-      (read.result.range_segments || []).map((cid) => readPayloadBlock({ baseURL, cid, signal }))
+		(read.result.range_segments || []).map((cid) => readPayloadBlock({ baseURL, bucketID, apiKey, cid, signal }))
     )
     const step = [...(read.proofList?.steps || [])]
       .reverse()
@@ -343,7 +436,7 @@ export async function readContent({ baseURL, root, path, range, signal, omitProo
     if (start !== 0 || end !== total) contentRange = `bytes ${start}-${end - 1}/${total}`
     rangeHandled = true
   } else {
-    bytes = await readPayloadBlock({ baseURL, cid: target, signal })
+		bytes = await readPayloadBlock({ baseURL, bucketID, apiKey, cid: target, signal })
   }
   const selected = rangeHandled
     ? { bytes, contentRange, partial: Boolean(contentRange) }
@@ -361,8 +454,8 @@ export async function readContent({ baseURL, root, path, range, signal, omitProo
   }
 }
 
-export async function readContentBlob({ baseURL, root, path, range, signal }) {
-  const payload = await readContent({ baseURL, root, path, range, signal })
+export async function readContentBlob({ baseURL, root, path, range, bucketID, apiKey, signal }) {
+	const payload = await readContent({ baseURL, root, path, range, bucketID, apiKey, signal })
   return {
     ...payload,
     blob: new Blob([payload.bytes], { type: payload.contentType })
@@ -372,13 +465,13 @@ export async function readContentBlob({ baseURL, root, path, range, signal }) {
 // Fetch one immutable payload block through the same gateway. Callers must
 // still hash the returned bytes against the requested CID; this endpoint is an
 // availability path, not a trust decision.
-export async function readPayloadBlock({ baseURL, cid, signal }) {
+export async function readPayloadBlock({ baseURL, cid, bucketID, apiKey, signal }) {
   const blockCID = String(cid || '').trim()
   if (!blockCID) {
     throw new Error('payload block CID is required')
   }
-  const url = buildCASURL(baseURL, blockCID)
-  const response = await fetch(url, { signal })
+	const url = buildCASURL(baseURL, blockCID, bucketID)
+	const response = await fetch(url, gatewayRequestOptions(url, apiKey, { signal }))
   if (!response.ok) {
     throw new Error(await responseErrorMessage(response))
   }
@@ -387,8 +480,8 @@ export async function readPayloadBlock({ baseURL, cid, signal }) {
   return bytes
 }
 
-export async function readDirectory({ baseURL, root, path, signal, omitProof = false }) {
-  const payload = await readContent({ baseURL, root, path, signal, omitProof })
+export async function readDirectory({ baseURL, root, path, bucketID, apiKey, signal, omitProof = false }) {
+	const payload = await readContent({ baseURL, root, path, bucketID, apiKey, signal, omitProof })
   let manifest
   try {
     manifest = JSON.parse(payload.body)
@@ -404,12 +497,12 @@ export async function readDirectory({ baseURL, root, path, signal, omitProof = f
   }
 }
 
-export async function readDirectoryByPayload({ baseURL, payload, signal }) {
+export async function readDirectoryByPayload({ baseURL, payload, bucketID, apiKey, signal }) {
   const payloadCID = String(payload || '').trim()
   if (!payloadCID) {
     throw new Error('directory payload CID is required')
   }
-  const bytes = await readPayloadBlock({ baseURL, cid: payloadCID, signal })
+	const bytes = await readPayloadBlock({ baseURL, bucketID, apiKey, cid: payloadCID, signal })
   const body = new TextDecoder().decode(bytes)
   const manifest = JSON.parse(body)
   return { bytes, body, proofList: null, entries: (manifest.entries || []).map(String).sort() }
@@ -451,16 +544,16 @@ export async function diagnoseReadRemotely({ baseURL, request, result, signal })
   }
 }
 
-async function putPayloadBlock({ baseURL, bytes, codec = 0x55, signal }) {
+async function putPayloadBlock({ baseURL, bytes, codec = 0x55, bucketID, apiKey, signal }) {
   const body = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
-  const url = buildCASURL(baseURL)
+	const url = buildCASURL(baseURL, '', bucketID)
   url.searchParams.set('codec', String(codec))
-  const response = await fetch(url, {
+  const response = await fetch(url, gatewayRequestOptions(url, apiKey, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/octet-stream' },
+		headers: { 'Content-Type': 'application/octet-stream' },
     body,
     signal
-  })
+  }))
   const payload = await readJSONResponse(response)
   const digest = await sha256.digest(body)
   const expected = CID.createV1(codec, digest).toString()
@@ -470,14 +563,14 @@ async function putPayloadBlock({ baseURL, bytes, codec = 0x55, signal }) {
   return expected
 }
 
-async function createStructure({ baseURL, arcs, signal }) {
-  const url = buildGatewayURL(baseURL, ['v1', 'roots'])
-  const response = await fetch(url, {
+async function createStructure({ baseURL, arcs, bucketID, apiKey, signal }) {
+	const url = buildNativeGatewayURL(baseURL, bucketID, ['roots'])
+  const response = await fetch(url, gatewayRequestOptions(url, apiKey, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+		headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ arcs }),
     signal
-  })
+  }))
   const payload = await readJSONResponse(response)
   if (!payload.root) throw new Error('gateway did not return a structure root')
   const root = String(payload.root)
@@ -496,7 +589,9 @@ async function loadUnixFSTree(options) {
 }
 
 async function loadUnixFSDirectory({
-  baseURL,
+	baseURL,
+	bucketID,
+	apiKey,
   root,
   path,
   signal,
@@ -506,18 +601,20 @@ async function loadUnixFSDirectory({
   if (typeof verifyExistingContent !== 'function' || typeof verifyExistingResolve !== 'function') {
     throw new Error('verified existing-root callbacks are required for UnixFS updates')
   }
-  const manifest = await readDirectory({ baseURL, root, path, signal })
+	const manifest = await readDirectory({ baseURL, root, path, bucketID, apiKey, signal })
   await verifyExistingContent(path, manifest, signal)
   const node = directoryNode()
   for (const name of manifest.entries) {
     const childPath = joinMaltPath(path, name)
-    const stat = await statPath({ baseURL, root, path: childPath, signal })
+		const stat = await statPath({ baseURL, root, path: childPath, bucketID, apiKey, signal })
     await verifyExistingResolve(childPath, stat, signal)
     if (stat.kind === 'dir') {
       node.children.set(
         name,
         await loadUnixFSDirectory({
-          baseURL,
+			baseURL,
+			bucketID,
+			apiKey,
           root,
           path: childPath,
           signal,
@@ -546,7 +643,7 @@ function setTreeFile(root, segments, cid) {
   current.children.set(segments[segments.length - 1], { kind: 'file', cid })
 }
 
-async function materializeUnixFSTree({ baseURL, node, signal }) {
+async function materializeUnixFSTree({ baseURL, node, bucketID, apiKey, signal }) {
 	const names = [...node.children.keys()].sort()
 	const arcs = {}
 	const descendants = new Map()
@@ -555,7 +652,7 @@ async function materializeUnixFSTree({ baseURL, node, signal }) {
 		const child = node.children.get(name)
 		let childCID
 		if (child.kind === 'dir') {
-			const materialized = await materializeUnixFSTree({ baseURL, node: child, signal })
+			const materialized = await materializeUnixFSTree({ baseURL, bucketID, apiKey, node: child, signal })
 			childCID = materialized.cid
 			arcCount += materialized.arcCount
 			for (const [relative, target] of materialized.descendants) {
@@ -568,11 +665,11 @@ async function materializeUnixFSTree({ baseURL, node, signal }) {
 		descendants.set(name, childCID)
 	}
 	const manifestBytes = new TextEncoder().encode(JSON.stringify({ entries: names }))
-	arcs['@payload'] = await putPayloadBlock({ baseURL, bytes: manifestBytes, signal })
+	arcs['@payload'] = await putPayloadBlock({ baseURL, bucketID, apiKey, bytes: manifestBytes, signal })
 	for (const [relative, target] of descendants) {
 		if (relative.includes('/')) arcs[relative] = target
 	}
-	const cid = await createStructure({ baseURL, arcs, signal })
+	const cid = await createStructure({ baseURL, bucketID, apiKey, arcs, signal })
 	return { cid, descendants, arcCount: arcCount + Object.keys(arcs).length }
 }
 
@@ -656,6 +753,44 @@ function buildGatewayURL(baseURL, segments) {
   const encoded = segments.map((segment) => encodeURIComponent(String(segment).trim()))
   url.pathname = [prefix, ...encoded].filter(Boolean).join('/')
   return url
+}
+
+function buildNativeGatewayURL(baseURL, bucketID, suffix) {
+	const selected = String(bucketID || '').trim()
+	return selected
+		? buildBucketURL(baseURL, selected, suffix)
+		: buildGatewayURL(baseURL, ['v1', ...suffix])
+}
+
+function gatewayHeaders(apiKey, values = {}) {
+	const headers = { ...values }
+	const token = String(apiKey || '').trim()
+	if (token) headers.Authorization = `Bearer ${token}`
+	return headers
+}
+
+function gatewayRequestOptions(url, apiKey, options = {}) {
+	const token = String(apiKey || '').trim()
+	const { headers = {}, ...rest } = options
+	if (token) assertSecureCredentialURL(url)
+	return {
+		...rest,
+		headers: gatewayHeaders(token, headers),
+		...(token ? { redirect: 'error' } : {})
+	}
+}
+
+function assertSecureCredentialURL(value) {
+	const url = value instanceof URL ? value : new URL(String(value))
+	const hostname = url.hostname.toLowerCase()
+	const loopback =
+		hostname === 'localhost' ||
+		hostname === '::1' ||
+		hostname === '[::1]' ||
+		/^127(?:\.\d{1,3}){3}$/.test(hostname)
+	if (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback)) {
+		throw new Error('Gateway API keys require HTTPS or a loopback HTTP Gateway')
+	}
 }
 
 function normalizeBaseURL(baseURL) {

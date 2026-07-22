@@ -11,6 +11,7 @@ import {
 	ancestorDirectoryPaths,
 	buildAppStatePath,
 	buildCASURL,
+	buildBucketURL,
 	buildReadURL,
 	buildResolveURL,
 	buildVerifyReadURL,
@@ -18,6 +19,7 @@ import {
 	decodeProofListHeader,
 	extractProofListInput,
 	extractVerificationInput,
+	fetchBucketHead,
   isAppStateRoute,
   joinMaltPath,
   parseAppFallbackRoute,
@@ -25,6 +27,7 @@ import {
   pathBasename,
   pathParent,
 	profileStorageKey,
+	pushBucketRoot,
 	readPayloadBlock,
 	readProfile,
 	normalizeUploadPath,
@@ -333,6 +336,27 @@ assert.match(appSource, /verifyPayloadBytes/)
 assert.match(appSource, /readPayloadBlock/)
 assert.match(appSource, /async function acceptCandidateRoot\(\)/)
 assert.match(appSource, />\s*Accept candidate root\s*</)
+assert.match(appSource, /Gateway API key/)
+assert.match(appSource, /Refresh Bucket head/)
+assert.match(appSource, /async function pushUploadedCandidate\(candidateRoot\)/)
+assert.match(appSource, /async function retryBucketStash\(stash\)/)
+assert.match(appSource, /async function restoreBucketStash\(stash\)/)
+assert.match(appSource, />\s*Retry push\s*</)
+assert.match(appSource, />\s*Use candidate\s*</)
+const pushUploadedCandidateSource = appSource.match(
+	/async function pushUploadedCandidate\(candidateRoot\) \{[\s\S]*?\n\}/
+)?.[0]
+assert.ok(pushUploadedCandidateSource, 'Bucket push orchestration is missing')
+assert.ok(
+	pushUploadedCandidateSource.indexOf('saveBucketStash') <
+		pushUploadedCandidateSource.indexOf('observeBucketHead'),
+	'Bucket candidate must be stashed before fetching the remote head'
+)
+const persistProfileSource = appSource.match(
+	/function persistProfile\(\) \{[\s\S]*?\n\}/
+)?.[0]
+assert.ok(persistProfileSource, 'persistProfile is missing')
+assert.doesNotMatch(persistProfileSource, /apiKey/)
 const uploadDroppedSource = appSource.match(
   /async function uploadDropped\(uploadItems\) \{[\s\S]*?\n\}\n\nasync function acceptCandidateRoot/
 )?.[0]
@@ -496,6 +520,14 @@ assert.equal(
   buildCASURL('http://127.0.0.1:8080', 'bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku').toString(),
   'http://127.0.0.1:8080/v1/cas/bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku'
 )
+assert.equal(
+	buildBucketURL('http://127.0.0.1:8080', 'bkt_one', ['head']).toString(),
+	'http://127.0.0.1:8080/v1/buckets/bkt_one/head'
+)
+assert.equal(
+	buildResolveURL('http://127.0.0.1:8080', 'bafkqaaa', '', 'bkt_one').toString(),
+	'http://127.0.0.1:8080/v1/buckets/bkt_one/resolve'
+)
 assert.equal(normalizeUploadPath('dir/read me.txt'), 'dir/read me.txt')
 assert.equal(normalizeUploadPath('100%/value%2F.txt'), '100%/value%2F.txt')
 for (const invalidPath of ['/absolute', 'trailing/', 'a//b', 'a/../b', '@payload']) {
@@ -515,6 +547,65 @@ await assert.rejects(
   readPayloadBlock({ baseURL: 'http://127.0.0.1:8080', cid: casCID }),
   /do not match requested CID/
 )
+let bucketRequest
+globalThis.fetch = async (url, options = {}) => {
+	bucketRequest = { url: String(url), options }
+	return new Response(
+		JSON.stringify({
+			bucket_id: 'bkt_one',
+			name: 'main',
+			kind: 'main',
+			state: 'open',
+			commit_id: 'cmt_one',
+			root: casCID,
+			revision: 1
+		}),
+		{ status: 200, headers: { 'Content-Type': 'application/json' } }
+	)
+}
+const observedHead = await fetchBucketHead({
+	baseURL: 'http://127.0.0.1:8080',
+	bucketID: 'bkt_one',
+	apiKey: 'secret'
+})
+assert.equal(observedHead.commit_id, 'cmt_one')
+assert.equal(bucketRequest.options.headers.Authorization, 'Bearer secret')
+assert.equal(bucketRequest.options.redirect, 'error')
+
+await assert.rejects(
+	fetchBucketHead({
+		baseURL: 'http://gateway.example',
+		bucketID: 'bkt_one',
+		apiKey: 'secret'
+	}),
+	/require HTTPS or a loopback HTTP Gateway/
+)
+
+globalThis.fetch = async (url, options = {}) => {
+	bucketRequest = { url: String(url), options }
+	return new Response(
+		JSON.stringify({
+			status: 'branched',
+			head: observedHead,
+			commit: { id: 'cmt_candidate', bucket_id: 'bkt_one', root: casCID },
+			branch: { ...observedHead, name: 'conflicts/alice/one', kind: 'conflict' },
+			conflicts: [{ coordinate: 'docs/readme' }]
+		}),
+		{ status: 409, headers: { 'Content-Type': 'application/json' } }
+	)
+}
+const pushed = await pushBucketRoot({
+	baseURL: 'http://127.0.0.1:8080',
+	bucketID: 'bkt_one',
+	apiKey: 'secret',
+	pushID: 'push_one',
+	baseCommit: 'cmt_one',
+	baseRoot: casCID,
+	baseRevision: 1,
+	candidateRoot: casCID
+})
+assert.equal(pushed.status, 'branched')
+assert.equal(JSON.parse(bucketRequest.options.body).base_commit, 'cmt_one')
 globalThis.fetch = originalFetch
 
 const rootCID = 'bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku'

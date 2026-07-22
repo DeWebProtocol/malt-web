@@ -8,6 +8,7 @@ import {
   appFallbackStorageKey,
   buildAppStatePath,
   defaultGatewayURL,
+	fetchBucketHead,
   joinMaltPath,
   normalizeUploadPath,
   pathBasename,
@@ -18,7 +19,8 @@ import {
 	readContentBlob,
 	readDirectory,
 	readPayloadBlock,
-	statPath,
+  statPath,
+	pushBucketRoot,
   uploadPathForFile,
   uploadUnixFSFile
 } from '../malt-client.mjs'
@@ -30,6 +32,11 @@ import {
 } from '../malt-verifier.mjs'
 
 const baseURL = ref(defaultGatewayURL)
+const apiKey = ref('')
+const bucketID = ref('')
+const bucketHead = ref(null)
+const bucketStatus = ref('')
+const bucketStashes = ref([])
 const profileInput = ref('')
 const activeProfile = ref('')
 const root = ref('')
@@ -145,6 +152,7 @@ let copyFeedbackTimer = 0
 let directoryHydrationGeneration = 0
 
 const signedIn = computed(() => activeProfile.value !== '')
+const bucketConfigured = computed(() => Boolean(bucketID.value.trim() && apiKey.value.trim()))
 const currentLabel = computed(() => (currentPath.value ? `/${currentPath.value}` : '/'))
 const proofText = computed(() =>
   proofView.value?.proofList ? JSON.stringify(proofView.value.proofList, null, 2) : ''
@@ -251,6 +259,11 @@ function signIn() {
   const routeState = currentAppRouteState()
   const hasRouteRoot = Boolean(routeState?.root)
   baseURL.value = saved.baseURL || baseURL.value || defaultGatewayURL
+	bucketID.value = saved.bucketID || ''
+	bucketHead.value = saved.bucketHead || null
+	apiKey.value = ''
+	bucketStatus.value = bucketID.value ? 'Enter the API key to refresh this Bucket head.' : ''
+	loadBucketStashes()
   root.value = hasRouteRoot ? routeState.root : saved.root || ''
   currentPath.value = root.value ? (hasRouteRoot ? routeState.path : saved.currentPath || '') : ''
   prefix.value = saved.prefix || ''
@@ -279,6 +292,11 @@ function signOut() {
   activeProfile.value = ''
   profileInput.value = ''
   baseURL.value = defaultGatewayURL
+	apiKey.value = ''
+	bucketID.value = ''
+	bucketHead.value = null
+	bucketStatus.value = ''
+	bucketStashes.value = []
   root.value = ''
   currentPath.value = ''
   prefix.value = ''
@@ -310,6 +328,8 @@ function persistProfile() {
     profileStorageKey(activeProfile.value),
     JSON.stringify({
       baseURL: baseURL.value,
+		bucketID: bucketID.value,
+		bucketHead: bucketHead.value,
       root: root.value,
       currentPath: currentPath.value,
       prefix: prefix.value,
@@ -321,6 +341,19 @@ function persistProfile() {
 async function applySettings() {
   error.value = ''
   openMenuPath.value = ''
+	if (bucketID.value.trim() && !apiKey.value.trim()) {
+		error.value = 'API key is required for a managed Bucket'
+		return
+	}
+	loadBucketStashes()
+	if (bucketConfigured.value) {
+		try {
+			await observeBucketHead()
+		} catch (err) {
+			error.value = err instanceof Error ? err.message : String(err)
+			return
+		}
+	}
   if (!root.value.trim()) {
     currentPath.value = ''
     entries.value = []
@@ -329,13 +362,220 @@ async function applySettings() {
     clearPreview()
     proofView.value = null
     persistProfile()
-    settingsOpen.value = false
+		settingsOpen.value = Boolean(bucketHead.value?.root)
     syncBrowserLocation('replace')
     return
   }
   settingsOpen.value = false
   resetTreeState()
   await loadRoot(currentPath.value, { history: 'replace' })
+}
+
+function gatewayAccess() {
+	const selected = bucketID.value.trim()
+	const token = apiKey.value.trim()
+	if (selected && !token) throw new Error('API key is required for a managed Bucket')
+	return selected ? { bucketID: selected, apiKey: token } : {}
+}
+
+async function observeBucketHead() {
+	if (!bucketConfigured.value) throw new Error('Bucket ID and API key are required')
+	const observed = await withDaemonTimeout('fetch Bucket head', (signal) =>
+		fetchBucketHead({
+			baseURL: baseURL.value,
+			bucketID: bucketID.value,
+			apiKey: apiKey.value,
+			signal
+		})
+	)
+	bucketHead.value = observed
+	bucketStatus.value = observed.commit_id
+		? `Observed main revision ${observed.revision}. This root is not locally trusted yet.`
+		: 'Observed an empty Bucket main branch.'
+	persistProfile()
+	return observed
+}
+
+async function refreshBucketHead() {
+	error.value = ''
+	busy.value = true
+	try {
+		await observeBucketHead()
+	} catch (err) {
+		error.value = err instanceof Error ? err.message : String(err)
+	} finally {
+		busy.value = false
+	}
+}
+
+async function useObservedBucketHead() {
+	const observedRoot = String(bucketHead.value?.root || '').trim()
+	if (!observedRoot) return
+	root.value = observedRoot
+	currentPath.value = ''
+	verifiedPaths.value = {}
+	resetTreeState()
+	bucketStatus.value = `Selected observed main revision ${bucketHead.value.revision}. Reads still require local proof and payload verification.`
+	persistProfile()
+	await loadRoot('', { history: 'replace' })
+}
+
+function bucketStashStorageKey() {
+	return `malt-app-bucket-stashes:${activeProfile.value}:${bucketID.value.trim()}`
+}
+
+function loadBucketStashes() {
+	if (!activeProfile.value || !bucketID.value.trim()) {
+		bucketStashes.value = []
+		return []
+	}
+	let values = []
+	try {
+		const decoded = JSON.parse(window.localStorage.getItem(bucketStashStorageKey()) || '[]')
+		if (Array.isArray(decoded)) {
+			values = decoded.filter(
+				(value) =>
+					value &&
+					typeof value.id === 'string' &&
+					typeof value.candidateRoot === 'string' &&
+					(value.status === 'pending' || value.status === 'branched')
+			)
+		}
+	} catch {
+		values = []
+	}
+	bucketStashes.value = values
+	return values
+}
+
+function saveBucketStash(candidateRoot, base) {
+	const stash = {
+		id: globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+		candidateRoot,
+		base: {
+			commitID: String(base?.commit_id || ''),
+			root: String(base?.root || ''),
+			revision: Number(base?.revision || 0)
+		},
+		status: 'pending',
+		createdAt: new Date().toISOString()
+	}
+	const key = bucketStashStorageKey()
+	let values = []
+	try {
+		values = JSON.parse(window.localStorage.getItem(key) || '[]')
+	} catch {
+		values = []
+	}
+	values.push(stash)
+	window.localStorage.setItem(key, JSON.stringify(values))
+	bucketStashes.value = values
+	return stash
+}
+
+function finishBucketStash(stash, result) {
+	const key = bucketStashStorageKey()
+	let values = []
+	try {
+		values = JSON.parse(window.localStorage.getItem(key) || '[]')
+	} catch {
+		values = []
+	}
+	if (result.status === 'branched') {
+		values = values.map((value) =>
+			value.id === stash.id
+				? { ...value, status: 'branched', branch: result.branch?.name || '', conflicts: result.conflicts || [] }
+				: value
+		)
+	} else {
+		values = values.filter((value) => value.id !== stash.id)
+	}
+	window.localStorage.setItem(key, JSON.stringify(values))
+	bucketStashes.value = values
+}
+
+async function retryBucketStash(stash) {
+	if (!bucketConfigured.value || stash?.status !== 'pending') return
+	error.value = ''
+	busy.value = true
+	try {
+		await observeBucketHead()
+		const result = await withDaemonTimeout(
+			'retry Bucket push',
+			(signal) =>
+				pushBucketRoot({
+					baseURL: baseURL.value,
+					bucketID: bucketID.value,
+					apiKey: apiKey.value,
+					pushID: `web_${stash.id}`,
+					baseCommit: stash.base?.commitID || '',
+					baseRoot: stash.base?.root || '',
+					baseRevision: stash.base?.revision || 0,
+					candidateRoot: stash.candidateRoot,
+					message: 'web upload',
+					signal
+				}),
+			uploadRequestTimeoutMs
+		)
+		finishBucketStash(stash, result)
+		bucketHead.value = result.head
+		bucketStatus.value =
+			result.status === 'branched'
+				? `Gateway preserved the candidate on ${result.branch.name}.`
+				: `Gateway ${result.status === 'merged' ? 'merged the candidate' : 'advanced main'} at revision ${result.head.revision}.`
+		persistProfile()
+	} catch (err) {
+		error.value = err instanceof Error ? err.message : String(err)
+	} finally {
+		busy.value = false
+	}
+}
+
+async function restoreBucketStash(stash) {
+	const candidate = String(stash?.candidateRoot || '').trim()
+	if (!candidate) return
+	error.value = ''
+	root.value = candidate
+	currentPath.value = ''
+	verifiedPaths.value = {}
+	resetTreeState()
+	bucketStatus.value = `Restored local ${stash.status} candidate. Reads still require proof and payload verification.`
+	persistProfile()
+	await loadRoot('', { history: 'replace' })
+}
+
+async function pushUploadedCandidate(candidateRoot) {
+	if (!bucketConfigured.value) return null
+	const base = bucketHead.value
+	if (!base || String(base.root || '') !== root.value.trim()) {
+		throw new Error('selected root is not the observed Bucket head; refresh and explicitly select the head before pushing')
+	}
+	// Persist local intent before any remote fetch. Observing a newer head below
+	// updates only Bucket metadata and cannot erase this candidate or its base.
+	const stash = saveBucketStash(candidateRoot, base)
+	const observed = await observeBucketHead()
+	void observed
+	const result = await withDaemonTimeout(
+		'push Bucket root',
+		(signal) =>
+			pushBucketRoot({
+				baseURL: baseURL.value,
+				bucketID: bucketID.value,
+				apiKey: apiKey.value,
+				pushID: `web_${stash.id}`,
+				baseCommit: stash.base.commitID,
+				baseRoot: stash.base.root,
+				baseRevision: stash.base.revision,
+				candidateRoot,
+				message: 'web upload',
+				signal
+			}),
+		uploadRequestTimeoutMs
+	)
+	finishBucketStash(stash, result)
+	bucketHead.value = result.head
+	persistProfile()
+	return result
 }
 
 async function loadRoot(nextPath = '', options = {}) {
@@ -383,7 +623,7 @@ async function openAppRouteState(routeState, options = {}) {
   let stat
   try {
     stat = await withDaemonTimeout('stat route path', (signal) =>
-      statPath({ baseURL: baseURL.value, root: root.value, path: routePath, signal })
+		statPath({ baseURL: baseURL.value, root: root.value, path: routePath, ...gatewayAccess(), signal })
     )
   } catch (err) {
     busy.value = false
@@ -455,8 +695,9 @@ async function loadDirectoryEntries(path, payload, options = {}) {
   const omitProof = options.omitProof !== false
   const manifest = await withDaemonTimeout('read directory', (signal) =>
     readDirectory({
-      baseURL: baseURL.value,
-      root: root.value,
+		baseURL: baseURL.value,
+		...gatewayAccess(),
+		root: root.value,
       path: directoryPath,
       signal,
       omitProof
@@ -888,8 +1129,9 @@ async function uploadDropped(uploadItems) {
         `upload ${writePath}`,
         (signal) =>
           uploadUnixFSFile({
-            baseURL: baseURL.value,
-            root: currentRoot,
+			baseURL: baseURL.value,
+			...gatewayAccess(),
+			root: currentRoot,
             path: writePath,
             file: item.file,
             signal,
@@ -909,7 +1151,7 @@ async function uploadDropped(uploadItems) {
                 proofList: payload.proofList,
                 body: payload.bytes,
                 fetchSegment: (cid) =>
-                  readPayloadBlock({ baseURL: baseURL.value, cid, signal: verifySignal })
+					readPayloadBlock({ baseURL: baseURL.value, ...gatewayAccess(), cid, signal: verifySignal })
               })
             },
             verifyExistingResolve: async (_existingPath, stat, verifySignal) => {
@@ -940,7 +1182,23 @@ async function uploadDropped(uploadItems) {
       accepted: false,
       files: writes
     }
-    uploadStatus.value = `Uploaded ${writes.length} item${writes.length === 1 ? '' : 's'}. The returned root is an untrusted candidate until you explicitly accept it.`
+		if (bucketConfigured.value) {
+			uploadStatus.value = 'Local candidate stashed. Fetching the latest Bucket head before push…'
+			const pushed = await pushUploadedCandidate(currentRoot)
+			const selectedCandidate = pushed.status === 'branched' ? currentRoot : pushed.head.root
+			uploadResult.value = {
+				...uploadResult.value,
+				candidateRoot: selectedCandidate,
+				newRoot: selectedCandidate,
+				gatewayPush: pushed
+			}
+			uploadStatus.value =
+				pushed.status === 'branched'
+					? `Gateway preserved the conflicting candidate on ${pushed.branch.name}. main was not overwritten.`
+					: `Gateway ${pushed.status === 'merged' ? 'merged the concurrent changes' : 'advanced main'} at revision ${pushed.head.revision}. The head still requires explicit local selection.`
+		} else {
+			uploadStatus.value = `Uploaded ${writes.length} item${writes.length === 1 ? '' : 's'}. The returned root is an untrusted candidate until you explicitly accept it.`
+		}
     persistProfile()
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
@@ -1001,7 +1259,7 @@ async function statEntry(entry, options = {}) {
   }
   try {
     const stat = await withDaemonTimeout('stat path', (signal) =>
-      statPath({ baseURL: baseURL.value, root: root.value, path: entry.path, signal })
+		statPath({ baseURL: baseURL.value, root: root.value, path: entry.path, ...gatewayAccess(), signal })
     )
     const resolved = {
       ...entry,
@@ -1129,8 +1387,9 @@ async function previewFile(entry, options = {}) {
   try {
     const payload = await withDaemonTimeout('read file', (signal) =>
       readContentBlob({
-        baseURL: baseURL.value,
-        root: root.value,
+		baseURL: baseURL.value,
+		...gatewayAccess(),
+		root: root.value,
         path: entry.path,
         signal
       })
@@ -1246,8 +1505,9 @@ async function downloadFile(entry) {
   try {
     const payload = await withDaemonTimeout('download file', (signal) =>
       readContentBlob({
-        baseURL: baseURL.value,
-        root: root.value,
+		baseURL: baseURL.value,
+		...gatewayAccess(),
+		root: root.value,
         path: entry.path,
         signal
       })
@@ -1282,10 +1542,10 @@ async function showProof(target) {
     const payload =
       kind === 'dir'
         ? await withDaemonTimeout('read proof directory', (signal) =>
-            readDirectory({ baseURL: baseURL.value, root: root.value, path, signal })
+			readDirectory({ baseURL: baseURL.value, root: root.value, path, ...gatewayAccess(), signal })
           )
         : await withDaemonTimeout('read proof file', (signal) =>
-            readContentBlob({ baseURL: baseURL.value, root: root.value, path, signal })
+			readContentBlob({ baseURL: baseURL.value, root: root.value, path, ...gatewayAccess(), signal })
           )
     if (!payload.proofList) {
       throw new Error('response did not include ProofList material')
@@ -1363,7 +1623,7 @@ async function verifyContentAndMark(path, payload) {
         body: payload.bytes ?? payload.blob,
         contentRange: payload.contentRange,
         fetchSegment: (cid) =>
-          readPayloadBlock({ baseURL: baseURL.value, cid, signal })
+		readPayloadBlock({ baseURL: baseURL.value, ...gatewayAccess(), cid, signal })
       })
       return {
         ...proofVerification,
@@ -1779,6 +2039,14 @@ function formatSize(size) {
             <span>Gateway URL</span>
             <input v-model="baseURL" autocomplete="off" spellcheck="false" />
           </label>
+			<label>
+				<span>Bucket ID</span>
+				<input v-model="bucketID" autocomplete="off" spellcheck="false" />
+			</label>
+			<label>
+				<span>Gateway API key</span>
+				<input v-model="apiKey" type="password" autocomplete="off" spellcheck="false" />
+			</label>
           <label>
             <span>Upload prefix</span>
             <input v-model="prefix" autocomplete="off" spellcheck="false" />
@@ -1786,8 +2054,31 @@ function formatSize(size) {
         </div>
         <div class="malt-app__button-row">
           <button type="button" :disabled="busy" @click="applySettings">Apply</button>
+			<button v-if="bucketConfigured" type="button" :disabled="busy" @click="refreshBucketHead">
+				Refresh Bucket head
+			</button>
+			<button v-if="bucketHead?.root" type="button" :disabled="busy" @click="useObservedBucketHead">
+				Use observed head
+			</button>
           <button type="button" :disabled="busy" @click="settingsOpen = false">Close</button>
         </div>
+		<p v-if="bucketStatus" class="malt-app__status-line">{{ bucketStatus }}</p>
+		<p v-if="bucketID" class="malt-app__status-line">
+			The API key stays in memory only. Bucket heads are Gateway observations, not automatically trusted roots.
+		</p>
+		<section v-if="bucketStashes.length" class="malt-app__proof-summary" aria-label="Bucket stashes">
+			<h3>Local Bucket stashes</h3>
+			<div v-for="stash in bucketStashes" :key="stash.id" class="malt-app__proof-row">
+				<code>{{ stash.candidateRoot }}</code>
+				<span>{{ stash.status }} · base revision {{ stash.base?.revision || 0 }}</span>
+				<div class="malt-app__button-row">
+					<button v-if="stash.status === 'pending'" type="button" :disabled="busy || !bucketConfigured" @click="retryBucketStash(stash)">
+						Retry push
+					</button>
+					<button type="button" :disabled="busy || !bucketConfigured" @click="restoreBucketStash(stash)">Use candidate</button>
+				</div>
+			</div>
+		</section>
       </section>
 
       <div v-show="dropActive" class="malt-app__dropzone" aria-live="polite">
@@ -2155,6 +2446,14 @@ function formatSize(size) {
               <dt>Uploaded</dt>
               <dd>{{ uploadResult.files.length }}</dd>
             </div>
+			<div v-if="uploadResult.gatewayPush">
+				<dt>Gateway push</dt>
+				<dd>{{ uploadResult.gatewayPush.status }}</dd>
+			</div>
+			<div v-if="uploadResult.gatewayPush?.branch">
+				<dt>Conflict branch</dt>
+				<dd>{{ uploadResult.gatewayPush.branch.name }}</dd>
+			</div>
           </dl>
           <p v-if="!uploadResult.accepted" class="malt-app__status-line">
             Upload receipts do not authenticate a root transition. Review or independently publish this candidate before trusting it.
