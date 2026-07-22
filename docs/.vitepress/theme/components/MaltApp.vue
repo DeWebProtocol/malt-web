@@ -4,9 +4,16 @@ import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import { withBase } from 'vitepress'
 import {
   activeProfileStorageKey,
+	appendBucketStashValue,
+	applyBucketStashResult,
+	assertBucketStashLegacyBinding,
+	assertBucketStashScope,
+	bindLegacyBucketStashValue,
   ancestorDirectoryPaths,
   appFallbackStorageKey,
   buildAppStatePath,
+	bucketStashNamespace,
+	createBucketStashScope,
   defaultGatewayURL,
 	fetchBucketHead,
   joinMaltPath,
@@ -21,6 +28,11 @@ import {
 	readPayloadBlock,
   statPath,
 	pushBucketRoot,
+	legacyBucketStashStorageKey,
+	legacyBucketStashBindingNamespace,
+	mergeObservedBucketHead,
+	readBucketStashValues,
+	readLegacyBucketStashValues,
   uploadPathForFile,
   uploadUnixFSFile
 } from '../malt-client.mjs'
@@ -35,8 +47,12 @@ const baseURL = ref(defaultGatewayURL)
 const apiKey = ref('')
 const bucketID = ref('')
 const bucketHead = ref(null)
+const bucketHeadScope = ref(null)
 const bucketStatus = ref('')
 const bucketStashes = ref([])
+const loadedBucketStashNamespace = ref('')
+const loadedLegacyBucketStashKey = ref('')
+const loadedLegacyBucketStashBindingNamespace = ref('')
 const profileInput = ref('')
 const activeProfile = ref('')
 const root = ref('')
@@ -153,6 +169,9 @@ let directoryHydrationGeneration = 0
 
 const signedIn = computed(() => activeProfile.value !== '')
 const bucketConfigured = computed(() => Boolean(bucketID.value.trim() && apiKey.value.trim()))
+const legacyBindingSupported = computed(
+	() => typeof globalThis.navigator?.locks?.request === 'function'
+)
 const currentLabel = computed(() => (currentPath.value ? `/${currentPath.value}` : '/'))
 const proofText = computed(() =>
   proofView.value?.proofList ? JSON.stringify(proofView.value.proofList, null, 2) : ''
@@ -225,6 +244,7 @@ onMounted(() => {
   window.addEventListener('drop', handlePageDrop)
   window.addEventListener('dragend', cancelPageDrag)
   window.addEventListener('popstate', handleAppPopState)
+	window.addEventListener('storage', handleBucketStorageChange)
   void initializeSyntaxHighlighter()
   const stored = window.localStorage.getItem(activeProfileStorageKey())
   if (stored) {
@@ -241,6 +261,7 @@ onUnmounted(() => {
   window.removeEventListener('drop', handlePageDrop)
   window.removeEventListener('dragend', cancelPageDrag)
   window.removeEventListener('popstate', handleAppPopState)
+	window.removeEventListener('storage', handleBucketStorageChange)
   window.clearTimeout(dragResetTimer)
   resetCopyFeedback()
   clearPreview()
@@ -261,6 +282,14 @@ function signIn() {
   baseURL.value = saved.baseURL || baseURL.value || defaultGatewayURL
 	bucketID.value = saved.bucketID || ''
 	bucketHead.value = saved.bucketHead || null
+	bucketHeadScope.value = saved.bucketHeadScope || null
+	if (bucketHead.value && !bucketHeadScope.value && bucketID.value) {
+		try {
+			bucketHeadScope.value = currentBucketStashScope()
+		} catch {
+			bucketHeadScope.value = null
+		}
+	}
 	apiKey.value = ''
 	bucketStatus.value = bucketID.value ? 'Enter the API key to refresh this Bucket head.' : ''
 	loadBucketStashes()
@@ -295,8 +324,12 @@ function signOut() {
 	apiKey.value = ''
 	bucketID.value = ''
 	bucketHead.value = null
+	bucketHeadScope.value = null
 	bucketStatus.value = ''
 	bucketStashes.value = []
+	loadedBucketStashNamespace.value = ''
+	loadedLegacyBucketStashKey.value = ''
+	loadedLegacyBucketStashBindingNamespace.value = ''
   root.value = ''
   currentPath.value = ''
   prefix.value = ''
@@ -330,6 +363,7 @@ function persistProfile() {
       baseURL: baseURL.value,
 		bucketID: bucketID.value,
 		bucketHead: bucketHead.value,
+		bucketHeadScope: bucketHeadScope.value,
       root: root.value,
       currentPath: currentPath.value,
       prefix: prefix.value,
@@ -378,21 +412,43 @@ function gatewayAccess() {
 	return selected ? { bucketID: selected, apiKey: token } : {}
 }
 
-async function observeBucketHead() {
+async function observeBucketHead(scope = currentBucketStashScope()) {
 	if (!bucketConfigured.value) throw new Error('Bucket ID and API key are required')
+	const selected = assertBucketStashScope({ scope }, currentBucketStashScope())
+	const token = apiKey.value
 	const observed = await withDaemonTimeout('fetch Bucket head', (signal) =>
 		fetchBucketHead({
-			baseURL: baseURL.value,
-			bucketID: bucketID.value,
-			apiKey: apiKey.value,
+			baseURL: selected.baseURL,
+			bucketID: selected.bucketID,
+			apiKey: token,
 			signal
 		})
 	)
-	bucketHead.value = observed
-	bucketStatus.value = observed.commit_id
-		? `Observed main revision ${observed.revision}. This root is not locally trusted yet.`
+	assertBucketStashScope({ scope: selected }, currentBucketStashScope())
+	const merged = recordObservedBucketHead(observed, selected)
+	bucketStatus.value = merged.commit_id
+		? `Observed main revision ${merged.revision}. This root is not locally trusted yet.`
 		: 'Observed an empty Bucket main branch.'
 	persistProfile()
+	return merged
+}
+
+function recordObservedBucketHead(observed, scope) {
+	return storeObservedBucketHead(calculateObservedBucketHead(observed, scope), scope)
+}
+
+function calculateObservedBucketHead(observed, scope) {
+	return mergeObservedBucketHead(
+		bucketHead.value,
+		bucketHeadScope.value,
+		observed,
+		scope
+	)
+}
+
+function storeObservedBucketHead(observed, scope) {
+	bucketHead.value = observed
+	bucketHeadScope.value = scope
 	return observed
 }
 
@@ -411,6 +467,12 @@ async function refreshBucketHead() {
 async function useObservedBucketHead() {
 	const observedRoot = String(bucketHead.value?.root || '').trim()
 	if (!observedRoot) return
+	try {
+		assertBucketStashScope({ scope: bucketHeadScope.value }, currentBucketStashScope())
+	} catch (err) {
+		error.value = err instanceof Error ? err.message : String(err)
+		return
+	}
 	root.value = observedRoot
 	currentPath.value = ''
 	verifiedPaths.value = {}
@@ -420,8 +482,12 @@ async function useObservedBucketHead() {
 	await loadRoot('', { history: 'replace' })
 }
 
-function bucketStashStorageKey() {
-	return `malt-app-bucket-stashes:${activeProfile.value}:${bucketID.value.trim()}`
+function currentBucketStashScope() {
+	return createBucketStashScope({
+		profile: activeProfile.value,
+		baseURL: baseURL.value,
+		bucketID: bucketID.value
+	})
 }
 
 function newBucketStashID() {
@@ -438,71 +504,100 @@ function newBucketStashID() {
 function loadBucketStashes() {
 	if (!activeProfile.value || !bucketID.value.trim()) {
 		bucketStashes.value = []
+		loadedBucketStashNamespace.value = ''
+		loadedLegacyBucketStashKey.value = ''
+		loadedLegacyBucketStashBindingNamespace.value = ''
 		return []
 	}
-	let values = []
+	let scope
 	try {
-		const decoded = JSON.parse(window.localStorage.getItem(bucketStashStorageKey()) || '[]')
-		if (Array.isArray(decoded)) {
-			values = decoded.filter(
-				(value) =>
-					value &&
-					typeof value.id === 'string' &&
-					typeof value.candidateRoot === 'string' &&
-					(value.status === 'pending' || value.status === 'branched')
-			)
-		}
+		scope = currentBucketStashScope()
 	} catch {
-		values = []
+		bucketStashes.value = []
+		loadedBucketStashNamespace.value = ''
+		loadedLegacyBucketStashKey.value = ''
+		loadedLegacyBucketStashBindingNamespace.value = ''
+		return []
 	}
+	const values = [
+		...readBucketStashValues(window.localStorage, scope),
+		...readLegacyBucketStashValues(window.localStorage, scope)
+	].sort((left, right) =>
+		String(left.createdAt || '').localeCompare(String(right.createdAt || '')) || left.id.localeCompare(right.id)
+	)
+	loadedBucketStashNamespace.value = bucketStashNamespace(scope)
+	loadedLegacyBucketStashKey.value = legacyBucketStashStorageKey(scope)
+	loadedLegacyBucketStashBindingNamespace.value = legacyBucketStashBindingNamespace(scope)
 	bucketStashes.value = values
 	return values
 }
 
+function handleBucketStorageChange(event) {
+	if (
+		activeProfile.value &&
+		bucketID.value.trim() &&
+		(event.key == null ||
+			event.key === loadedLegacyBucketStashKey.value ||
+			(loadedLegacyBucketStashBindingNamespace.value &&
+				event.key.startsWith(loadedLegacyBucketStashBindingNamespace.value)) ||
+			(loadedBucketStashNamespace.value && event.key.startsWith(loadedBucketStashNamespace.value)))
+	) {
+		loadBucketStashes()
+	}
+}
+
 function saveBucketStash(candidateRoot, base) {
+	const scope = createBucketStashScope(base?.scope || currentBucketStashScope())
+	const id = newBucketStashID()
 	const stash = {
-		id: newBucketStashID(),
+		id,
+		pushID: `web_${id}`,
 		candidateRoot,
 		base: {
 			commitID: String(base?.commit_id || ''),
 			root: String(base?.root || ''),
 			revision: Number(base?.revision || 0)
 		},
+		message: 'web upload',
+		scope,
 		status: 'pending',
 		createdAt: new Date().toISOString()
 	}
-	const key = bucketStashStorageKey()
-	let values = []
+	appendBucketStashValue(window.localStorage, stash)
 	try {
-		values = JSON.parse(window.localStorage.getItem(key) || '[]')
+		assertBucketStashScope(stash, currentBucketStashScope())
+		loadBucketStashes()
 	} catch {
-		values = []
+		// The candidate is safely stored under its captured scope. Edited
+		// settings deliberately keep it out of the current scope's list.
 	}
-	values.push(stash)
-	window.localStorage.setItem(key, JSON.stringify(values))
-	bucketStashes.value = values
 	return stash
 }
 
 function finishBucketStash(stash, result) {
-	const key = bucketStashStorageKey()
-	let values = []
+	assertBucketStashScope(stash, currentBucketStashScope())
+	assertBucketStashLegacyBinding(window.localStorage, stash)
+	applyBucketStashResult(window.localStorage, stash, result)
+	loadBucketStashes()
+}
+
+async function bindLegacyBucketStash(stash) {
+	if (!stash?.legacy) return
+	error.value = ''
+	busy.value = true
 	try {
-		values = JSON.parse(window.localStorage.getItem(key) || '[]')
-	} catch {
-		values = []
+		const scope = currentBucketStashScope()
+		await bindLegacyBucketStashValue(window.localStorage, stash, scope, {
+			lockManager: globalThis.navigator?.locks,
+			createdAt: new Date().toISOString()
+		})
+		loadBucketStashes()
+		bucketStatus.value = 'Legacy candidate bound to this Gateway and Bucket with its original push ID.'
+	} catch (err) {
+		error.value = err instanceof Error ? err.message : String(err)
+	} finally {
+		busy.value = false
 	}
-	if (result.status === 'branched') {
-		values = values.map((value) =>
-			value.id === stash.id
-				? { ...value, status: 'branched', branch: result.branch?.name || '', conflicts: result.conflicts || [] }
-				: value
-		)
-	} else {
-		values = values.filter((value) => value.id !== stash.id)
-	}
-	window.localStorage.setItem(key, JSON.stringify(values))
-	bucketStashes.value = values
 }
 
 async function retryBucketStash(stash) {
@@ -510,34 +605,40 @@ async function retryBucketStash(stash) {
 	error.value = ''
 	busy.value = true
 	try {
+		const scope = assertBucketStashScope(stash, currentBucketStashScope())
+		assertBucketStashLegacyBinding(window.localStorage, stash)
 		try {
-			await observeBucketHead()
+			await observeBucketHead(scope)
 		} catch {
 			bucketStatus.value = 'Could not refresh the Bucket head; retrying the preserved push directly.'
 		}
+		assertBucketStashLegacyBinding(window.localStorage, stash)
+		assertBucketStashScope(stash, currentBucketStashScope())
+		assertBucketStashLegacyBinding(window.localStorage, stash)
 		const result = await withDaemonTimeout(
 			'retry Bucket push',
 			(signal) =>
 				pushBucketRoot({
-					baseURL: baseURL.value,
-					bucketID: bucketID.value,
+					baseURL: scope.baseURL,
+					bucketID: scope.bucketID,
 					apiKey: apiKey.value,
-					pushID: `web_${stash.id}`,
+					pushID: stash.pushID,
 					baseCommit: stash.base?.commitID || '',
 					baseRoot: stash.base?.root || '',
 					baseRevision: stash.base?.revision || 0,
 					candidateRoot: stash.candidateRoot,
-					message: 'web upload',
+					message: stash.message,
 					signal
 				}),
 			uploadRequestTimeoutMs
 		)
+		const mergedObservedHead = calculateObservedBucketHead(result.head, scope)
 		finishBucketStash(stash, result)
-		bucketHead.value = result.head
+		const observed = storeObservedBucketHead(mergedObservedHead, scope)
 		bucketStatus.value =
 			result.status === 'branched'
 				? `Gateway preserved the candidate on ${result.branch.name}.`
-				: `Gateway ${result.status === 'merged' ? 'merged the candidate' : 'advanced main'} at revision ${result.head.revision}.`
+				: `Gateway ${result.status === 'merged' ? 'merged the candidate' : 'advanced main'}; observed main remains at revision ${observed.revision}.`
 		persistProfile()
 	} catch (err) {
 		error.value = err instanceof Error ? err.message : String(err)
@@ -550,6 +651,13 @@ async function restoreBucketStash(stash) {
 	const candidate = String(stash?.candidateRoot || '').trim()
 	if (!candidate) return
 	error.value = ''
+	try {
+		assertBucketStashScope(stash, currentBucketStashScope())
+		assertBucketStashLegacyBinding(window.localStorage, stash)
+	} catch (err) {
+		error.value = err instanceof Error ? err.message : String(err)
+		return
+	}
 	root.value = candidate
 	currentPath.value = ''
 	verifiedPaths.value = {}
@@ -561,13 +669,15 @@ async function restoreBucketStash(stash) {
 
 function captureBucketBase(selectedRoot) {
 	const base = bucketHead.value
+	assertBucketStashScope({ scope: bucketHeadScope.value }, currentBucketStashScope())
 	if (!base || String(base.root || '') !== String(selectedRoot || '').trim()) {
 		throw new Error('selected root is not the observed Bucket head; refresh and explicitly select the head before uploading')
 	}
 	return Object.freeze({
 		commit_id: String(base.commit_id || ''),
 		root: String(base.root || ''),
-		revision: Number(base.revision || 0)
+		revision: Number(base.revision || 0),
+		scope: bucketHeadScope.value
 	})
 }
 
@@ -576,29 +686,32 @@ async function pushUploadedCandidate(candidateRoot, base) {
 	// Persist local intent before any remote fetch. Observing a newer head below
 	// updates only Bucket metadata and cannot erase this candidate or its base.
 	const stash = saveBucketStash(candidateRoot, base)
-	const observed = await observeBucketHead()
+	const scope = assertBucketStashScope(stash, currentBucketStashScope())
+	const observed = await observeBucketHead(scope)
 	void observed
+	assertBucketStashScope(stash, currentBucketStashScope())
 	const result = await withDaemonTimeout(
 		'push Bucket root',
 		(signal) =>
 			pushBucketRoot({
-				baseURL: baseURL.value,
-				bucketID: bucketID.value,
+				baseURL: scope.baseURL,
+				bucketID: scope.bucketID,
 				apiKey: apiKey.value,
-				pushID: `web_${stash.id}`,
+				pushID: stash.pushID,
 				baseCommit: stash.base.commitID,
 				baseRoot: stash.base.root,
 				baseRevision: stash.base.revision,
 				candidateRoot,
-				message: 'web upload',
+				message: stash.message,
 				signal
 			}),
 		uploadRequestTimeoutMs
 	)
+	const mergedObservedHead = calculateObservedBucketHead(result.head, scope)
 	finishBucketStash(stash, result)
-	bucketHead.value = result.head
+	const observedHead = storeObservedBucketHead(mergedObservedHead, scope)
 	persistProfile()
-	return result
+	return { ...result, observedHead }
 }
 
 async function loadRoot(nextPath = '', options = {}) {
@@ -1212,7 +1325,7 @@ async function uploadDropped(uploadItems) {
 		if (bucketConfigured.value) {
 			uploadStatus.value = 'Local candidate stashed. Fetching the latest Bucket head before push…'
 			const pushed = await pushUploadedCandidate(currentRoot, bucketBase)
-			const selectedCandidate = pushed.status === 'branched' ? currentRoot : pushed.head.root
+			const selectedCandidate = pushed.status === 'branched' ? currentRoot : pushed.observedHead.root
 			uploadResult.value = {
 				...uploadResult.value,
 				candidateRoot: selectedCandidate,
@@ -1222,7 +1335,7 @@ async function uploadDropped(uploadItems) {
 			uploadStatus.value =
 				pushed.status === 'branched'
 					? `Gateway preserved the conflicting candidate on ${pushed.branch.name}. main was not overwritten.`
-					: `Gateway ${pushed.status === 'merged' ? 'merged the concurrent changes' : 'advanced main'} at revision ${pushed.head.revision}. The head still requires explicit local selection.`
+					: `Gateway ${pushed.status === 'merged' ? 'merged the concurrent changes' : 'accepted the push'}; observed main is revision ${pushed.observedHead.revision}. The head still requires explicit local selection.`
 		} else {
 			uploadStatus.value = `Uploaded ${writes.length} item${writes.length === 1 ? '' : 's'}. The returned root is an untrusted candidate until you explicitly accept it.`
 		}
@@ -2097,14 +2210,20 @@ function formatSize(size) {
 			<h3>Local Bucket stashes</h3>
 			<div v-for="stash in bucketStashes" :key="stash.id" class="malt-app__proof-row">
 				<code>{{ stash.candidateRoot }}</code>
-				<span>{{ stash.status }} · base revision {{ stash.base?.revision || 0 }}</span>
+				<span>{{ stash.legacy ? 'legacy unscoped' : stash.status }} · base revision {{ stash.base?.revision || 0 }}</span>
 				<div class="malt-app__button-row">
-					<button v-if="stash.status === 'pending'" type="button" :disabled="busy || !bucketConfigured" @click="retryBucketStash(stash)">
+					<button v-if="stash.status === 'pending' && !stash.legacy" type="button" :disabled="busy || !bucketConfigured" @click="retryBucketStash(stash)">
 						Retry push
 					</button>
-					<button type="button" :disabled="busy || !bucketConfigured" @click="restoreBucketStash(stash)">Use candidate</button>
+					<button v-if="stash.legacy" type="button" :disabled="busy || !bucketConfigured || !legacyBindingSupported" @click="bindLegacyBucketStash(stash)">
+						Bind to this Gateway
+					</button>
+					<button type="button" :disabled="busy || stash.legacy || !bucketConfigured" @click="restoreBucketStash(stash)">Use candidate</button>
 				</div>
 			</div>
+			<p v-if="bucketStashes.some((stash) => stash.legacy) && !legacyBindingSupported" class="malt-app__status-line">
+				Legacy binding requires the browser Web Locks API.
+			</p>
 		</section>
       </section>
 

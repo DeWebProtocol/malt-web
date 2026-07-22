@@ -49,18 +49,8 @@ export async function fetchBucketHead({ baseURL, bucketID, apiKey, signal }) {
 	const url = buildBucketURL(baseURL, bucketID, ['head'])
 	const response = await fetch(url, gatewayRequestOptions(url, apiKey, { signal }))
 	const head = await readJSONResponse(response)
-	if (head.bucket_id !== String(bucketID || '').trim() || head.name !== 'main') {
-		throw new Error('gateway returned a head for a different Bucket or ref')
-	}
-	if (head.commit_id) {
-		parseCID(head.root)
-		if (!Number.isSafeInteger(head.revision) || head.revision < 1) {
-			throw new Error('gateway returned an invalid Bucket head revision')
-		}
-	} else if (head.root || head.revision !== 0) {
-		throw new Error('gateway returned an invalid empty Bucket head')
-	}
-	return head
+	if (response.status !== 200) throw new Error(`gateway returned unexpected Bucket head status ${response.status}`)
+	return validateBucketRef(head, String(bucketID || '').trim(), { name: 'main', kind: 'main' })
 }
 
 export async function pushBucketRoot({
@@ -75,19 +65,34 @@ export async function pushBucketRoot({
 	message,
 	signal
 }) {
-	parseCID(candidateRoot)
-	if (baseRoot) parseCID(baseRoot)
+	const selectedBucket = String(bucketID || '').trim()
+	const selectedPushID = String(pushID || '').trim()
+	const selectedBaseCommit = String(baseCommit || '').trim()
+	const selectedBaseRoot = String(baseRoot || '').trim()
+	const selectedCandidateRoot = String(candidateRoot || '').trim()
+	const selectedBaseRevision = Number(baseRevision || 0)
+	const selectedMessage = String(message || '').trim()
+	if (!selectedBucket) throw new Error('Bucket ID is required')
+	if (!selectedPushID) throw new Error('Bucket push ID is required')
+	parseCID(selectedCandidateRoot)
+	if (selectedBaseRoot) parseCID(selectedBaseRoot)
+	if (!Number.isSafeInteger(selectedBaseRevision) || selectedBaseRevision < 0) {
+		throw new Error('Bucket base revision must be a non-negative safe integer')
+	}
+	const emptyBase = !selectedBaseCommit && !selectedBaseRoot && selectedBaseRevision === 0
+	const populatedBase = Boolean(selectedBaseCommit && selectedBaseRoot && selectedBaseRevision >= 1)
+	if (!emptyBase && !populatedBase) throw new Error('Bucket base commit, root, and revision must describe one observation')
 	const url = buildBucketURL(baseURL, bucketID, ['push'])
 	const response = await fetch(url, gatewayRequestOptions(url, apiKey, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({
-			push_id: String(pushID || '').trim(),
-			base_commit: String(baseCommit || '').trim(),
-			base_root: String(baseRoot || '').trim(),
-			candidate_root: String(candidateRoot || '').trim(),
-			base_revision: Number(baseRevision || 0),
-			message: String(message || '').trim()
+			push_id: selectedPushID,
+			base_commit: selectedBaseCommit,
+			base_root: selectedBaseRoot,
+			candidate_root: selectedCandidateRoot,
+			base_revision: selectedBaseRevision,
+			message: selectedMessage
 		}),
 		signal
 	}))
@@ -101,20 +106,206 @@ export async function pushBucketRoot({
 	if (response.status !== 201 && response.status !== 409) {
 		throw new Error(apiErrorMessage(response, payload, text))
 	}
-	if (response.status === 409 && payload.status !== 'branched') {
+	if (response.status === 409 && payload?.status !== 'branched') {
 		throw new Error(apiErrorMessage(response, payload, text))
 	}
-	if (!['fast_forward', 'merged', 'branched'].includes(payload.status)) {
-		throw new Error('gateway returned an unsupported Bucket push status')
+	return validateBucketPushResult(payload, response.status, {
+		bucketID: selectedBucket,
+		baseCommit: selectedBaseCommit,
+		baseRoot: selectedBaseRoot,
+		baseRevision: selectedBaseRevision,
+		candidateRoot: selectedCandidateRoot,
+		changeSetCID: '',
+		message: selectedMessage
+	})
+}
+
+function validateBucketPushResult(value, statusCode, request) {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) {
+		throw new Error('gateway returned an invalid Bucket push result')
 	}
-	if (!payload.head || payload.head.bucket_id !== String(bucketID || '').trim()) {
-		throw new Error('gateway returned an invalid Bucket push head')
+	const expectedStatus = statusCode === 409 ? 'branched' : null
+	if (expectedStatus ? value.status !== expectedStatus : !['fast_forward', 'merged'].includes(value.status)) {
+		throw new Error(`gateway returned an inconsistent Bucket push status ${JSON.stringify(value.status)}`)
 	}
-	if (payload.head.root) parseCID(payload.head.root)
-	if ((payload.status === 'branched') !== Boolean(payload.branch)) {
-		throw new Error('gateway returned an inconsistent Bucket conflict result')
+	const head = validateBucketRef(value.head, request.bucketID, { name: 'main', kind: 'main' })
+	const finalCommit = validateBucketCommit(value.commit, request.bucketID, 'final commit')
+	const candidate = validateBucketCommit(value.candidate, request.bucketID, 'candidate commit')
+	if (!sameCID(candidate.root, request.candidateRoot)) {
+		throw new Error('gateway returned a candidate commit for a different root')
 	}
-	return payload
+	validateCandidateBase(candidate, request, value.status === 'branched')
+
+	if (value.status === 'fast_forward') {
+		if (finalCommit.id !== head.commit_id || !sameCID(finalCommit.root, head.root)) {
+			throw new Error('gateway returned a fast-forward commit that does not match main')
+		}
+		if (value.branch != null || !sameBucketCommit(candidate, finalCommit) || !sameCID(finalCommit.root, request.candidateRoot)) {
+			throw new Error('gateway returned an inconsistent fast-forward result')
+		}
+		if (value.merge_base || !hasNoConflicts(value.conflicts)) {
+			throw new Error('gateway returned conflict metadata for a fast-forward result')
+		}
+	} else if (value.status === 'merged') {
+		if (finalCommit.id !== head.commit_id || !sameCID(finalCommit.root, head.root)) {
+			throw new Error('gateway returned a merge commit that does not match main')
+		}
+		if (
+			value.branch != null ||
+			candidate.id === finalCommit.id ||
+			finalCommit.parents.length !== 2 ||
+			finalCommit.parents[1] !== candidate.id ||
+			!finalCommit.parents[0] ||
+			finalCommit.parents[0] === candidate.id ||
+			!finalCommit.base_root
+		) {
+			throw new Error('gateway returned a merge commit that does not include the candidate')
+		}
+		if (!sameOptionalCID(value.merge_base, request.baseRoot)) {
+			throw new Error('gateway returned a merge result for a different base')
+		}
+		if (!hasNoConflicts(value.conflicts)) throw new Error('gateway returned conflicts for a merged result')
+	} else {
+		const branch = validateBucketRef(value.branch, request.bucketID, { kind: 'conflict' })
+		const branchSegments = branch.name.split('/')
+		if (
+			branchSegments.length !== 3 ||
+			branchSegments[0] !== 'conflicts' ||
+			!branchSegments[1] ||
+			!branchSegments[2] ||
+			!sameBucketCommit(candidate, finalCommit)
+		) {
+			throw new Error('gateway returned an inconsistent Bucket conflict commit')
+		}
+		if (branch.commit_id !== candidate.id || !sameCID(branch.root, candidate.root)) {
+			throw new Error('gateway returned a conflict branch that does not preserve the candidate')
+		}
+		if (!sameOptionalCID(value.merge_base, request.baseRoot)) {
+			throw new Error('gateway returned a conflict result for a different base')
+		}
+		if (
+			!Array.isArray(value.conflicts) ||
+			value.conflicts.length === 0 ||
+			value.conflicts.some((conflict) => !conflict || typeof conflict.coordinate !== 'string' || !conflict.coordinate)
+		) {
+			throw new Error('gateway returned a conflict result without conflict coordinates')
+		}
+	}
+	return value
+}
+
+function validateBucketRef(value, bucketID, expected = {}) {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) {
+		throw new Error('gateway returned an invalid Bucket ref')
+	}
+	if (value.bucket_id !== bucketID || typeof value.name !== 'string' || !value.name.trim()) {
+		throw new Error('gateway returned a ref for a different Bucket or name')
+	}
+	if ((expected.name && value.name !== expected.name) || (expected.kind && value.kind !== expected.kind)) {
+		throw new Error('gateway returned an unexpected Bucket ref')
+	}
+	if (!['main', 'explicit', 'conflict'].includes(value.kind) || value.state !== 'open') {
+		throw new Error('gateway returned a Bucket ref with an invalid kind or state')
+	}
+	if (!Number.isSafeInteger(value.revision) || value.revision < 0) {
+		throw new Error('gateway returned an invalid Bucket ref revision')
+	}
+	const commitID = typeof value.commit_id === 'string' ? value.commit_id.trim() : ''
+	const root = typeof value.root === 'string' ? value.root.trim() : ''
+	if (!commitID) {
+		if (value.name !== 'main' || root || value.revision !== 0) {
+			throw new Error('gateway returned an invalid empty Bucket ref')
+		}
+	} else {
+		if (!root || value.revision < 1) throw new Error('gateway returned an incomplete Bucket ref')
+		parseCID(root)
+	}
+	return value
+}
+
+function validateBucketCommit(value, bucketID, label) {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) {
+		throw new Error(`gateway returned an invalid Bucket ${label}`)
+	}
+	if (value.bucket_id !== bucketID || typeof value.id !== 'string' || !value.id.trim()) {
+		throw new Error(`gateway returned a ${label} for a different Bucket or ID`)
+	}
+	if (
+		typeof value.author !== 'string' ||
+		!value.author.trim() ||
+		typeof value.created_at !== 'string' ||
+		Number.isNaN(Date.parse(value.created_at))
+	) {
+		throw new Error(`gateway returned incomplete ${label} metadata`)
+	}
+	for (const field of ['base_root', 'credential', 'change_set_cid', 'message']) {
+		if (value[field] != null && typeof value[field] !== 'string') {
+			throw new Error(`gateway returned invalid ${label} metadata`)
+		}
+	}
+	parseCID(value.root)
+	if (value.base_root) parseCID(value.base_root)
+	if (value.change_set_cid) parseCID(value.change_set_cid)
+	if (value.parents != null && !Array.isArray(value.parents)) {
+		throw new Error(`gateway returned invalid ${label} parents`)
+	}
+	const parents = value.parents || []
+	if (
+		parents.length > 2 ||
+		new Set(parents).size !== parents.length ||
+		parents.some((parent) => typeof parent !== 'string' || !parent.trim() || parent === value.id)
+	) {
+		throw new Error(`gateway returned invalid ${label} parents`)
+	}
+	return { ...value, parents }
+}
+
+function validateCandidateBase(candidate, request, allowHistoryConflict) {
+	if (
+		String(candidate.change_set_cid || '') !== request.changeSetCID ||
+		String(candidate.message || '') !== request.message
+	) {
+		throw new Error('gateway returned a candidate commit for a different request')
+	}
+	if (request.baseCommit) {
+		const expectedParent = candidate.parents.length === 1 && candidate.parents[0] === request.baseCommit
+		const historyConflict = allowHistoryConflict && candidate.parents.length === 0
+		if (!sameCID(candidate.base_root, request.baseRoot) || (!expectedParent && !historyConflict)) {
+			throw new Error('gateway returned a candidate commit for a different base')
+		}
+	} else if (candidate.base_root || candidate.parents.length !== 0) {
+		throw new Error('gateway returned an initial candidate commit with a non-empty base')
+	}
+}
+
+function sameCID(left, right) {
+	return parseCID(left).equals(parseCID(right))
+}
+
+function sameOptionalCID(left, right) {
+	const first = String(left || '').trim()
+	const second = String(right || '').trim()
+	return !first && !second ? true : Boolean(first && second && sameCID(first, second))
+}
+
+function sameBucketCommit(left, right) {
+	return (
+		left.id === right.id &&
+		left.bucket_id === right.bucket_id &&
+		sameCID(left.root, right.root) &&
+		sameOptionalCID(left.base_root, right.base_root) &&
+		left.parents.length === right.parents.length &&
+		left.parents.every((parent, index) => parent === right.parents[index]) &&
+		String(left.author || '') === String(right.author || '') &&
+		String(left.credential || '') === String(right.credential || '') &&
+		String(left.change_set_cid || '') === String(right.change_set_cid || '') &&
+		String(left.message || '') === String(right.message || '') &&
+		Date.parse(left.created_at) === Date.parse(right.created_at)
+	)
+}
+
+function hasNoConflicts(value) {
+	return value == null || (Array.isArray(value) && value.length === 0)
 }
 
 export function buildAppStatePath(appBasePath, root, rawPath = '') {
@@ -271,6 +462,439 @@ export function profileStorageKey(name) {
 
 export function activeProfileStorageKey() {
   return 'malt-app-active-profile'
+}
+
+export function canonicalGatewayBaseURL(value) {
+	const url = new URL(normalizeBaseURL(value))
+	if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+		throw new Error('Gateway URL must use HTTP or HTTPS')
+	}
+	if (url.username || url.password || url.search || url.hash) {
+		throw new Error('Gateway URL must not contain credentials, query parameters, or a fragment')
+	}
+	const pathname = url.pathname.replace(/\/+$/, '')
+	return `${url.origin}${pathname && pathname !== '/' ? pathname : ''}`
+}
+
+export function createBucketStashScope({ profile, baseURL, bucketID }) {
+	const selectedProfile = String(profile || '').trim()
+	const selectedBucket = String(bucketID || '').trim()
+	if (!selectedProfile || !selectedBucket) throw new Error('Bucket stash profile and Bucket ID are required')
+	return Object.freeze({
+		profile: selectedProfile,
+		baseURL: canonicalGatewayBaseURL(baseURL),
+		bucketID: selectedBucket
+	})
+}
+
+export function mergeObservedBucketHead(current, currentScope, incoming, incomingScope) {
+	const selected = createBucketStashScope(incomingScope || {})
+	validateBucketRef(incoming, selected.bucketID, { name: 'main', kind: 'main' })
+	let previousScope
+	try {
+		previousScope = createBucketStashScope(currentScope || {})
+		validateBucketRef(current, selected.bucketID, { name: 'main', kind: 'main' })
+	} catch {
+		return incoming
+	}
+	if (!sameBucketStashScope(previousScope, selected)) return incoming
+	if (incoming.revision > current.revision) return incoming
+	if (incoming.revision < current.revision) return current
+	if (
+		String(incoming.commit_id || '') !== String(current.commit_id || '') ||
+		!sameOptionalCID(incoming.root, current.root)
+	) {
+		throw new Error('Gateway returned different Bucket heads at the same revision')
+	}
+	return incoming
+}
+
+export function bucketStashNamespace(scope) {
+	const selected = createBucketStashScope(scope || {})
+	return `malt-app-bucket-stash:v2:${encodeURIComponent(selected.profile)}:${encodeURIComponent(selected.baseURL)}:${encodeURIComponent(selected.bucketID)}:`
+}
+
+export function legacyBucketStashStorageKey(scope) {
+	const selected = createBucketStashScope(scope || {})
+	return `malt-app-bucket-stashes:${selected.profile}:${selected.bucketID}`
+}
+
+export function legacyBucketStashBindingNamespace(scope) {
+	const selected = createBucketStashScope(scope || {})
+	return `malt-app-bucket-stash:legacy-bound:v2:${encodeURIComponent(selected.profile)}:${encodeURIComponent(selected.bucketID)}:`
+}
+
+export function legacyBucketStashBindingStorageKey(scope, legacyID) {
+	const id = String(legacyID || '').trim()
+	if (!id) throw new Error('legacy Bucket stash ID is required')
+	return `${legacyBucketStashBindingNamespace(scope)}${encodeURIComponent(id)}`
+}
+
+export function bucketStashStorageKey(scope, stashID) {
+	const id = String(stashID || '').trim()
+	if (!id) throw new Error('Bucket stash ID is required')
+	return `${bucketStashNamespace(scope)}${encodeURIComponent(id)}`
+}
+
+export function assertBucketStashScope(stash, expectedScope) {
+	const expected = createBucketStashScope(expectedScope || {})
+	let actual
+	try {
+		actual = createBucketStashScope(stash?.scope || {})
+	} catch {
+		throw new Error('Bucket stash has no valid Gateway scope')
+	}
+	if (!sameBucketStashScope(actual, expected)) {
+		throw new Error('Bucket stash belongs to a different profile, Gateway, or Bucket')
+	}
+	return actual
+}
+
+export function assertBucketStashLegacyBinding(storage, stash) {
+	const value = normalizeBucketStash(stash)
+	if (!value) throw new Error('invalid Bucket stash')
+	if (!value.legacyBinding) return null
+	const marker = readLegacyBindingMarker(storage, value.scope, value.legacyBinding.legacyID)
+	if (!marker || !legacyMarkerMatchesStash(marker, value)) {
+		throw new Error('legacy Bucket stash binding no longer matches its Gateway scope')
+	}
+	return marker
+}
+
+export function readBucketStashValues(storage, scope) {
+	const selected = createBucketStashScope(scope || {})
+	const namespace = bucketStashNamespace(selected)
+	const values = []
+	for (const key of storageKeySnapshot(storage)) {
+		if (!key.startsWith(namespace)) continue
+		const value = readBucketStashValue(storage, key, selected, { verifyBinding: true })
+		if (value && key === bucketStashStorageKey(selected, value.id)) values.push(value)
+	}
+	return values.sort((left, right) =>
+		String(left.createdAt || '').localeCompare(String(right.createdAt || '')) || left.id.localeCompare(right.id)
+	)
+}
+
+export function readLegacyBucketStashValues(storage, scope) {
+	const selected = createBucketStashScope(scope || {})
+	const legacyKey = legacyBucketStashStorageKey(selected)
+	const raw = storage.getItem(legacyKey)
+	if (raw == null) return []
+	let decoded
+	try {
+		decoded = JSON.parse(raw)
+	} catch {
+		return []
+	}
+	if (!Array.isArray(decoded)) return []
+	const values = []
+	const seen = new Set()
+	for (const value of decoded) {
+		const legacy = normalizeLegacyBucketStash(value)
+		if (
+			!legacy ||
+			seen.has(legacy.id) ||
+			storage.getItem(legacyBucketStashBindingStorageKey(selected, legacy.id)) != null
+		) continue
+		seen.add(legacy.id)
+		values.push(legacy)
+	}
+	return values.sort((left, right) =>
+		String(left.createdAt || '').localeCompare(String(right.createdAt || '')) || left.id.localeCompare(right.id)
+	)
+}
+
+export async function bindLegacyBucketStashValue(storage, legacy, scope, options = {}) {
+	const source = normalizeLegacyBucketStash(legacy)
+	if (!source) throw new Error('invalid legacy Bucket stash')
+	const selected = createBucketStashScope(scope || {})
+	const id = source.id
+	const pushID = `web_${source.id}`
+	const lockManager = options.lockManager
+	if (!lockManager || typeof lockManager.request !== 'function') {
+		throw new Error('Web Locks API is required to bind a legacy Bucket stash safely')
+	}
+	return lockManager.request(legacyBindingLockName(selected, source.id), { mode: 'exclusive' }, async () => {
+		const marker = readLegacyBindingMarker(storage, selected, source.id)
+		if (marker) {
+			if (!sameBucketStashScope(marker.scope, selected)) {
+				throw new Error('legacy Bucket stash is already bound to a different Gateway')
+			}
+			const existing = readBucketStashValue(
+				storage,
+				bucketStashStorageKey(selected, source.id),
+				selected,
+				{ verifyBinding: true }
+			)
+			return { stash: existing, values: readBucketStashValues(storage, selected) }
+		}
+		const stash = normalizeBucketStash({
+			id,
+			pushID,
+			candidateRoot: source.candidateRoot,
+			base: source.base,
+			message: source.message,
+			scope: selected,
+			status: 'pending',
+			createdAt: String(options.createdAt || ''),
+			legacyBinding: { version: 1, legacyID: source.id }
+		})
+		if (!stash) throw new Error('legacy Bucket stash cannot be bound')
+		const key = bucketStashStorageKey(selected, stash.id)
+		const existing = readBucketStashValue(storage, key, selected, { verifyBinding: false })
+		if (existing && !sameBucketStashRequest(existing, stash)) {
+			throw new Error('legacy Bucket stash ID is already bound to a different request')
+		}
+		if (!existing) storage.setItem(key, JSON.stringify(stash))
+		const binding = legacyBindingMarker(selected, source.id)
+		storage.setItem(legacyBucketStashBindingStorageKey(selected, source.id), JSON.stringify(binding))
+		return { stash, values: readBucketStashValues(storage, selected) }
+	})
+}
+
+export function appendBucketStashValue(storage, stash) {
+	const value = normalizeBucketStash(stash)
+	if (!value) throw new Error('invalid Bucket stash')
+	const key = bucketStashStorageKey(value.scope, value.id)
+	const existing = storage.getItem(key)
+	if (existing != null) {
+			const decoded = readBucketStashValue(storage, key, value.scope, { verifyBinding: true })
+		if (!decoded || !sameBucketStashRequest(decoded, value)) {
+			throw new Error('Bucket stash ID is already bound to a different request')
+		}
+		return readBucketStashValues(storage, value.scope)
+	}
+	storage.setItem(key, JSON.stringify(value))
+	return readBucketStashValues(storage, value.scope)
+}
+
+export function applyBucketStashResult(storage, stash, result) {
+	const value = normalizeBucketStash(stash)
+	if (!value) throw new Error('invalid Bucket stash')
+	assertBucketStashLegacyBinding(storage, value)
+	const key = bucketStashStorageKey(value.scope, value.id)
+	const stored = readBucketStashValue(storage, key, value.scope, { verifyBinding: true })
+	if (!stored) return readBucketStashValues(storage, value.scope)
+	if (!sameBucketStashRequest(stored, value)) {
+		throw new Error('stored Bucket stash no longer matches the completed request')
+	}
+	if (result.status === 'branched') {
+		storage.setItem(
+			key,
+			JSON.stringify({
+				...stored,
+				status: 'branched',
+				branch: result.branch.name,
+				conflicts: result.conflicts
+			})
+		)
+	} else {
+		storage.removeItem(key)
+	}
+	return readBucketStashValues(storage, value.scope)
+}
+
+function storageKeySnapshot(storage) {
+	const keys = []
+	for (let index = 0; index < storage.length; index++) {
+		const key = storage.key(index)
+		if (typeof key === 'string') keys.push(key)
+	}
+	return keys
+}
+
+function readBucketStashValue(storage, key, scope, options = {}) {
+	try {
+		const value = normalizeBucketStash(JSON.parse(storage.getItem(key)))
+		if (!value || !sameBucketStashScope(value.scope, scope)) return null
+		if (options.verifyBinding && value.legacyBinding) assertBucketStashLegacyBinding(storage, value)
+		return value
+	} catch {
+		return null
+	}
+}
+
+function normalizeBucketStash(value) {
+	if (
+		!value ||
+		typeof value.id !== 'string' ||
+		!value.id.trim() ||
+		typeof value.pushID !== 'string' ||
+		!value.pushID.trim() ||
+		typeof value.candidateRoot !== 'string' ||
+		typeof value.message !== 'string' ||
+		!['pending', 'branched'].includes(value.status) ||
+		!value.base ||
+		typeof value.base.commitID !== 'string' ||
+		typeof value.base.root !== 'string' ||
+		!Number.isSafeInteger(value.base.revision) ||
+		value.base.revision < 0
+	) {
+		return null
+	}
+	let scope
+	let legacyBinding = null
+	try {
+		scope = createBucketStashScope(value.scope || {})
+		parseCID(value.candidateRoot)
+		if (value.base.root) parseCID(value.base.root)
+		if (value.legacyBinding != null) {
+			legacyBinding = normalizeLegacyBindingProvenance(value.legacyBinding, value.id, value.pushID)
+			if (!legacyBinding) return null
+		}
+	} catch {
+		return null
+	}
+	const emptyBase = !value.base.commitID && !value.base.root && value.base.revision === 0
+	const populatedBase = Boolean(value.base.commitID && value.base.root && value.base.revision >= 1)
+	if (!emptyBase && !populatedBase) return null
+	return {
+		id: value.id.trim(),
+		pushID: value.pushID.trim(),
+		candidateRoot: value.candidateRoot.trim(),
+		base: {
+			commitID: value.base.commitID.trim(),
+			root: value.base.root.trim(),
+			revision: value.base.revision
+		},
+		message: value.message.trim(),
+		scope,
+		status: value.status,
+		createdAt: typeof value.createdAt === 'string' ? value.createdAt : '',
+		...(legacyBinding ? { legacyBinding } : {}),
+		...(value.status === 'branched'
+			? {
+					branch: typeof value.branch === 'string' ? value.branch : '',
+					conflicts: Array.isArray(value.conflicts) ? value.conflicts : []
+				}
+			: {})
+	}
+}
+
+function normalizeLegacyBucketStash(value) {
+	if (
+		!value ||
+		typeof value.id !== 'string' ||
+		!value.id.trim() ||
+		typeof value.candidateRoot !== 'string' ||
+		!['pending', 'branched'].includes(value.status) ||
+		!value.base ||
+		typeof value.base.commitID !== 'string' ||
+		typeof value.base.root !== 'string' ||
+		!Number.isSafeInteger(value.base.revision) ||
+		value.base.revision < 0
+	) {
+		return null
+	}
+	try {
+		parseCID(value.candidateRoot)
+		if (value.base.root) parseCID(value.base.root)
+	} catch {
+		return null
+	}
+	const emptyBase = !value.base.commitID && !value.base.root && value.base.revision === 0
+	const populatedBase = Boolean(value.base.commitID && value.base.root && value.base.revision >= 1)
+	if (!emptyBase && !populatedBase) return null
+	return {
+		id: value.id.trim(),
+		candidateRoot: value.candidateRoot.trim(),
+		base: {
+			commitID: value.base.commitID.trim(),
+			root: value.base.root.trim(),
+			revision: value.base.revision
+		},
+		message: typeof value.message === 'string' ? value.message.trim() : 'web upload',
+		status: value.status,
+		createdAt: typeof value.createdAt === 'string' ? value.createdAt : '',
+		legacy: true,
+		...(value.status === 'branched'
+			? {
+					branch: typeof value.branch === 'string' ? value.branch : '',
+					conflicts: Array.isArray(value.conflicts) ? value.conflicts : []
+				}
+			: {})
+	}
+}
+
+function normalizeLegacyBindingProvenance(value, stashID, pushID) {
+	if (
+		!value ||
+		value.version !== 1 ||
+		typeof value.legacyID !== 'string' ||
+		!value.legacyID.trim() ||
+		String(stashID || '').trim() !== value.legacyID.trim() ||
+		String(pushID || '').trim() !== `web_${value.legacyID.trim()}`
+	) {
+		return null
+	}
+	return Object.freeze({ version: 1, legacyID: value.legacyID.trim() })
+}
+
+function sameLegacyBindingProvenance(left, right) {
+	if (!left && !right) return true
+	return Boolean(left && right && left.version === right.version && left.legacyID === right.legacyID)
+}
+
+function legacyBindingMarker(scope, legacyID) {
+	const selected = createBucketStashScope(scope || {})
+	const id = String(legacyID || '').trim()
+	if (!id) throw new Error('legacy Bucket stash ID is required')
+	return Object.freeze({ version: 1, legacyID: id, scope: selected })
+}
+
+function readLegacyBindingMarker(storage, scope, legacyID) {
+	const key = legacyBucketStashBindingStorageKey(scope, legacyID)
+	const raw = storage.getItem(key)
+	if (raw == null) return null
+	let decoded
+	try {
+		decoded = JSON.parse(raw)
+	} catch {
+		throw new Error('legacy Bucket stash binding marker is invalid')
+	}
+	if (!decoded || decoded.version !== 1 || decoded.legacyID !== String(legacyID || '').trim()) {
+		throw new Error('legacy Bucket stash binding marker is invalid')
+	}
+	let markerScope
+	try {
+		markerScope = createBucketStashScope(decoded.scope || {})
+	} catch {
+		throw new Error('legacy Bucket stash binding marker has an invalid scope')
+	}
+	return Object.freeze({ version: 1, legacyID: decoded.legacyID, scope: markerScope })
+}
+
+function legacyMarkerMatchesStash(marker, stash) {
+	return (
+		marker.version === stash.legacyBinding.version &&
+		marker.legacyID === stash.legacyBinding.legacyID &&
+		stash.id === marker.legacyID &&
+		stash.pushID === `web_${marker.legacyID}` &&
+		sameBucketStashScope(marker.scope, stash.scope)
+	)
+}
+
+function legacyBindingLockName(scope, legacyID) {
+	const selected = createBucketStashScope(scope || {})
+	return `malt-app-legacy-bind:v1:${encodeURIComponent(selected.profile)}:${encodeURIComponent(selected.bucketID)}:${encodeURIComponent(String(legacyID || '').trim())}`
+}
+
+function sameBucketStashScope(left, right) {
+	return left.profile === right.profile && left.baseURL === right.baseURL && left.bucketID === right.bucketID
+}
+
+function sameBucketStashRequest(left, right) {
+	return (
+		left.id === right.id &&
+		left.pushID === right.pushID &&
+		left.candidateRoot === right.candidateRoot &&
+		left.base.commitID === right.base.commitID &&
+		left.base.root === right.base.root &&
+		left.base.revision === right.base.revision &&
+		left.message === right.message &&
+		sameLegacyBindingProvenance(left.legacyBinding, right.legacyBinding) &&
+		sameBucketStashScope(left.scope, right.scope)
+	)
 }
 
 export async function resolvePath({ baseURL, root, path, bucketID, apiKey, signal }) {
@@ -465,14 +1089,17 @@ export async function readContentBlob({ baseURL, root, path, range, bucketID, ap
   }
 }
 
-// Fetch one immutable payload block through the same gateway. Callers must
-// still hash the returned bytes against the requested CID; this endpoint is an
-// availability path, not a trust decision.
+// Fetch one immutable payload block through its managed Bucket. Public raw-CAS
+// reads are intentionally unavailable. Callers still hash returned bytes
+// against the requested CID; Bucket authorization is not a trust decision.
 export async function readPayloadBlock({ baseURL, cid, bucketID, apiKey, signal }) {
   const blockCID = String(cid || '').trim()
   if (!blockCID) {
     throw new Error('payload block CID is required')
   }
+	if (!String(bucketID || '').trim() || !String(apiKey || '').trim()) {
+		throw new Error('managed Bucket ID and API key are required for payload reads')
+	}
 	const url = buildCASURL(baseURL, blockCID, bucketID)
 	const response = await fetch(url, gatewayRequestOptions(url, apiKey, { signal }))
   if (!response.ok) {

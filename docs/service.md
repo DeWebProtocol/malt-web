@@ -25,11 +25,15 @@ This service provides the integration boundary for:
 - examples for CLI and HTTP clients
 - reproducible benchmark datasets
 - profiled `resolve` and primitive `read` results, plus diagnostic verification
-- generic CAS/root operations composed into UnixFS behavior by trusted clients
+- Bucket-scoped CAS/root operations composed into UnixFS behavior by trusted
+  clients
 
 The gateway now has an operator-controlled named-root publication registry with
 monotonic revisions and irreversible freeze. This is application metadata, not
 global freshness, consensus, or an automatic client trust decision.
+Longer term, user-managed roots are expected to be published through a
+decentralized naming system; a Gateway Bucket head remains only an observed
+synchronization ref and does not replace that user-controlled trust decision.
 
 The managed product path also provides tenants, principals, API keys, and
 multiple Buckets per tenant. Personal and shared Buckets use the same commit
@@ -61,18 +65,45 @@ against the authenticated CID
 
 CAS is not defined by MALT core, and the gateway is not part of the
 authentication trust boundary. Bucket ACLs authorize service access; they do
-not make a Gateway head a trusted client root.
+not make a Gateway head a trusted client root. The browser does not use a
+public raw-CAS `GET /v1/cas/{cid}` path: immutable payload reads require a
+managed Bucket ID and API key and go through the Bucket-scoped route. The
+client still hashes every returned block against its authenticated CID.
 
 The browser App can connect to these Bucket routes with a Bucket ID and API
 key. It keeps the API key in memory, stores a local candidate before refreshing
 the remote head, and accepts `fast_forward`, `merged`, or `branched` push
-outcomes. Selecting an observed or merged head remains an explicit client
-action, and all content reads still verify proofs and payload CIDs locally.
+outcomes only after the returned main ref, final commit, submitted candidate,
+and optional conflict branch are bound to the original request. Selecting an
+observed or merged head remains an explicit client action, and all content
+reads still verify proofs and payload CIDs locally.
 Credentialed requests require HTTPS except for loopback development Gateways
 and reject redirects so the bearer token is never forwarded to another URL.
 Pending and branched browser stashes are listed after reload; users can retry a
 pending push with its original push ID/base or explicitly restore its candidate
-root without first replacing it with the latest remote head.
+root without first replacing it with the latest remote head. Each stash is an
+independent localStorage record bound to the canonical Gateway URL, local
+profile, and Bucket ID, so one tab cannot overwrite another stash through a
+shared array update and edited settings cannot redirect an old retry. The
+stored `base_revision` records what the browser observed; it is diagnostic
+metadata, not a client-selected compare-and-swap token. Legacy array stashes
+that predate Gateway scoping remain visible, but cannot be opened or retried
+until the user explicitly binds one to the selected Gateway and Bucket.
+Binding creates a scoped record while preserving the original
+deterministic push ID, so a retry can recover a response lost before the
+browser learned the first push result. Binding requires the browser Web Locks
+API and records one structured, Gateway-independent ownership marker for the
+legacy ID. Competing tabs can therefore bind a legacy candidate to only one
+canonical Gateway/profile/Bucket scope. The App rechecks that marker before
+restore, before and after a retry refresh, immediately before the push, and
+again before completing or deleting the stash. Until binding, the App performs
+no Gateway read for that legacy candidate.
+
+Observed main refs are merged monotonically within one canonical Gateway
+scope. A delayed response from an idempotent retry may complete the matching
+stash, but it cannot replace a newer observed revision; two different
+commit/root tuples at the same revision are rejected as an inconsistent
+Gateway response. Revisions from different Gateway scopes are not compared.
 
 ## Product Surface
 

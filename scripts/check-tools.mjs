@@ -7,6 +7,11 @@ import * as raw from 'multiformats/codecs/raw'
 import { sha256 } from 'multiformats/hashes/sha2'
 
 import {
+	appendBucketStashValue,
+	applyBucketStashResult,
+	assertBucketStashLegacyBinding,
+	assertBucketStashScope,
+	bindLegacyBucketStashValue,
 	appFallbackStorageKey,
 	ancestorDirectoryPaths,
 	buildAppStatePath,
@@ -16,12 +21,20 @@ import {
 	buildResolveURL,
 	buildVerifyReadURL,
 	buildVerifyResolveURL,
+	bucketStashNamespace,
+	bucketStashStorageKey,
+	canonicalGatewayBaseURL,
+	createBucketStashScope,
 	decodeProofListHeader,
 	extractProofListInput,
 	extractVerificationInput,
 	fetchBucketHead,
   isAppStateRoute,
-  joinMaltPath,
+	joinMaltPath,
+	legacyBucketStashBindingNamespace,
+	legacyBucketStashBindingStorageKey,
+	legacyBucketStashStorageKey,
+	mergeObservedBucketHead,
   parseAppFallbackRoute,
   parseAppStatePath,
   pathBasename,
@@ -29,6 +42,8 @@ import {
 	profileStorageKey,
 	pushBucketRoot,
 	readPayloadBlock,
+	readBucketStashValues,
+	readLegacyBucketStashValues,
 	readProfile,
 	normalizeUploadPath,
 	resolveProfile
@@ -341,6 +356,15 @@ assert.match(appSource, /Refresh Bucket head/)
 assert.match(appSource, /async function pushUploadedCandidate\(candidateRoot, base\)/)
 assert.match(appSource, /async function retryBucketStash\(stash\)/)
 assert.match(appSource, /async function restoreBucketStash\(stash\)/)
+assert.match(appSource, /window\.addEventListener\('storage', handleBucketStorageChange\)/)
+assert.match(appSource, /event\.key\.startsWith\(loadedBucketStashNamespace\.value\)/)
+assert.match(appSource, /readLegacyBucketStashValues\(window\.localStorage, scope\)/)
+assert.match(appSource, /async function bindLegacyBucketStash\(stash\)/)
+assert.match(appSource, />\s*Bind to this Gateway\s*</)
+assert.match(appSource, /legacyBindingSupported/)
+assert.match(appSource, /lockManager:\s*globalThis\.navigator\?\.locks/)
+assert.match(appSource, /stash\.status === 'pending' && !stash\.legacy/)
+assert.match(appSource, /:disabled="busy \|\| stash\.legacy \|\| !bucketConfigured"/)
 assert.match(appSource, />\s*Retry push\s*</)
 assert.match(appSource, />\s*Use candidate\s*</)
 const pushUploadedCandidateSource = appSource.match(
@@ -352,6 +376,65 @@ assert.ok(
 		pushUploadedCandidateSource.indexOf('observeBucketHead'),
 	'Bucket candidate must be stashed before fetching the remote head'
 )
+const retryBucketStashSource = appSource.match(
+	/async function retryBucketStash\(stash\) \{[\s\S]*?\n\}\n\nasync function restoreBucketStash/
+)?.[0]
+assert.ok(retryBucketStashSource, 'Bucket stash retry is missing')
+assert.match(retryBucketStashSource, /assertBucketStashScope\(stash, currentBucketStashScope\(\)\)/)
+assert.match(retryBucketStashSource, /pushID:\s*stash\.pushID/)
+assert.match(retryBucketStashSource, /baseCommit:\s*stash\.base\?\.commitID/)
+assert.match(retryBucketStashSource, /baseRoot:\s*stash\.base\?\.root/)
+assert.match(retryBucketStashSource, /baseRevision:\s*stash\.base\?\.revision/)
+assert.match(retryBucketStashSource, /candidateRoot:\s*stash\.candidateRoot/)
+assert.match(retryBucketStashSource, /baseURL:\s*scope\.baseURL/)
+assert.match(retryBucketStashSource, /bucketID:\s*scope\.bucketID/)
+assert.ok(
+	retryBucketStashSource.match(/assertBucketStashLegacyBinding\(window\.localStorage, stash\)/g)?.length >= 3,
+	'Legacy binding provenance must be checked before and after refresh and before retry push'
+)
+assert.ok(
+	retryBucketStashSource.indexOf('assertBucketStashScope(stash, currentBucketStashScope())') <
+		retryBucketStashSource.indexOf('await observeBucketHead(scope)'),
+	'Bucket stash scope must be checked before any retry network request'
+)
+assert.ok(
+	retryBucketStashSource.indexOf('await withDaemonTimeout') <
+		retryBucketStashSource.indexOf('finishBucketStash(stash, result)'),
+	'Bucket stash must only be finished after a validated retry result'
+)
+const finishBucketStashSource = appSource.match(
+	/function finishBucketStash\(stash, result\) \{[\s\S]*?\n\}/
+)?.[0]
+assert.ok(finishBucketStashSource, 'Bucket stash completion is missing')
+assert.match(finishBucketStashSource, /assertBucketStashScope\(stash, currentBucketStashScope\(\)\)/)
+assert.match(finishBucketStashSource, /assertBucketStashLegacyBinding\(window\.localStorage, stash\)/)
+assert.match(finishBucketStashSource, /applyBucketStashResult\(window\.localStorage, stash, result\)/)
+const restoreBucketStashSource = appSource.match(
+	/async function restoreBucketStash\(stash\) \{[\s\S]*?\n\}\n\nfunction captureBucketBase/
+)?.[0]
+assert.ok(restoreBucketStashSource, 'Bucket stash restore is missing')
+assert.match(restoreBucketStashSource, /assertBucketStashScope\(stash, currentBucketStashScope\(\)\)/)
+assert.match(restoreBucketStashSource, /assertBucketStashLegacyBinding\(window\.localStorage, stash\)/)
+assert.ok(
+	restoreBucketStashSource.indexOf('assertBucketStashScope(stash, currentBucketStashScope())') <
+		restoreBucketStashSource.indexOf('await loadRoot'),
+	'Unscoped legacy candidates must fail before any restore read'
+)
+assert.match(appSource, /function recordObservedBucketHead\(observed, scope\)/)
+assert.match(appSource, /function calculateObservedBucketHead\(observed, scope\)/)
+assert.match(appSource, /function storeObservedBucketHead\(observed, scope\)/)
+assert.match(appSource, /mergeObservedBucketHead/)
+for (const [source, label] of [
+	[retryBucketStashSource, 'retry'],
+	[pushUploadedCandidateSource, 'new push']
+]) {
+	const calculateIndex = source.indexOf('calculateObservedBucketHead(result.head, scope)')
+	const finishIndex = source.indexOf('finishBucketStash(stash, result)')
+	const storeIndex = source.indexOf('storeObservedBucketHead(mergedObservedHead, scope)')
+	assert.ok(calculateIndex >= 0 && calculateIndex < finishIndex, `${label} must validate the observed head before finishing its stash`)
+	assert.ok(finishIndex < storeIndex, `${label} must finish its stash before storing the validated observed head`)
+	assert.ok(storeIndex < source.indexOf('persistProfile()'), `${label} must persist only after storing the validated observed head`)
+}
 const persistProfileSource = appSource.match(
 	/function persistProfile\(\) \{[\s\S]*?\n\}/
 )?.[0]
@@ -542,14 +625,41 @@ for (const invalidPath of ['/absolute', 'trailing/', 'a//b', 'a/../b', '@payload
 const originalFetch = globalThis.fetch
 const casBytes = new TextEncoder().encode('verified CAS bytes')
 const casCID = CID.createV1(raw.code, await sha256.digest(casBytes)).toString()
-globalThis.fetch = async () => new Response(casBytes)
-assert.deepEqual(
-  await readPayloadBlock({ baseURL: 'http://127.0.0.1:8080', cid: casCID }),
-  casBytes
+let payloadFetchCount = 0
+globalThis.fetch = async () => {
+	payloadFetchCount += 1
+	return new Response(casBytes)
+}
+await assert.rejects(
+	readPayloadBlock({ baseURL: 'http://127.0.0.1:8080', cid: casCID }),
+	/managed Bucket ID and API key are required/
 )
+assert.equal(payloadFetchCount, 0, 'Unscoped payload reads must fail before fetch')
+let payloadRequest
+globalThis.fetch = async (url, options = {}) => {
+	payloadRequest = { url: String(url), options }
+	return new Response(casBytes)
+}
+assert.deepEqual(
+	await readPayloadBlock({
+		baseURL: 'http://127.0.0.1:8080',
+		bucketID: 'bkt_one',
+		apiKey: 'secret',
+		cid: casCID
+	}),
+	casBytes
+)
+assert.equal(payloadRequest.url, `http://127.0.0.1:8080/v1/buckets/bkt_one/cas/${casCID}`)
+assert.equal(payloadRequest.options.headers.Authorization, 'Bearer secret')
+assert.equal(payloadRequest.options.redirect, 'error')
 globalThis.fetch = async () => new Response(new TextEncoder().encode('tampered CAS bytes'))
 await assert.rejects(
-  readPayloadBlock({ baseURL: 'http://127.0.0.1:8080', cid: casCID }),
+	readPayloadBlock({
+		baseURL: 'http://127.0.0.1:8080',
+		bucketID: 'bkt_one',
+		apiKey: 'secret',
+		cid: casCID
+	}),
   /do not match requested CID/
 )
 let bucketRequest
@@ -586,20 +696,31 @@ await assert.rejects(
 	/require HTTPS or a loopback HTTP Gateway/
 )
 
-globalThis.fetch = async (url, options = {}) => {
-	bucketRequest = { url: String(url), options }
-	return new Response(
-		JSON.stringify({
-			status: 'branched',
-			head: observedHead,
-			commit: { id: 'cmt_candidate', bucket_id: 'bkt_one', root: casCID },
-			branch: { ...observedHead, name: 'conflicts/alice/one', kind: 'conflict' },
-			conflicts: [{ coordinate: 'docs/readme' }]
-		}),
-		{ status: 409, headers: { 'Content-Type': 'application/json' } }
-	)
+globalThis.fetch = async () =>
+	new Response(JSON.stringify({ ...observedHead, kind: 'explicit' }), {
+		status: 200,
+		headers: { 'Content-Type': 'application/json' }
+	})
+await assert.rejects(
+	fetchBucketHead({
+		baseURL: 'http://127.0.0.1:8080',
+		bucketID: 'bkt_one',
+		apiKey: 'secret'
+	}),
+	/unexpected Bucket ref/
+)
+
+const candidateCommit = {
+	id: 'cmt_candidate',
+	bucket_id: 'bkt_one',
+	root: casCID,
+	parents: ['cmt_one'],
+	base_root: casCID,
+	message: 'web upload',
+	author: 'alice',
+	created_at: '2026-07-22T00:00:00Z'
 }
-const pushed = await pushBucketRoot({
+const bucketPushRequest = {
 	baseURL: 'http://127.0.0.1:8080',
 	bucketID: 'bkt_one',
 	apiKey: 'secret',
@@ -607,29 +728,530 @@ const pushed = await pushBucketRoot({
 	baseCommit: 'cmt_one',
 	baseRoot: casCID,
 	baseRevision: 1,
-	candidateRoot: casCID
-})
+	candidateRoot: casCID,
+	message: 'web upload'
+}
+globalThis.fetch = async (url, options = {}) => {
+	bucketRequest = { url: String(url), options }
+	return new Response(
+		JSON.stringify({
+			status: 'branched',
+			head: observedHead,
+			commit: candidateCommit,
+			candidate: candidateCommit,
+			branch: {
+				...observedHead,
+				name: 'conflicts/alice/one',
+				kind: 'conflict',
+				commit_id: candidateCommit.id,
+				root: candidateCommit.root
+			},
+			merge_base: casCID,
+			conflicts: [{ coordinate: 'docs/readme' }]
+		}),
+		{ status: 409, headers: { 'Content-Type': 'application/json' } }
+	)
+}
+const pushed = await pushBucketRoot(bucketPushRequest)
 assert.equal(pushed.status, 'branched')
 const bucketPushBody = JSON.parse(bucketRequest.options.body)
 assert.equal(bucketPushBody.base_commit, 'cmt_one')
 assert.equal(bucketPushBody.base_revision, 1)
 assert.equal('expected_head_revision' in bucketPushBody, false)
+
+function storageClient(values, hooks = {}) {
+	return {
+		get length() {
+			return values.size
+		},
+		key(index) {
+			return Array.from(values.keys())[index] ?? null
+		},
+		getItem(key) {
+			return values.get(key) ?? null
+		},
+		setItem(key, value) {
+			hooks.beforeSet?.(key, value)
+			values.set(key, value)
+		},
+		removeItem(key) {
+			hooks.beforeRemove?.(key)
+			values.delete(key)
+		}
+	}
+}
+
+function exclusiveLockManager() {
+	const tails = new Map()
+	const requests = []
+	return {
+		requests,
+		request(name, options, callback) {
+			requests.push({ name, options })
+			const previous = tails.get(name) || Promise.resolve()
+			const current = previous.then(() => callback({ name, mode: options?.mode }))
+			tails.set(name, current.catch(() => undefined))
+			return current
+		}
+	}
+}
+
+assert.equal(canonicalGatewayBaseURL('HTTP://LOCALHOST:80/gateway/'), 'http://localhost/gateway')
+const stashScope = createBucketStashScope({
+	profile: 'alice',
+	baseURL: 'http://127.0.0.1:8080/',
+	bucketID: 'bkt_one'
+})
+const otherGatewayScope = createBucketStashScope({
+	profile: 'alice',
+	baseURL: 'https://gateway.example',
+	bucketID: 'bkt_one'
+})
+assert.notEqual(bucketStashNamespace(stashScope), bucketStashNamespace(otherGatewayScope))
+assert.equal(
+	legacyBucketStashBindingNamespace(stashScope),
+	legacyBucketStashBindingNamespace(otherGatewayScope)
+)
+const newerHeadBytes = new TextEncoder().encode('newer observed Bucket head')
+const newerHeadCID = CID.createV1(raw.code, await sha256.digest(newerHeadBytes)).toString()
+const observedHead10 = {
+	...observedHead,
+	commit_id: 'cmt_ten',
+	root: newerHeadCID,
+	revision: 10
+}
+const stalePushHead6 = {
+	...observedHead,
+	commit_id: 'cmt_six',
+	revision: 6
+}
+assert.strictEqual(
+	mergeObservedBucketHead(observedHead10, stashScope, stalePushHead6, stashScope),
+	observedHead10,
+	'An older idempotent push response must not regress the observed head'
+)
+assert.strictEqual(
+	mergeObservedBucketHead(stalePushHead6, stashScope, observedHead10, stashScope),
+	observedHead10
+)
+assert.throws(
+	() =>
+		mergeObservedBucketHead(
+			observedHead10,
+			stashScope,
+			{ ...observedHead10, commit_id: 'cmt_ten_other' },
+			stashScope
+		),
+	/different Bucket heads at the same revision/
+)
+assert.throws(
+	() =>
+		mergeObservedBucketHead(
+			observedHead10,
+			stashScope,
+			{ ...observedHead10, root: casCID },
+			stashScope
+		),
+	/different Bucket heads at the same revision/
+)
+assert.strictEqual(
+	mergeObservedBucketHead(observedHead10, stashScope, stalePushHead6, otherGatewayScope),
+	stalePushHead6,
+	'Observed heads from different Gateways have independent revision domains'
+)
+const pendingStash = {
+	id: 'stash-one',
+	pushID: 'web_stash-one',
+	candidateRoot: casCID,
+	base: { commitID: 'cmt_one', root: casCID, revision: 1 },
+	message: 'web upload',
+	scope: stashScope,
+	status: 'pending',
+	createdAt: '2026-07-22T00:00:00Z'
+}
+const concurrentStash = {
+	...pendingStash,
+	id: 'stash-two',
+	pushID: 'web_stash-two',
+	createdAt: '2026-07-22T00:00:01Z'
+}
+const sharedStashValues = new Map()
+const secondStorageClient = storageClient(sharedStashValues)
+let nestedAppendRan = false
+const firstStorageClient = storageClient(sharedStashValues, {
+	beforeSet(key) {
+		if (!nestedAppendRan && key === bucketStashStorageKey(stashScope, pendingStash.id)) {
+			nestedAppendRan = true
+			appendBucketStashValue(secondStorageClient, concurrentStash)
+		}
+	}
+})
+appendBucketStashValue(firstStorageClient, pendingStash)
+assert.equal(nestedAppendRan, true)
+assert.deepEqual(
+	readBucketStashValues(secondStorageClient, stashScope).map((stash) => stash.id),
+	['stash-one', 'stash-two']
+)
+assert.deepEqual(readBucketStashValues(secondStorageClient, otherGatewayScope), [])
+assert.throws(
+	() => assertBucketStashScope(pendingStash, otherGatewayScope),
+	/different profile, Gateway, or Bucket/
+)
+
+const thirdStash = {
+	...pendingStash,
+	id: 'stash-three',
+	pushID: 'web_stash-three',
+	createdAt: '2026-07-22T00:00:02Z'
+}
+let nestedFinishAppendRan = false
+const finishingStorageClient = storageClient(sharedStashValues, {
+	beforeRemove(key) {
+		if (!nestedFinishAppendRan && key === bucketStashStorageKey(stashScope, pendingStash.id)) {
+			nestedFinishAppendRan = true
+			appendBucketStashValue(secondStorageClient, thirdStash)
+		}
+	}
+})
+const afterSuccessfulRetry = applyBucketStashResult(
+	finishingStorageClient,
+	pendingStash,
+	{ status: 'fast_forward' }
+)
+assert.equal(nestedFinishAppendRan, true)
+assert.deepEqual(
+	afterSuccessfulRetry.map((stash) => stash.id),
+	['stash-two', 'stash-three']
+)
+const branchedStashes = applyBucketStashResult(secondStorageClient, concurrentStash, pushed)
+assert.equal(branchedStashes.find((stash) => stash.id === concurrentStash.id)?.status, 'branched')
+assert.ok(readBucketStashValues(secondStorageClient, stashScope).some((stash) => stash.id === thirdStash.id))
+
+const responseLossValues = new Map()
+const responseLossStorage = storageClient(responseLossValues)
+const responseLossStash = {
+	...pendingStash,
+	id: 'stash-response-loss',
+	pushID: 'web_stash-response-loss'
+}
+appendBucketStashValue(responseLossStorage, responseLossStash)
+const responseLossObservedHead = mergeObservedBucketHead(
+	observedHead10,
+	stashScope,
+	stalePushHead6,
+	stashScope
+)
+applyBucketStashResult(responseLossStorage, responseLossStash, { status: 'fast_forward' })
+assert.deepEqual(readBucketStashValues(responseLossStorage, stashScope), [])
+assert.strictEqual(
+	responseLossObservedHead,
+	observedHead10,
+	'A validated older replay may complete its stash without regressing the observed head'
+)
+
+const inconsistentHeadValues = new Map()
+const inconsistentHeadStorage = storageClient(inconsistentHeadValues)
+const inconsistentHeadStash = {
+	...pendingStash,
+	id: 'stash-inconsistent-head',
+	pushID: 'web_stash-inconsistent-head'
+}
+appendBucketStashValue(inconsistentHeadStorage, inconsistentHeadStash)
+assert.throws(
+	() =>
+		mergeObservedBucketHead(
+			observedHead10,
+			stashScope,
+			{ ...observedHead10, commit_id: 'cmt_same_revision_other' },
+			stashScope
+		),
+	/different Bucket heads at the same revision/
+)
+assert.deepEqual(
+	readBucketStashValues(inconsistentHeadStorage, stashScope).map((stash) => stash.id),
+	['stash-inconsistent-head'],
+	'An inconsistent observed-head result must leave the pending stash intact'
+)
+
+const legacyValues = new Map()
+const legacyStorage = storageClient(legacyValues)
+legacyStorage.setItem(
+	legacyBucketStashStorageKey(stashScope),
+	JSON.stringify([
+		{
+			id: 'legacy-one',
+			candidateRoot: casCID,
+			base: { commitID: 'cmt_one', root: casCID, revision: 1 },
+			status: 'pending',
+			createdAt: '2026-07-21T00:00:00Z',
+			apiKey: 'must-not-migrate'
+		}
+	])
+)
+const unscopedAtGatewayB = readLegacyBucketStashValues(legacyStorage, otherGatewayScope)
+assert.equal(unscopedAtGatewayB.length, 1)
+assert.equal(unscopedAtGatewayB[0].legacy, true)
+assert.equal('apiKey' in unscopedAtGatewayB[0], false)
+assert.throws(
+	() => assertBucketStashScope(unscopedAtGatewayB[0], otherGatewayScope),
+	/no valid Gateway scope/
+)
+assert.throws(
+	() => applyBucketStashResult(legacyStorage, unscopedAtGatewayB[0], { status: 'fast_forward' }),
+	/invalid Bucket stash/
+)
+assert.notEqual(legacyStorage.getItem(legacyBucketStashStorageKey(stashScope)), null)
+
+await assert.rejects(
+	bindLegacyBucketStashValue(legacyStorage, unscopedAtGatewayB[0], otherGatewayScope),
+	/Web Locks API is required/
+)
+assert.equal(legacyStorage.getItem(bucketStashStorageKey(otherGatewayScope, 'legacy-one')), null)
+assert.equal(legacyStorage.getItem(legacyBucketStashBindingStorageKey(otherGatewayScope, 'legacy-one')), null)
+
+const sequentialLocks = exclusiveLockManager()
+const explicitlyBound = await bindLegacyBucketStashValue(
+	legacyStorage,
+	unscopedAtGatewayB[0],
+	otherGatewayScope,
+	{ lockManager: sequentialLocks, createdAt: '2026-07-22T00:00:03Z' }
+)
+assert.equal(explicitlyBound.stash.scope.baseURL, otherGatewayScope.baseURL)
+assert.equal(explicitlyBound.stash.id, 'legacy-one')
+assert.equal(explicitlyBound.stash.pushID, 'web_legacy-one')
+assert.deepEqual(explicitlyBound.stash.legacyBinding, { version: 1, legacyID: 'legacy-one' })
+const bindingKey = legacyBucketStashBindingStorageKey(otherGatewayScope, 'legacy-one')
+assert.equal(bindingKey, legacyBucketStashBindingStorageKey(stashScope, 'legacy-one'))
+assert.deepEqual(JSON.parse(legacyStorage.getItem(bindingKey)), {
+	version: 1,
+	legacyID: 'legacy-one',
+	scope: otherGatewayScope
+})
+
+const reboundToSameScope = await bindLegacyBucketStashValue(
+	legacyStorage,
+	unscopedAtGatewayB[0],
+	otherGatewayScope,
+	{ lockManager: sequentialLocks, createdAt: 'should-not-replace-the-record' }
+)
+assert.deepEqual(reboundToSameScope.stash, explicitlyBound.stash)
+await assert.rejects(
+	bindLegacyBucketStashValue(legacyStorage, unscopedAtGatewayB[0], stashScope, {
+		lockManager: sequentialLocks
+	}),
+	/already bound to a different Gateway/
+)
+assert.equal(legacyStorage.getItem(bucketStashStorageKey(stashScope, 'legacy-one')), null)
+assert.ok(sequentialLocks.requests.every((request) => request.options?.mode === 'exclusive'))
+assert.equal(readLegacyBucketStashValues(legacyStorage, otherGatewayScope).length, 0)
+assert.equal(readLegacyBucketStashValues(legacyStorage, stashScope).length, 0)
+assert.notEqual(legacyStorage.getItem(legacyBucketStashStorageKey(stashScope)), null)
+
+// A tab holding the old scoped object must fail closed if the global marker
+// changes before restore, retry, or completion. In particular, completion may
+// not delete the still-present scoped candidate.
+legacyStorage.setItem(
+	bindingKey,
+	JSON.stringify({ version: 1, legacyID: 'legacy-one', scope: stashScope })
+)
+assert.throws(
+	() => assertBucketStashLegacyBinding(legacyStorage, explicitlyBound.stash),
+	/no longer matches its Gateway scope/
+)
+assert.deepEqual(readBucketStashValues(legacyStorage, otherGatewayScope), [])
+assert.throws(
+	() => applyBucketStashResult(legacyStorage, explicitlyBound.stash, { status: 'fast_forward' }),
+	/no longer matches its Gateway scope/
+)
+assert.notEqual(
+	legacyStorage.getItem(bucketStashStorageKey(otherGatewayScope, explicitlyBound.stash.id)),
+	null
+)
+
+// Two tabs binding the same legacy ID to different Gateways share one lock and
+// one global marker. Exactly one scope wins; the loser writes no scoped record.
+const racingValues = new Map()
+const racingStorage = storageClient(racingValues)
+racingStorage.setItem(
+	legacyBucketStashStorageKey(stashScope),
+	JSON.stringify([
+		{
+			id: 'legacy-race',
+			candidateRoot: casCID,
+			base: { commitID: 'cmt_one', root: casCID, revision: 1 },
+			message: 'web upload',
+			status: 'pending',
+			createdAt: '2026-07-21T00:00:01Z'
+		}
+	])
+)
+const racingLegacy = readLegacyBucketStashValues(racingStorage, stashScope)[0]
+const racingLocks = exclusiveLockManager()
+const racingBindings = await Promise.allSettled([
+	bindLegacyBucketStashValue(racingStorage, racingLegacy, stashScope, {
+		lockManager: racingLocks,
+		createdAt: '2026-07-22T00:00:04Z'
+	}),
+	bindLegacyBucketStashValue(racingStorage, racingLegacy, otherGatewayScope, {
+		lockManager: racingLocks,
+		createdAt: '2026-07-22T00:00:05Z'
+	})
+])
+const fulfilledBindings = racingBindings.filter((result) => result.status === 'fulfilled')
+const rejectedBindings = racingBindings.filter((result) => result.status === 'rejected')
+assert.equal(fulfilledBindings.length, 1)
+assert.equal(rejectedBindings.length, 1)
+assert.match(String(rejectedBindings[0].reason), /already bound to a different Gateway/)
+const winningStash = fulfilledBindings[0].value.stash
+const losingScope = winningStash.scope.baseURL === stashScope.baseURL ? otherGatewayScope : stashScope
+assert.equal(winningStash.id, 'legacy-race')
+assert.equal(winningStash.pushID, 'web_legacy-race')
+assert.equal(racingStorage.getItem(bucketStashStorageKey(losingScope, 'legacy-race')), null)
+assert.deepEqual(
+	JSON.parse(racingStorage.getItem(legacyBucketStashBindingStorageKey(stashScope, 'legacy-race'))),
+	{ version: 1, legacyID: 'legacy-race', scope: winningStash.scope }
+)
+assert.equal(readLegacyBucketStashValues(racingStorage, stashScope).length, 0)
+assert.equal(readLegacyBucketStashValues(racingStorage, otherGatewayScope).length, 0)
+assert.equal(racingLocks.requests.length, 2)
+assert.equal(racingLocks.requests[0].name, racingLocks.requests[1].name)
+assert.ok(racingLocks.requests.every((request) => request.options?.mode === 'exclusive'))
+
+globalThis.fetch = async () =>
+	new Response(
+		JSON.stringify({
+			status: 'fast_forward',
+			head: { ...observedHead, commit_id: candidateCommit.id, revision: 1 },
+			commit: candidateCommit,
+			candidate: candidateCommit,
+			conflicts: []
+		}),
+		{ status: 201, headers: { 'Content-Type': 'application/json' } }
+	)
+assert.equal((await pushBucketRoot(bucketPushRequest)).status, 'fast_forward')
+
+const validMergeCommit = {
+	id: 'cmt_merge',
+	bucket_id: 'bkt_one',
+	root: casCID,
+	parents: ['cmt_remote', candidateCommit.id],
+	base_root: casCID,
+	author: 'alice',
+	created_at: '2026-07-22T00:00:01Z'
+}
+globalThis.fetch = async () =>
+	new Response(
+		JSON.stringify({
+			status: 'merged',
+			head: { ...observedHead, commit_id: validMergeCommit.id, revision: 1 },
+			commit: validMergeCommit,
+			candidate: candidateCommit,
+			merge_base: casCID
+		}),
+		{ status: 201, headers: { 'Content-Type': 'application/json' } }
+	)
+assert.equal((await pushBucketRoot(bucketPushRequest)).status, 'merged')
+
+globalThis.fetch = async () =>
+	new Response(
+		JSON.stringify({ status: 'fast_forward', head: { ...observedHead, revision: 2 }, commit: candidateCommit }),
+		{ status: 201, headers: { 'Content-Type': 'application/json' } }
+	)
+await assert.rejects(pushBucketRoot(bucketPushRequest), /candidate commit/)
+
+globalThis.fetch = async () =>
+	new Response(
+		JSON.stringify({
+			status: 'fast_forward',
+			head: { ...observedHead, commit_id: 'cmt_other', revision: 2 },
+			commit: candidateCommit,
+			candidate: candidateCommit
+		}),
+		{ status: 201, headers: { 'Content-Type': 'application/json' } }
+	)
+await assert.rejects(pushBucketRoot(bucketPushRequest), /does not match main/)
+
+const mergeCommit = { ...validMergeCommit, parents: ['cmt_remote', 'cmt_not_candidate'] }
+globalThis.fetch = async () =>
+	new Response(
+		JSON.stringify({
+			status: 'merged',
+			head: { ...observedHead, commit_id: mergeCommit.id, revision: 2 },
+			commit: mergeCommit,
+			candidate: candidateCommit,
+			merge_base: casCID
+		}),
+		{ status: 201, headers: { 'Content-Type': 'application/json' } }
+	)
+await assert.rejects(pushBucketRoot(bucketPushRequest), /does not include the candidate/)
+
+globalThis.fetch = async () =>
+	new Response(
+		JSON.stringify({
+			status: 'branched',
+			head: observedHead,
+			commit: candidateCommit,
+			candidate: candidateCommit,
+			branch: {
+				...observedHead,
+				name: 'conflicts/alice/other',
+				kind: 'conflict',
+				commit_id: 'cmt_other'
+			},
+			merge_base: casCID,
+			conflicts: [{ coordinate: 'docs/readme' }]
+		}),
+		{ status: 409, headers: { 'Content-Type': 'application/json' } }
+	)
+await assert.rejects(pushBucketRoot(bucketPushRequest), /does not preserve the candidate/)
+
+globalThis.fetch = async () =>
+	new Response(
+		JSON.stringify({
+			status: 'branched',
+			head: { bucket_id: 'bkt_one', name: 'main', kind: 'main', state: 'open', revision: 0 },
+			commit: candidateCommit,
+			candidate: candidateCommit,
+			branch: {
+				...observedHead,
+				name: 'conflicts/alice/one',
+				kind: 'conflict',
+				commit_id: candidateCommit.id
+			},
+			merge_base: casCID,
+			conflicts: [{ coordinate: '@history' }]
+		}),
+		{ status: 409, headers: { 'Content-Type': 'application/json' } }
+	)
+assert.equal((await pushBucketRoot(bucketPushRequest)).status, 'branched')
+
+globalThis.fetch = async () =>
+	new Response(
+		JSON.stringify({
+			status: 'branched',
+			head: observedHead,
+			commit: candidateCommit,
+			candidate: candidateCommit,
+			branch: {
+				...observedHead,
+				name: 'conflicts/alice/extra/one',
+				kind: 'conflict',
+				commit_id: candidateCommit.id
+			},
+			merge_base: casCID,
+			conflicts: [{ coordinate: 'docs/readme' }]
+		}),
+		{ status: 409, headers: { 'Content-Type': 'application/json' } }
+	)
+await assert.rejects(pushBucketRoot(bucketPushRequest), /inconsistent Bucket conflict commit/)
+
 globalThis.fetch = async () =>
 	new Response(JSON.stringify({ error: 'bucket push ID was already used for a different request' }), {
 		status: 409,
 		headers: { 'Content-Type': 'application/json' }
 	})
 await assert.rejects(
-	pushBucketRoot({
-		baseURL: 'http://127.0.0.1:8080',
-		bucketID: 'bkt_one',
-		apiKey: 'secret',
-		pushID: 'push_one',
-		baseCommit: 'cmt_one',
-		baseRoot: casCID,
-		baseRevision: 1,
-		candidateRoot: casCID
-	}),
+	pushBucketRoot(bucketPushRequest),
 	/already used for a different request/
 )
 globalThis.fetch = originalFetch
