@@ -9,6 +9,10 @@ export const defaultDaemonURL = defaultGatewayURL
 export const defaultCASURL = defaultGatewayURL
 export const appFallbackStorageKey = 'malt-app-fallback-path'
 
+export function initialAccountAccessView(configuredGatewayURL) {
+  return String(configuredGatewayURL || '').trim() ? 'login' : 'api-key'
+}
+
 export function managedGatewayBaseURL(configuredURL, browserOrigin, fallback = defaultGatewayURL) {
 	const selected = String(configuredURL || '').trim()
 	if (!selected) return canonicalGatewayBaseURL(fallback)
@@ -60,6 +64,129 @@ export async function fetchGatewayIdentity({ baseURL, apiKey, signal }) {
 	return validateGatewayIdentity(await readJSONResponse(response))
 }
 
+export async function registerAccount({ baseURL, email, username, password, displayName, signal }) {
+  const url = buildGatewayURL(baseURL, ['v1', 'auth', 'register'])
+  assertSecureCredentialURL(url)
+  const response = await fetch(url, gatewayRequestOptions(url, '', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: String(email || '').trim(),
+      username: String(username || '').trim(),
+      password: String(password || ''),
+      ...(String(displayName || '').trim() ? { display_name: String(displayName).trim() } : {})
+    }),
+    signal
+  }))
+  return validateAuthSession(await readJSONResponse(response))
+}
+
+export async function fetchBootstrapStatus({ baseURL, signal }) {
+  const url = buildGatewayURL(baseURL, ['v1', 'auth', 'bootstrap', 'status'])
+  const response = await fetch(url, gatewayRequestOptions(url, '', { signal }))
+  const value = await readJSONResponse(response)
+  if (typeof value.required !== 'boolean') {
+    throw new Error('gateway returned invalid bootstrap status')
+  }
+  return { required: value.required }
+}
+
+export async function bootstrapAdministrator({
+  baseURL,
+  token,
+  email,
+  username,
+  password,
+  displayName,
+  signal
+}) {
+  const url = buildGatewayURL(baseURL, ['v1', 'auth', 'bootstrap'])
+  assertSecureCredentialURL(url)
+  const response = await fetch(url, gatewayRequestOptions(url, '', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      token: String(token || ''),
+      email: String(email || '').trim(),
+      username: String(username || '').trim(),
+      password: String(password || ''),
+      ...(String(displayName || '').trim() ? { display_name: String(displayName).trim() } : {})
+    }),
+    signal
+  }))
+  return validateAuthSession(await readJSONResponse(response))
+}
+
+export async function loginAccount({ baseURL, login, password, signal }) {
+  const url = buildGatewayURL(baseURL, ['v1', 'auth', 'login'])
+  assertSecureCredentialURL(url)
+  const response = await fetch(url, gatewayRequestOptions(url, '', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      login: String(login || '').trim(),
+      password: String(password || '')
+    }),
+    signal
+  }))
+  return validateAuthSession(await readJSONResponse(response))
+}
+
+export async function logoutAccount({ baseURL, signal }) {
+  const url = buildGatewayURL(baseURL, ['v1', 'auth', 'logout'])
+  const response = await fetch(url, gatewayRequestOptions(url, '', { method: 'POST', signal }))
+  await readJSONResponse(response)
+}
+
+export async function fetchAccountProfile({ baseURL, signal }) {
+  const url = buildGatewayURL(baseURL, ['v1', 'profile'])
+  const response = await fetch(url, gatewayRequestOptions(url, '', { signal }))
+  return validateAccountUser((await readJSONResponse(response)).user)
+}
+
+export async function updateAccountProfile({ baseURL, displayName, signal }) {
+  const url = buildGatewayURL(baseURL, ['v1', 'profile'])
+  const response = await fetch(url, gatewayRequestOptions(url, '', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ display_name: String(displayName || '').trim() }),
+    signal
+  }))
+  return validateAccountUser((await readJSONResponse(response)).user)
+}
+
+export async function fetchAdminOverview({ baseURL, signal }) {
+  const url = buildGatewayURL(baseURL, ['v1', 'admin', 'overview'])
+  const response = await fetch(url, gatewayRequestOptions(url, '', { signal }))
+  const value = await readJSONResponse(response)
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('gateway returned invalid admin statistics')
+  }
+  return value
+}
+
+export async function fetchAdminUsers({ baseURL, signal }) {
+  const url = buildGatewayURL(baseURL, ['v1', 'admin', 'users'])
+  const response = await fetch(url, gatewayRequestOptions(url, '', { signal }))
+  const value = await readJSONResponse(response)
+  const values = Array.isArray(value) ? value : value.users
+  if (!Array.isArray(values)) throw new Error('gateway returned an invalid user list')
+  return values.map(validateAccountUser)
+}
+
+export async function updateAdminUserTier({ baseURL, userID, tier, signal }) {
+  const selectedUserID = String(userID || '').trim()
+  if (!selectedUserID) throw new Error('user ID is required')
+  const url = buildGatewayURL(baseURL, ['v1', 'admin', 'users', selectedUserID, 'tier'])
+  const response = await fetch(url, gatewayRequestOptions(url, '', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tier: String(tier || '').trim() }),
+    signal
+  }))
+  return validateAccountUser((await readJSONResponse(response)).user)
+}
+
 export async function fetchBuckets({ baseURL, apiKey, signal }) {
 	const url = buildGatewayURL(baseURL, ['v1', 'buckets'])
 	const response = await fetch(url, gatewayRequestOptions(url, apiKey, { signal }))
@@ -84,15 +211,68 @@ function validateGatewayIdentity(value) {
 	if (!value || typeof value !== 'object' || Array.isArray(value)) {
 		throw new Error('gateway returned an invalid identity')
 	}
+  const authMethod = String(value.auth_method || '').trim()
 	const identity = {
 		tenant_id: String(value.tenant_id || '').trim(),
 		principal_id: String(value.principal_id || '').trim(),
-		credential_id: String(value.credential_id || '').trim()
+		credential_id: String(value.credential_id || '').trim(),
+    ...(authMethod ? { auth_method: authMethod } : {})
 	}
-	if (!identity.tenant_id || !identity.principal_id || !identity.credential_id) {
+	if (
+    !identity.tenant_id ||
+    !identity.principal_id ||
+    (authMethod && !['session', 'api_key'].includes(authMethod)) ||
+    (authMethod === 'api_key' && !identity.credential_id)
+  ) {
 		throw new Error('gateway returned an incomplete identity')
 	}
 	return identity
+}
+
+function validateAuthSession(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('gateway returned an invalid authentication response')
+  }
+  return { user: validateAccountUser(value.user) }
+}
+
+function validateAccountUser(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('gateway returned invalid account information')
+  }
+  const user = {
+    id: String(value.id || value.user_id || '').trim(),
+    tenant_id: String(value.tenant_id || '').trim(),
+    principal_id: String(value.principal_id || '').trim(),
+    email: String(value.email || '').trim(),
+    username: String(value.username || '').trim(),
+    display_name: String(value.display_name || value.displayName || '').trim(),
+    system_role: String(value.system_role || 'user').trim(),
+    tier: String(value.tier || '').trim(),
+    quota_bytes: normalizeNonNegativeNumber(value.quota_bytes),
+    used_bytes: normalizeNonNegativeNumber(value.used_bytes),
+    reserved_bytes: normalizeNonNegativeNumber(value.reserved_bytes),
+    provisioning_state: String(value.provisioning_state || '').trim(),
+    provisioning_error: String(value.provisioning_error || '').trim(),
+    created_at: String(value.created_at || '').trim(),
+    updated_at: String(value.updated_at || '').trim()
+  }
+  if (
+    !user.id ||
+    !user.tenant_id ||
+    !user.principal_id ||
+    !user.email ||
+    !user.username ||
+    !['user', 'admin'].includes(user.system_role)
+  ) {
+    throw new Error('gateway returned incomplete account information')
+  }
+  return user
+}
+
+function normalizeNonNegativeNumber(value) {
+  const selected = Number(value ?? 0)
+  return Number.isFinite(selected) && selected >= 0 ? selected : 0
 }
 
 function validateBucketView(value) {
@@ -1165,8 +1345,8 @@ export async function readPayloadBlock({ baseURL, cid, bucketID, apiKey, signal 
   if (!blockCID) {
     throw new Error('payload block CID is required')
   }
-	if (!String(bucketID || '').trim() || !String(apiKey || '').trim()) {
-		throw new Error('managed Bucket ID and API key are required for payload reads')
+	if (!String(bucketID || '').trim()) {
+		throw new Error('managed Bucket ID is required for payload reads')
 	}
 	const url = buildCASURL(baseURL, blockCID, bucketID)
 	const response = await fetch(url, gatewayRequestOptions(url, apiKey, { signal }))
@@ -1471,10 +1651,12 @@ function gatewayRequestOptions(url, apiKey, options = {}) {
 	const token = String(apiKey || '').trim()
 	const { headers = {}, ...rest } = options
 	if (token) assertSecureCredentialURL(url)
-	return {
+  return {
 		...rest,
 		headers: gatewayHeaders(token, headers),
-		...(token ? { redirect: 'error', cache: 'no-store' } : {})
+    credentials: token ? 'omit' : 'include',
+    redirect: 'error',
+    cache: 'no-store'
 	}
 }
 
@@ -1487,7 +1669,7 @@ function assertSecureCredentialURL(value) {
 		hostname === '[::1]' ||
 		/^127(?:\.\d{1,3}){3}$/.test(hostname)
 	if (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback)) {
-		throw new Error('Gateway API keys require HTTPS or a loopback HTTP Gateway')
+		throw new Error('Gateway credentials require HTTPS or a loopback HTTP Gateway')
 	}
 }
 

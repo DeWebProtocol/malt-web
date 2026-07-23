@@ -31,6 +31,7 @@ import {
 	fetchBuckets,
 	fetchBucketHead,
 	fetchGatewayIdentity,
+	initialAccountAccessView,
   isAppStateRoute,
 	joinMaltPath,
 	legacyBucketStashBindingNamespace,
@@ -57,6 +58,9 @@ import {
 	verifyContentProofLocally,
 	verifyResolveLocally
 } from '../docs/.vitepress/theme/malt-verifier.mjs'
+
+assert.equal(initialAccountAccessView('/api'), 'login')
+assert.equal(initialAccountAccessView(''), 'api-key')
 
 const root = path.dirname(fileURLToPath(import.meta.url))
 const docsRoot = path.join(root, '..', 'docs')
@@ -363,7 +367,7 @@ assert.match(appSource, /v-for="bucket in buckets"/)
 assert.match(appSource, /VITE_MALT_MANAGED_GATEWAY_URL/)
 assert.match(appSource, /v-if="!managedDeployment"[\s\S]*Gateway URL/)
 const bucketPickerSource = appSource.match(
-	/<section v-if="bucketPickerOpen"[\s\S]*?<\/section>\n\s*<\/section>/
+	/<section v-(?:else-)?if="bucketPickerOpen"[\s\S]*?<\/section>\n\s*<\/section>/
 )?.[0]
 assert.ok(bucketPickerSource, 'Bucket picker is missing')
 assert.doesNotMatch(bucketPickerSource, /<input/)
@@ -372,7 +376,7 @@ assert.doesNotMatch(bucketPickerSource, />\s*Gateway URL\s*</)
 assert.doesNotMatch(bucketPickerSource, />\s*Bucket ID\s*</)
 assert.doesNotMatch(bucketPickerSource, />\s*API key\s*</)
 const signInSource = appSource.match(
-	/async function signIn\(\) \{[\s\S]*?\n\}\n\nfunction signOut/
+	/async function signIn\(\) \{[\s\S]*?\n\}\n\nasync function signOut/
 )?.[0]
 assert.ok(signInSource, 'Gateway sign-in flow is missing')
 assert.ok(
@@ -795,7 +799,7 @@ globalThis.fetch = async () => {
 }
 await assert.rejects(
 	readPayloadBlock({ baseURL: 'http://127.0.0.1:8080', cid: casCID }),
-	/managed Bucket ID and API key are required/
+	/managed Bucket ID is required/
 )
 assert.equal(payloadFetchCount, 0, 'Unscoped payload reads must fail before fetch')
 let payloadRequest
@@ -815,6 +819,21 @@ assert.deepEqual(
 assert.equal(payloadRequest.url, `http://127.0.0.1:8080/v1/buckets/bkt_one/cas/${casCID}`)
 assert.equal(payloadRequest.options.headers.Authorization, 'Bearer secret')
 assert.equal(payloadRequest.options.redirect, 'error')
+assert.equal(payloadRequest.options.credentials, 'omit')
+globalThis.fetch = async (url, options = {}) => {
+	payloadRequest = { url: String(url), options }
+	return new Response(casBytes)
+}
+assert.deepEqual(
+	await readPayloadBlock({
+		baseURL: 'https://alpha.example/api',
+		bucketID: 'bkt_cookie',
+		cid: casCID
+	}),
+	casBytes
+)
+assert.equal(payloadRequest.options.headers.Authorization, undefined)
+assert.equal(payloadRequest.options.credentials, 'include')
 globalThis.fetch = async () => new Response(new TextEncoder().encode('tampered CAS bytes'))
 await assert.rejects(
 	readPayloadBlock({

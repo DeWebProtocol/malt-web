@@ -481,8 +481,13 @@ body.malt-app-page .malt-app {
 
 .malt-app.is-login {
   display: grid;
-  place-items: center;
+  place-items: start center;
+  overflow-y: auto;
   padding: 32px 20px;
+}
+
+.malt-app.is-login .malt-app__login {
+  margin-block: auto;
 }
 
 .malt-app button {
@@ -572,7 +577,38 @@ body.malt-app-page .malt-app {
   line-height: 1.55;
 }
 
-.malt-app__login button,
+.malt-app__auth-form {
+  display: grid;
+  gap: 16px;
+}
+
+.malt-app__auth-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 3px;
+  border-radius: 8px;
+  background: var(--malt-gh-subtle);
+}
+
+.malt-app__login .malt-app__auth-tabs button {
+  border-color: transparent;
+  color: var(--vp-c-text-2);
+  background: transparent;
+}
+
+.malt-app__login .malt-app__auth-tabs button.is-active {
+  border-color: var(--malt-gh-border);
+  color: var(--vp-c-text-1);
+  background: var(--malt-gh-panel);
+}
+
+.malt-app__login .malt-app__auth-alternate {
+  border: 0;
+  color: var(--malt-gh-link);
+  background: transparent;
+}
+
+.malt-app__auth-form > button[type='submit'],
 .malt-app__button-row button:first-child {
   border-color: var(--vp-c-brand-1);
   color: #ffffff;
@@ -628,6 +664,165 @@ body.malt-app-page .malt-app {
   flex-wrap: wrap;
   gap: 10px;
   align-items: center;
+}
+
+.malt-app__account-menu {
+  position: relative;
+}
+
+.malt-app .malt-app__avatar {
+  width: 34px;
+  min-width: 34px;
+  padding: 0;
+  border-radius: 50%;
+  border-color: var(--vp-c-brand-1);
+  color: #ffffff;
+  background: var(--vp-c-brand-1);
+  font-weight: 750;
+}
+
+.malt-app__account-popover {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 8px);
+  right: 0;
+  display: grid;
+  width: min(280px, calc(100vw - 24px));
+  padding: 8px;
+  border: 1px solid var(--malt-gh-border);
+  border-radius: 8px;
+  background: var(--malt-gh-panel);
+  box-shadow: 0 12px 32px rgba(23, 32, 38, 0.18);
+}
+
+.malt-app__account-summary {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 6px;
+  padding: 8px 9px 12px;
+  border-bottom: 1px solid var(--malt-gh-border);
+}
+
+.malt-app__account-summary span {
+  overflow: hidden;
+  color: var(--malt-gh-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+}
+
+.malt-app__account-popover > button {
+  justify-content: flex-start;
+  border: 0;
+  background: transparent;
+}
+
+.malt-app__account-panel {
+  display: grid;
+  align-content: start;
+  gap: 20px;
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 28px max(24px, calc((100vw - 1120px) / 2));
+  background: var(--malt-gh-bg);
+}
+
+.malt-app__account-panel-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: start;
+}
+
+.malt-app__account-panel h2,
+.malt-app__account-panel p {
+  margin: 0;
+}
+
+.malt-app__account-panel h2 {
+  border: 0;
+  padding: 0;
+}
+
+.malt-app__account-panel-head p {
+  margin-top: 4px;
+  color: var(--malt-gh-muted);
+}
+
+.malt-app__profile-form {
+  display: grid;
+  gap: 16px;
+  max-width: 680px;
+  padding: 20px;
+  border: 1px solid var(--malt-gh-border);
+  border-radius: 8px;
+  background: var(--malt-gh-panel);
+}
+
+.malt-app__profile-facts,
+.malt-app__admin-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.malt-app__profile-facts span,
+.malt-app__admin-stats span {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--malt-gh-border);
+  border-radius: 6px;
+  color: var(--malt-gh-muted);
+}
+
+.malt-app__profile-facts strong,
+.malt-app__admin-stats strong {
+  color: var(--vp-c-text-1);
+}
+
+.malt-app__admin-stats strong {
+  font-size: 20px;
+}
+
+.malt-app__admin-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--malt-gh-border);
+  border-radius: 8px;
+  background: var(--malt-gh-panel);
+}
+
+.malt-app__admin-table {
+  width: 100%;
+  min-width: 820px;
+  border-collapse: collapse;
+}
+
+.malt-app__admin-table th,
+.malt-app__admin-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--malt-gh-border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.malt-app__admin-table td:first-child,
+.malt-app__admin-table td:nth-child(2) {
+  display: grid;
+}
+
+.malt-app__admin-table td:first-child span,
+.malt-app__admin-table td:nth-child(2) span {
+  color: var(--malt-gh-muted);
+  font-size: 12px;
+}
+
+.malt-app__admin-table select {
+  min-width: 148px;
+  border: 1px solid var(--malt-gh-border);
+  border-radius: 6px;
+  padding: 7px 9px;
+  color: var(--vp-c-text-1);
+  background: var(--malt-gh-panel);
 }
 
 .malt-app__settings {
@@ -1720,9 +1915,14 @@ body.malt-app-page .malt-app {
   }
 
   .malt-app__bucket-picker-head,
-  .malt-app__bucket-card > span {
+  .malt-app__bucket-card > span,
+  .malt-app__account-panel-head {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .malt-app__account-panel {
+    padding: 20px 14px;
   }
 
   .malt-app__main {

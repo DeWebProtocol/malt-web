@@ -14,11 +14,19 @@ import {
 	bucketAllowsWrite,
 	bucketCanOpen,
 	bucketStashNamespace,
+  bootstrapAdministrator,
 	createBucketStashScope,
-  defaultGatewayURL,
+	defaultGatewayURL,
+  fetchAccountProfile,
+  fetchAdminOverview,
+  fetchAdminUsers,
+  fetchBootstrapStatus,
 	fetchBuckets,
 	fetchBucketHead,
-	fetchGatewayIdentity,
+  fetchGatewayIdentity,
+  initialAccountAccessView,
+  loginAccount,
+  logoutAccount,
   joinMaltPath,
 	managedGatewayBaseURL,
   normalizeUploadPath,
@@ -27,6 +35,7 @@ import {
   parseAppFallbackRoute,
   parseAppStatePath,
   profileStorageKey,
+  registerAccount,
 	readContentBlob,
 	readDirectory,
 	readPayloadBlock,
@@ -37,6 +46,8 @@ import {
 	mergeObservedBucketHead,
 	readBucketStashValues,
 	readLegacyBucketStashValues,
+  updateAccountProfile,
+  updateAdminUserTier,
   uploadPathForFile,
   uploadUnixFSFile
 } from '../malt-client.mjs'
@@ -51,6 +62,27 @@ const configuredGatewayURL = String(import.meta.env.VITE_MALT_MANAGED_GATEWAY_UR
 const baseURL = ref(defaultGatewayURL)
 const apiKey = ref('')
 const accessKeyInput = ref('')
+const authView = ref(initialAccountAccessView(configuredGatewayURL))
+const bootstrapRequired = ref(false)
+const bootstrapToken = ref('')
+const bootstrapEmail = ref('')
+const bootstrapUsername = ref('')
+const bootstrapDisplayName = ref('')
+const bootstrapPassword = ref('')
+const loginInput = ref('')
+const passwordInput = ref('')
+const registrationEmail = ref('')
+const registrationUsername = ref('')
+const registrationDisplayName = ref('')
+const registrationPassword = ref('')
+const account = ref(null)
+const sessionAuthenticated = ref(false)
+const accountMenuOpen = ref(false)
+const accountPanel = ref('')
+const profileDraft = ref({ display_name: '', email: '' })
+const adminOverview = ref(null)
+const adminUsers = ref([])
+const tierDrafts = ref({})
 const identity = ref(null)
 const buckets = ref([])
 const bucketID = ref('')
@@ -87,6 +119,7 @@ const copyFeedbackVisible = ref(false)
 const syntaxHighlighter = shallowRef(null)
 const entryNameCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
 const daemonRequestTimeoutMs = 120_000
+const authProbeTimeoutMs = 8_000
 const uploadRequestTimeoutMs = 600_000
 const copyFeedbackDurationMs = 1500
 const markdownRenderer = createMarkdownRenderer()
@@ -177,20 +210,47 @@ let directoryHydrationGeneration = 0
 let rootNavigationGeneration = 0
 
 const managedDeployment = computed(() => Boolean(configuredGatewayURL))
-const signedIn = computed(() => Boolean(identity.value && apiKey.value))
+const signedIn = computed(
+  () => Boolean(identity.value && (sessionAuthenticated.value || apiKey.value))
+)
 const interactionBusy = computed(
 	() => busy.value || routeNavigationActive.value || rootNavigationActive.value
 )
-const bucketConfigured = computed(() => Boolean(bucketID.value.trim() && apiKey.value.trim()))
+const bucketConfigured = computed(
+  () => Boolean(bucketID.value.trim() && (sessionAuthenticated.value || apiKey.value.trim()))
+)
 const selectedBucket = computed(() =>
 	buckets.value.find((bucket) => bucket.id === bucketID.value) || null
 )
 const canWriteBucket = computed(() => bucketAllowsWrite(selectedBucket.value))
+const isAdmin = computed(
+  () => sessionAuthenticated.value && account.value?.system_role === 'admin'
+)
 const identityLabel = computed(() => {
+	if (account.value) return account.value.display_name || account.value.username
 	if (!identity.value) return ''
 	const principal = identity.value.principal_id
 	const tenant = identity.value.tenant_id
 	return principal === tenant ? principal : `${principal} · ${tenant}`
+})
+const accountInitial = computed(() => {
+  const label = account.value?.display_name || account.value?.username || identityLabel.value || 'M'
+  return label.slice(0, 1).toUpperCase()
+})
+const availableTiers = computed(() => {
+  const configured = adminOverview.value?.tiers || adminOverview.value?.by_tier
+  if (configured && typeof configured === 'object' && !Array.isArray(configured)) {
+    const values = Object.keys(configured).filter(Boolean)
+    if (values.length) return values
+  }
+  if (Array.isArray(configured)) {
+    const values = configured
+      .map((tier) => (typeof tier === 'string' ? tier : tier?.id || tier?.name))
+      .map((tier) => String(tier || '').trim())
+      .filter(Boolean)
+    if (values.length) return values
+  }
+  return ['free_10mb', 'standard_10gb', 'pro_1tb']
 })
 const legacyBindingSupported = computed(
 	() => typeof globalThis.navigator?.locks?.request === 'function'
@@ -267,9 +327,10 @@ onMounted(() => {
   window.addEventListener('dragleave', handlePageDragLeave)
   window.addEventListener('drop', handlePageDrop)
   window.addEventListener('dragend', cancelPageDrag)
-  window.addEventListener('popstate', handleAppPopState)
+	window.addEventListener('popstate', handleAppPopState)
 	window.addEventListener('storage', handleBucketStorageChange)
   void initializeSyntaxHighlighter()
+  if (managedDeployment.value) void initializeAccountAccess()
 })
 
 onUnmounted(() => {
@@ -288,6 +349,200 @@ onUnmounted(() => {
 
 function browserGatewayBaseURL() {
 	return managedGatewayBaseURL(configuredGatewayURL, window.location.origin, defaultGatewayURL)
+}
+
+function selectedGatewayBaseURL() {
+  return managedDeployment.value
+    ? browserGatewayBaseURL()
+    : managedGatewayBaseURL('', window.location.origin, baseURL.value)
+}
+
+async function restoreCookieSession(timeoutMs = daemonRequestTimeoutMs) {
+  busy.value = true
+  try {
+    baseURL.value = browserGatewayBaseURL()
+    const user = await withDaemonTimeout(
+      'restore account session',
+      (signal) => fetchAccountProfile({ baseURL: baseURL.value, signal }),
+      timeoutMs
+    )
+    await establishAccountSession(user, timeoutMs)
+  } catch (err) {
+    if (!sessionAuthenticated.value) {
+      clearAuthentication()
+    } else {
+      error.value = err instanceof Error ? err.message : String(err)
+    }
+  } finally {
+    busy.value = false
+  }
+}
+
+async function initializeAccountAccess() {
+  busy.value = true
+  try {
+    baseURL.value = browserGatewayBaseURL()
+    const status = await withDaemonTimeout(
+      'check administrator initialization',
+      (signal) => fetchBootstrapStatus({ baseURL: baseURL.value, signal }),
+      authProbeTimeoutMs
+    )
+    bootstrapRequired.value = status.required
+    if (status.required) {
+      authView.value = 'bootstrap'
+      return
+    }
+  } catch {
+    // A deployment predating bootstrap status can still restore a normal session.
+  } finally {
+    busy.value = false
+  }
+  await restoreCookieSession(authProbeTimeoutMs)
+}
+
+async function submitBootstrap() {
+  const token = bootstrapToken.value
+  const email = bootstrapEmail.value.trim()
+  const username = bootstrapUsername.value.trim()
+  const password = bootstrapPassword.value
+  if (!token || !email || !username || !password) {
+    error.value = 'Bootstrap token, email, username, and password are required'
+    return
+  }
+  error.value = ''
+  busy.value = true
+  try {
+    baseURL.value = selectedGatewayBaseURL()
+    const session = await withDaemonTimeout('initialize administrator', (signal) =>
+      bootstrapAdministrator({
+        baseURL: baseURL.value,
+        token,
+        email,
+        username,
+        displayName: bootstrapDisplayName.value,
+        password,
+        signal
+      })
+    )
+    bootstrapRequired.value = false
+    bootstrapToken.value = ''
+    bootstrapEmail.value = ''
+    bootstrapUsername.value = ''
+    bootstrapDisplayName.value = ''
+    bootstrapPassword.value = ''
+    await establishAccountSession(session.user)
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err)
+  } finally {
+    busy.value = false
+  }
+}
+
+async function submitAccountLogin() {
+  const login = loginInput.value.trim()
+  const password = passwordInput.value
+  if (!login || !password) {
+    error.value = 'Email or username and password are required'
+    return
+  }
+  error.value = ''
+  busy.value = true
+  try {
+    baseURL.value = selectedGatewayBaseURL()
+    const session = await withDaemonTimeout('sign in', (signal) =>
+      loginAccount({ baseURL: baseURL.value, login, password, signal })
+    )
+    loginInput.value = ''
+    passwordInput.value = ''
+    await establishAccountSession(session.user)
+  } catch (err) {
+    if (!sessionAuthenticated.value) clearAuthentication()
+    error.value = err instanceof Error ? err.message : String(err)
+  } finally {
+    busy.value = false
+  }
+}
+
+async function submitRegistration() {
+  const email = registrationEmail.value.trim()
+  const username = registrationUsername.value.trim()
+  const password = registrationPassword.value
+  if (!email || !username || !password) {
+    error.value = 'Email, username, and password are required'
+    return
+  }
+  error.value = ''
+  busy.value = true
+  try {
+    baseURL.value = selectedGatewayBaseURL()
+    const session = await withDaemonTimeout('register account', (signal) =>
+      registerAccount({
+        baseURL: baseURL.value,
+        email,
+        username,
+        displayName: registrationDisplayName.value,
+        password,
+        signal
+      })
+    )
+    registrationEmail.value = ''
+    registrationUsername.value = ''
+    registrationDisplayName.value = ''
+    registrationPassword.value = ''
+    await establishAccountSession(session.user)
+  } catch (err) {
+    if (!sessionAuthenticated.value) clearAuthentication()
+    error.value = err instanceof Error ? err.message : String(err)
+  } finally {
+    busy.value = false
+  }
+}
+
+async function establishAccountSession(user, timeoutMs = daemonRequestTimeoutMs) {
+  apiKey.value = ''
+  sessionAuthenticated.value = true
+  identity.value = {
+    tenant_id: user.tenant_id,
+    principal_id: user.principal_id,
+    auth_method: 'session'
+  }
+  account.value = user
+  profileDraft.value = {
+    display_name: user.display_name,
+    email: user.email
+  }
+  activeProfile.value = `${user.tenant_id}/${user.principal_id}`
+  buckets.value = []
+  resetBucketWorkspace()
+  bucketPickerOpen.value = true
+  bucketStatus.value = 'Signed in. Loading your Buckets…'
+  syncBrowserLocation('replace')
+
+  const [nextIdentity, nextBuckets] = await withDaemonTimeout(
+    'load account',
+    (signal) =>
+      Promise.all([
+        fetchGatewayIdentity({ baseURL: baseURL.value, apiKey: '', signal }),
+        fetchBuckets({ baseURL: baseURL.value, apiKey: '', signal })
+      ]),
+    timeoutMs
+  )
+  if (nextBuckets.some((bucket) => bucket.tenant_id !== nextIdentity.tenant_id)) {
+    throw new Error('Gateway returned a Bucket for a different tenant')
+  }
+  if (user.tenant_id && user.tenant_id !== nextIdentity.tenant_id) {
+    throw new Error('Gateway returned an account for a different tenant')
+  }
+  if (nextIdentity.auth_method && nextIdentity.auth_method !== 'session') {
+    throw new Error('Gateway did not establish a cookie session')
+  }
+  identity.value = nextIdentity
+  activeProfile.value = `${nextIdentity.tenant_id}/${nextIdentity.principal_id}`
+  buckets.value = nextBuckets
+  bucketStatus.value = nextBuckets.length
+    ? 'Choose a Bucket to open its current main root.'
+    : 'This account does not have access to any Buckets.'
+  syncBrowserLocation('replace')
 }
 
 async function signIn() {
@@ -312,8 +567,13 @@ async function signIn() {
 		if (nextBuckets.some((bucket) => bucket.tenant_id !== nextIdentity.tenant_id)) {
 			throw new Error('Gateway returned a Bucket for a different tenant')
 		}
+    if (!nextIdentity.credential_id) {
+      throw new Error('Gateway did not validate the API key credential')
+    }
 		apiKey.value = token
+    sessionAuthenticated.value = false
 		identity.value = nextIdentity
+    account.value = null
 		activeProfile.value = `${nextIdentity.tenant_id}/${nextIdentity.principal_id}`
 		buckets.value = nextBuckets
 		accessKeyInput.value = ''
@@ -325,6 +585,7 @@ async function signIn() {
 		syncBrowserLocation('replace')
 	} catch (err) {
 		apiKey.value = ''
+    sessionAuthenticated.value = false
 		identity.value = null
 		activeProfile.value = ''
 		buckets.value = []
@@ -334,19 +595,146 @@ async function signIn() {
 	}
 }
 
-function signOut() {
+async function signOut() {
+  const closeServerSession = sessionAuthenticated.value
+  const sessionBaseURL = baseURL.value
+  error.value = ''
 	if (activeProfile.value && typeof window !== 'undefined') {
 		window.localStorage.removeItem(profileStorageKey(activeProfile.value))
 	}
-  activeProfile.value = ''
-	accessKeyInput.value = ''
-	identity.value = null
-	buckets.value = []
-  baseURL.value = browserGatewayBaseURL()
-	apiKey.value = ''
-	resetBucketWorkspace()
+  clearAuthentication()
+  resetBucketWorkspace()
   bucketPickerOpen.value = false
   syncBrowserLocation('replace')
+  if (closeServerSession) {
+    try {
+      await withDaemonTimeout('sign out', (signal) =>
+        logoutAccount({ baseURL: sessionBaseURL, signal })
+      )
+    } catch {
+      error.value =
+        'This tab was cleared, but the Gateway could not confirm sign-out. Retry when connected or clear this site’s cookies before leaving this device.'
+    }
+  }
+}
+
+function clearAuthentication() {
+  activeProfile.value = ''
+	accessKeyInput.value = ''
+  loginInput.value = ''
+  passwordInput.value = ''
+  registrationPassword.value = ''
+	identity.value = null
+  account.value = null
+  sessionAuthenticated.value = false
+  accountMenuOpen.value = false
+  accountPanel.value = ''
+  adminOverview.value = null
+  adminUsers.value = []
+  buckets.value = []
+  baseURL.value = browserGatewayBaseURL()
+	apiKey.value = ''
+}
+
+async function openProfile() {
+  accountMenuOpen.value = false
+  accountPanel.value = 'profile'
+  bucketPickerOpen.value = false
+  if (!sessionAuthenticated.value) return
+  error.value = ''
+  busy.value = true
+  try {
+    account.value = await withDaemonTimeout('load profile', (signal) =>
+      fetchAccountProfile({ baseURL: baseURL.value, signal })
+    )
+    profileDraft.value = {
+      display_name: account.value.display_name,
+      email: account.value.email
+    }
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err)
+  } finally {
+    busy.value = false
+  }
+}
+
+async function saveProfile() {
+  if (!sessionAuthenticated.value) return
+  error.value = ''
+  busy.value = true
+  try {
+    account.value = await withDaemonTimeout('update profile', (signal) =>
+      updateAccountProfile({
+        baseURL: baseURL.value,
+        displayName: profileDraft.value.display_name,
+        signal
+      })
+    )
+    profileDraft.value = {
+      display_name: account.value.display_name,
+      email: account.value.email
+    }
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err)
+  } finally {
+    busy.value = false
+  }
+}
+
+async function openConsole() {
+  if (!isAdmin.value || !sessionAuthenticated.value) return
+  accountMenuOpen.value = false
+  accountPanel.value = 'console'
+  bucketPickerOpen.value = false
+  error.value = ''
+  busy.value = true
+  try {
+    const [overview, users] = await withDaemonTimeout('load admin console', (signal) =>
+      Promise.all([
+        fetchAdminOverview({ baseURL: baseURL.value, signal }),
+        fetchAdminUsers({ baseURL: baseURL.value, signal })
+      ])
+    )
+    adminOverview.value = overview
+    adminUsers.value = users
+    tierDrafts.value = Object.fromEntries(users.map((user) => [user.id, user.tier]))
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err)
+  } finally {
+    busy.value = false
+  }
+}
+
+async function changeUserTier(user) {
+  if (!isAdmin.value || !sessionAuthenticated.value) return
+  error.value = ''
+  busy.value = true
+  try {
+    const updated = await withDaemonTimeout('change user tier', (signal) =>
+      updateAdminUserTier({
+        baseURL: baseURL.value,
+        userID: user.id,
+        tier: tierDrafts.value[user.id],
+        signal
+      })
+    )
+    adminUsers.value = adminUsers.value.map((candidate) =>
+      candidate.id === updated.id ? updated : candidate
+    )
+    if (account.value?.id === updated.id) account.value = updated
+    adminOverview.value = await withDaemonTimeout('refresh admin statistics', (signal) =>
+      fetchAdminOverview({ baseURL: baseURL.value, signal })
+    )
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err)
+  } finally {
+    busy.value = false
+  }
+}
+
+function closeAccountPanel() {
+  accountPanel.value = ''
+  bucketPickerOpen.value = !selectedBucket.value
 }
 
 function resetBucketWorkspace() {
@@ -440,12 +828,14 @@ async function selectBucket(bucket) {
 function gatewayAccess() {
 	const selected = bucketID.value.trim()
 	const token = apiKey.value.trim()
-	if (selected && !token) throw new Error('API key is required for a managed Bucket')
-	return selected ? { bucketID: selected, apiKey: token } : {}
+	if (selected && !token && !sessionAuthenticated.value) {
+    throw new Error('An authenticated account or API key is required for a managed Bucket')
+  }
+	return selected ? { bucketID: selected, ...(token ? { apiKey: token } : {}) } : {}
 }
 
 async function observeBucketHead(scope = currentBucketStashScope()) {
-	if (!bucketConfigured.value) throw new Error('Bucket ID and API key are required')
+	if (!bucketConfigured.value) throw new Error('Bucket ID and authenticated account are required')
 	const selected = assertBucketStashScope({ scope }, currentBucketStashScope())
 	const token = apiKey.value
 	const observed = await withDaemonTimeout('fetch Bucket head', (signal) =>
@@ -1183,7 +1573,13 @@ function setDropEffect(event, effect) {
 }
 
 function canAcceptFileDrop() {
-  return signedIn.value && Boolean(selectedBucket.value) && canWriteBucket.value && !interactionBusy.value
+  return (
+    signedIn.value &&
+    Boolean(selectedBucket.value) &&
+    canWriteBucket.value &&
+    !accountPanel.value &&
+    !interactionBusy.value
+  )
 }
 
 function schedulePageDragReset() {
@@ -1300,6 +1696,14 @@ async function handleAppPopState(event) {
 
 async function handleDrop(event) {
   if (interactionBusy.value) {
+    return
+  }
+  if (!signedIn.value) {
+    error.value = 'sign in before uploading'
+    return
+  }
+  if (accountPanel.value) {
+    error.value = 'close Profile or Console before uploading'
     return
   }
 	if (!selectedBucket.value) {
@@ -2373,6 +2777,29 @@ function formatSize(size) {
   }
   return `${(size / 1024 / 1024).toFixed(1)} MB`
 }
+
+function formatStorage(value) {
+  if (value == null || value === '') return '—'
+  const size = Number(value)
+  if (!Number.isFinite(size) || size < 0) return '—'
+  if (size < 1024) return `${size} B`
+  const units = ['KiB', 'MiB', 'GiB', 'TiB', 'PiB']
+  let selected = size
+  let unit = -1
+  do {
+    selected /= 1024
+    unit += 1
+  } while (selected >= 1024 && unit < units.length - 1)
+  return `${selected >= 10 ? selected.toFixed(0) : selected.toFixed(1)} ${units[unit]}`
+}
+
+function formatTier(tier) {
+  return {
+    free_10mb: 'Free · 10 MiB',
+    standard_10gb: 'Standard · 10 GiB',
+    pro_1tb: 'Pro · 1 TiB'
+  }[String(tier || '')] || String(tier || '—')
+}
 </script>
 
 <template>
@@ -2381,29 +2808,241 @@ function formatSize(size) {
     :class="{ 'is-login': !signedIn, 'is-dropping': dropActive }"
     aria-label="MALT app"
   >
-    <form v-if="!signedIn" class="malt-app__login" @submit.prevent="signIn">
+    <section v-if="!signedIn" class="malt-app__login" aria-label="Account access">
       <div class="malt-app__login-brand">MALT</div>
-      <h1>Sign in</h1>
-			<p class="malt-app__login-copy">
-				Use the API key issued for your MALT account. The key stays in this tab's memory and is never saved.
-			</p>
-			<label v-if="!managedDeployment">
-				<span>Gateway URL</span>
-				<input v-model="baseURL" :disabled="interactionBusy" autocomplete="url" spellcheck="false" />
-			</label>
-			<label>
-				<span>API key</span>
-				<input
-					v-model="accessKeyInput"
-					:disabled="interactionBusy"
-					type="password"
-					autocomplete="off"
-					spellcheck="false"
-				/>
-			</label>
-      <button type="submit" :disabled="interactionBusy">{{ busy ? 'Signing in…' : 'Sign in' }}</button>
+      <div
+        v-if="!bootstrapRequired && managedDeployment"
+        class="malt-app__auth-tabs"
+        role="tablist"
+        aria-label="Account access method"
+      >
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="authView === 'login'"
+          :class="{ 'is-active': authView === 'login' }"
+          :disabled="interactionBusy"
+          @click="authView = 'login'; error = ''"
+        >
+          Sign in
+        </button>
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="authView === 'register'"
+          :class="{ 'is-active': authView === 'register' }"
+          :disabled="interactionBusy"
+          @click="authView = 'register'; error = ''"
+        >
+          Register
+        </button>
+      </div>
+
+      <form
+        v-if="bootstrapRequired"
+        class="malt-app__auth-form"
+        @submit.prevent="submitBootstrap"
+      >
+        <h1>Initialize administrator</h1>
+        <p class="malt-app__login-copy">
+          Use the one-time bootstrap token from the Gateway host. This form disappears after the first administrator is created.
+        </p>
+        <label>
+          <span>Bootstrap token</span>
+          <input
+            v-model="bootstrapToken"
+            :disabled="interactionBusy"
+            type="password"
+            autocomplete="off"
+            spellcheck="false"
+            required
+          />
+        </label>
+        <label>
+          <span>Email</span>
+          <input
+            v-model="bootstrapEmail"
+            :disabled="interactionBusy"
+            type="email"
+            autocomplete="email"
+            maxlength="254"
+            required
+          />
+        </label>
+        <label>
+          <span>Username</span>
+          <input
+            v-model="bootstrapUsername"
+            :disabled="interactionBusy"
+            autocomplete="username"
+            minlength="3"
+            maxlength="64"
+            pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,63}"
+            required
+          />
+        </label>
+        <label>
+          <span>Display name <small>(optional)</small></span>
+          <input
+            v-model="bootstrapDisplayName"
+            :disabled="interactionBusy"
+            autocomplete="name"
+            maxlength="128"
+          />
+        </label>
+        <label>
+          <span>Password</span>
+          <input
+            v-model="bootstrapPassword"
+            :disabled="interactionBusy"
+            type="password"
+            autocomplete="new-password"
+            minlength="10"
+            maxlength="1024"
+            required
+          />
+        </label>
+        <button type="submit" :disabled="interactionBusy">
+          {{ busy ? 'Initializing…' : 'Initialize administrator' }}
+        </button>
+      </form>
+
+      <form v-else-if="authView === 'login'" class="malt-app__auth-form" @submit.prevent="submitAccountLogin">
+        <h1>Sign in</h1>
+        <p class="malt-app__login-copy">
+          Use your email address or username. Your session is held in a secure server cookie.
+        </p>
+        <label v-if="!managedDeployment">
+          <span>Gateway URL</span>
+          <input v-model="baseURL" :disabled="interactionBusy" autocomplete="url" spellcheck="false" />
+        </label>
+        <label>
+          <span>Email or username</span>
+          <input
+            v-model="loginInput"
+            :disabled="interactionBusy"
+            autocomplete="username"
+            spellcheck="false"
+            maxlength="254"
+            required
+          />
+        </label>
+        <label>
+          <span>Password</span>
+          <input
+            v-model="passwordInput"
+            :disabled="interactionBusy"
+            type="password"
+            autocomplete="current-password"
+            maxlength="1024"
+            required
+          />
+        </label>
+        <button type="submit" :disabled="interactionBusy">
+          {{ busy ? 'Signing in…' : 'Sign in' }}
+        </button>
+      </form>
+
+      <form
+        v-else-if="authView === 'register'"
+        class="malt-app__auth-form"
+        @submit.prevent="submitRegistration"
+      >
+        <h1>Create account</h1>
+        <p class="malt-app__login-copy">
+          New accounts start on the free tier. The Gateway enforces the tier quota.
+        </p>
+        <label v-if="!managedDeployment">
+          <span>Gateway URL</span>
+          <input v-model="baseURL" :disabled="interactionBusy" autocomplete="url" spellcheck="false" />
+        </label>
+        <label>
+          <span>Email</span>
+          <input
+            v-model="registrationEmail"
+            :disabled="interactionBusy"
+            type="email"
+            autocomplete="email"
+            spellcheck="false"
+            maxlength="254"
+            required
+          />
+        </label>
+        <label>
+          <span>Username</span>
+          <input
+            v-model="registrationUsername"
+            :disabled="interactionBusy"
+            autocomplete="username"
+            spellcheck="false"
+            minlength="3"
+            maxlength="64"
+            pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,63}"
+            required
+          />
+        </label>
+        <label>
+          <span>Display name <small>(optional)</small></span>
+          <input
+            v-model="registrationDisplayName"
+            :disabled="interactionBusy"
+            autocomplete="name"
+            maxlength="128"
+          />
+        </label>
+        <label>
+          <span>Password</span>
+          <input
+            v-model="registrationPassword"
+            :disabled="interactionBusy"
+            type="password"
+            autocomplete="new-password"
+            minlength="10"
+            maxlength="1024"
+            required
+          />
+        </label>
+        <button type="submit" :disabled="interactionBusy">
+          {{ busy ? 'Creating account…' : 'Create account' }}
+        </button>
+      </form>
+
+      <form v-else class="malt-app__auth-form" @submit.prevent="signIn">
+        <h1>Use API key</h1>
+        <p class="malt-app__login-copy">
+          Compatibility access for an existing Gateway key. The key stays in this tab and is never saved.
+        </p>
+        <label v-if="!managedDeployment">
+          <span>Gateway URL</span>
+          <input v-model="baseURL" :disabled="interactionBusy" autocomplete="url" spellcheck="false" />
+        </label>
+        <label>
+          <span>API key</span>
+          <input
+            v-model="accessKeyInput"
+            :disabled="interactionBusy"
+            type="password"
+            autocomplete="off"
+            spellcheck="false"
+            required
+          />
+        </label>
+        <button type="submit" :disabled="interactionBusy">
+          {{ busy ? 'Signing in…' : 'Use API key' }}
+        </button>
+      </form>
+
+      <button
+        v-if="!bootstrapRequired && managedDeployment"
+        type="button"
+        class="malt-app__auth-alternate"
+        :disabled="interactionBusy"
+        @click="authView = authView === 'api-key' ? 'login' : 'api-key'; error = ''"
+      >
+        {{ authView === 'api-key' ? 'Use account instead' : 'Use an API key instead' }}
+      </button>
       <p v-if="error" class="malt-app__error">{{ error }}</p>
-    </form>
+    </section>
 
     <template v-else>
       <header class="malt-app__topbar">
@@ -2414,17 +3053,169 @@ function formatSize(size) {
         </div>
         <div class="malt-app__top-actions">
           <button type="button" :disabled="interactionBusy" @click="openVerifierPage">Verify page</button>
-					<button type="button" :disabled="interactionBusy" @click="bucketPickerOpen = !bucketPickerOpen">
+					<button
+            type="button"
+            :disabled="interactionBusy"
+            @click.capture="accountPanel = ''"
+            @click="bucketPickerOpen = !bucketPickerOpen"
+          >
 						Buckets
 					</button>
 					<button v-if="selectedBucket" type="button" :disabled="interactionBusy" @click="refreshBucketHead">
 						Refresh head
 					</button>
-          <button type="button" :disabled="interactionBusy" @click="signOut">Sign out</button>
+          <div class="malt-app__account-menu">
+            <button
+              type="button"
+              class="malt-app__avatar"
+              :disabled="interactionBusy"
+              aria-label="Account menu"
+              :aria-expanded="accountMenuOpen"
+              @click="accountMenuOpen = !accountMenuOpen"
+            >
+              {{ accountInitial }}
+            </button>
+            <div v-if="accountMenuOpen" class="malt-app__account-popover" role="menu">
+              <div class="malt-app__account-summary">
+                <strong>{{ identityLabel }}</strong>
+                <span v-if="account?.username">@{{ account.username }}</span>
+                <span v-else>API key session</span>
+              </div>
+              <button
+                v-if="sessionAuthenticated"
+                type="button"
+                role="menuitem"
+                @click="openProfile"
+              >
+                Profile
+              </button>
+              <button
+                v-if="sessionAuthenticated && isAdmin"
+                type="button"
+                role="menuitem"
+                @click="openConsole"
+              >
+                Console
+              </button>
+              <button type="button" role="menuitem" @click="signOut">Sign out</button>
+            </div>
+          </div>
         </div>
       </header>
 
-      <section v-if="bucketPickerOpen" class="malt-app__settings malt-app__bucket-picker" aria-label="Buckets">
+      <section
+        v-if="accountPanel === 'profile'"
+        class="malt-app__account-panel"
+        aria-label="Profile"
+      >
+        <div class="malt-app__account-panel-head">
+          <div>
+            <h2>Profile</h2>
+            <p>Manage your account information and view the quota enforced by the Gateway.</p>
+          </div>
+          <button type="button" :disabled="interactionBusy" @click="closeAccountPanel">Close</button>
+        </div>
+        <form class="malt-app__profile-form" @submit.prevent="saveProfile">
+          <label>
+            <span>Display name</span>
+            <input v-model="profileDraft.display_name" :disabled="interactionBusy" autocomplete="name" />
+          </label>
+          <label>
+            <span>Email</span>
+            <input v-model="profileDraft.email" disabled type="email" />
+          </label>
+          <label>
+            <span>Username</span>
+            <input :value="account?.username" disabled />
+          </label>
+          <div class="malt-app__profile-facts">
+            <span><strong>Tier</strong>{{ formatTier(account?.tier) }}</span>
+            <span><strong>Storage used</strong>{{ formatStorage(account?.used_bytes) }}</span>
+            <span><strong>Storage quota</strong>{{ formatStorage(account?.quota_bytes) }}</span>
+          </div>
+          <div class="malt-app__button-row">
+            <button type="submit" :disabled="interactionBusy">Save profile</button>
+          </div>
+        </form>
+        <p v-if="error" class="malt-app__error">{{ error }}</p>
+      </section>
+
+      <section
+        v-else-if="accountPanel === 'console' && isAdmin"
+        class="malt-app__account-panel"
+        aria-label="Administrator console"
+      >
+        <div class="malt-app__account-panel-head">
+          <div>
+            <h2>Console</h2>
+            <p>User registration, storage, and tier administration.</p>
+          </div>
+          <button type="button" :disabled="interactionBusy" @click="closeAccountPanel">Close</button>
+        </div>
+        <div v-if="adminOverview" class="malt-app__admin-stats">
+          <span><strong>{{ adminOverview.users ?? adminUsers.length }}</strong>Users</span>
+          <span><strong>{{ adminOverview.active_users ?? '—' }}</strong>Active</span>
+          <span><strong>{{ adminOverview.pending_users ?? '—' }}</strong>Pending</span>
+          <span><strong>{{ adminOverview.failed_users ?? '—' }}</strong>Failed</span>
+          <span>
+            <strong>{{ formatStorage(adminOverview.total_used_bytes ?? adminOverview.used_bytes) }}</strong>
+            Stored
+          </span>
+          <span>
+            <strong>{{ formatStorage(adminOverview.reserved_bytes) }}</strong>
+            Reserved
+          </span>
+          <span>
+            <strong>{{ formatStorage(adminOverview.total_quota_bytes) }}</strong>
+            Allocated quota
+          </span>
+        </div>
+        <div class="malt-app__admin-table-wrap">
+          <table class="malt-app__admin-table">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Registration</th>
+                <th>Usage</th>
+                <th>Tier</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="user in adminUsers" :key="user.id">
+                <td>
+                  <strong>{{ user.display_name || user.username }}</strong>
+                  <span>{{ user.email }} · @{{ user.username }}</span>
+                </td>
+                <td>
+                  <strong>{{ user.provisioning_state || 'active' }}</strong>
+                  <span>{{ user.created_at || '—' }}</span>
+                </td>
+                <td>{{ formatStorage(user.used_bytes) }} / {{ formatStorage(user.quota_bytes) }}</td>
+                <td>
+                  <select v-model="tierDrafts[user.id]" :disabled="interactionBusy">
+                    <option v-for="tier in availableTiers" :key="tier" :value="tier">
+                      {{ formatTier(tier) }}
+                    </option>
+                  </select>
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    :disabled="interactionBusy || tierDrafts[user.id] === user.tier"
+                    @click="changeUserTier(user)"
+                  >
+                    Update
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p v-if="error" class="malt-app__error">{{ error }}</p>
+      </section>
+
+      <section v-else-if="bucketPickerOpen" class="malt-app__settings malt-app__bucket-picker" aria-label="Buckets">
 				<div class="malt-app__bucket-picker-head">
 					<div>
 						<h2>Your Buckets</h2>
@@ -2483,7 +3274,7 @@ function formatSize(size) {
         <span>{{ root ? `Target: ${currentLabel}` : 'Target: new root' }}</span>
       </div>
 
-      <main v-if="selectedBucket" class="malt-app__main">
+      <main v-if="selectedBucket && !accountPanel" class="malt-app__main">
         <aside class="malt-app__sidebar" aria-label="File tree">
           <div class="malt-app__sidebar-head">
             <span class="malt-app__sidebar-icon" aria-hidden="true">

@@ -35,12 +35,13 @@ Longer term, user-managed roots are expected to be published through a
 decentralized naming system; a Gateway Bucket head remains only an observed
 synchronization ref and does not replace that user-controlled trust decision.
 
-The managed product path also provides tenants, principals, API keys, and
-multiple Buckets per tenant. Personal and shared Buckets use the same commit
-DAG and `main` head; sharing is an ACL change. When concurrent clients push
-from the same base, the Gateway fast-forwards one writer, automatically merges
-independent map-coordinate changes, and preserves an unmergeable candidate on
-a `conflicts/...` branch instead of overwriting either side.
+The managed product path also provides user accounts, cookie sessions, tenants,
+principals, API keys, storage tiers, and multiple Buckets per tenant. Personal
+and shared Buckets use the same commit DAG and `main` head; sharing is an ACL
+change. When concurrent clients push from the same base, the Gateway
+fast-forwards one writer, automatically merges independent map-coordinate
+changes, and preserves an unmergeable candidate on a `conflicts/...` branch
+instead of overwriting either side.
 
 For the current API surface, see [Gateway Resolve and Read API](/docs/api).
 
@@ -67,31 +68,47 @@ CAS is not defined by MALT core, and the gateway is not part of the
 authentication trust boundary. Bucket ACLs authorize service access; they do
 not make a Gateway head a trusted client root. The browser does not use a
 public raw-CAS `GET /v1/cas/{cid}` path: immutable payload reads require a
-managed Bucket ID and API key and go through the Bucket-scoped route. The
-client still hashes every returned block against its authenticated CID.
+managed Bucket ID and an authenticated cookie session or API key, and go
+through the Bucket-scoped route. The client still hashes every returned block
+against its authenticated CID.
 
-The browser App signs in directly with a Gateway API key, validates the account
-through `/v1/me`, and lists only the Buckets returned for that principal. The
-user selects a Bucket instead of entering a Bucket ID or root. That selection
-fetches the Bucket's current `main` ref and uses its root as the tab's browsing
-snapshot; the App does not silently follow later head changes. All content
-reads still verify proofs and payload CIDs locally.
+The browser App registers or signs in with an email or username and password.
+On the managed HTTPS deployment, the Gateway keeps the resulting session in a
+`Secure`, `HttpOnly`, same-site cookie; JavaScript does not persist a password
+or session token.
+Existing API keys remain available as a compatibility sign-in method and stay
+in tab memory only. After authentication, the App lists only the Buckets
+returned for that principal. The user selects a Bucket instead of entering a
+Bucket ID or root. That selection fetches the Bucket's current `main` ref and
+uses its root as the tab's browsing snapshot; the App does not silently follow
+later head changes. All content reads still verify proofs and payload CIDs
+locally.
 
 Managed same-origin builds configure the Gateway URL at build time, so the App
 does not expose Gateway topology as an end-user setting. Local development can
-still point the sign-in form at a separate Gateway. The API key stays in memory
-only and must be entered again after a reload or sign-out. The current open
-Gateway does not implement password or browser-session authentication; a
-future account-password flow should exchange credentials for a secure
-HttpOnly session rather than persisting a long-lived API key in browser
-storage.
+still point the sign-in form at a separate Gateway. A new deployment exposes a
+one-time administrator initialization form only while bootstrap is required.
+Signed-in users can edit their display name and inspect their tier and quota.
+Only a cookie session whose account has `system_role: "admin"` exposes the
+service Console; the Gateway independently enforces every Console API call.
+Bucket-level `admin` or `owner` roles never grant access to that system
+Console.
+
+The current public-registration flow is an Alpha boundary, not a production
+identity system. Email addresses are normalized and unique but are not yet
+verified, and password recovery is not yet available. Registration and login
+have reverse-proxy and in-process abuse limits, but users should not reuse a
+valuable password. New accounts receive 10 MiB; the current administrator
+tiers are 10 MiB, 10 GiB, and 1 TiB. Quota is charged once per tenant and
+unique CID with a 4 KiB minimum charge, and historical CIDs remain charged
+until an explicit garbage-collection and reconciliation policy exists.
 
 For uploads, the App stores a local candidate before refreshing the remote
 head, and accepts `fast_forward`, `merged`, or `branched` push outcomes only
 after the returned main ref, final commit, submitted candidate, and optional
 conflict branch are bound to the original request.
 Credentialed requests require HTTPS except for loopback development Gateways
-and reject redirects so the bearer token is never forwarded to another URL.
+and reject redirects so credentials are never forwarded to another URL.
 Pending and branched browser stashes are listed after reload; users can retry a
 pending push with its original push ID/base or explicitly restore its candidate
 root without first replacing it with the latest remote head. Each stash is an
@@ -121,16 +138,16 @@ Gateway response. Revisions from different Gateway scopes are not compared.
 
 ## Product Surface
 
-If MALT exposes accounts, API keys, dashboards, billing, private datasets, or
-managed publication channels, those should live in the gateway product surface
-or a private deployment overlay. The documentation site should remain static
-and verifiable.
+Accounts, API keys, the service Console, storage tiers, private datasets, and
+managed publication channels belong to the gateway product surface or a
+private deployment overlay. The documentation site outside the App remains
+static and verifiable.
 
 Suggested split when that happens:
 
 - project website and docs: this VitePress site
 - runtime API: hosted service endpoint
-- service console: separate authenticated application
+- service console: the authenticated App surface backed by Gateway admin APIs
 - status page: separate operational status surface
 
 ## Public Wording
