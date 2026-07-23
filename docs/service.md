@@ -99,9 +99,13 @@ identity system. Email addresses are normalized and unique but are not yet
 verified, and password recovery is not yet available. Registration and login
 have reverse-proxy and in-process abuse limits, but users should not reuse a
 valuable password. New accounts receive 10 MiB; the current administrator
-tiers are 10 MiB, 10 GiB, and 1 TiB. Quota is charged once per tenant and
-unique CID with a 4 KiB minimum charge, and historical CIDs remain charged
-until an explicit garbage-collection and reconciliation policy exists.
+tiers are 10 MiB, 10 GiB, and 1 TiB, with 3, 100, and 1,000 Buckets
+respectively. Immutable payloads are charged once per tenant and unique CID
+with a 4 KiB minimum. Persistent Bucket metadata operations share the same
+byte entitlement and use a conservative 64 KiB minimum allocation so empty
+roots, mutations, branches, or pushes cannot bypass storage limits. Historical
+charges remain until an explicit garbage-collection and reconciliation policy
+exists.
 
 For uploads, the App stores a local candidate before refreshing the remote
 head, and accepts `fast_forward`, `merged`, or `branched` push outcomes only
