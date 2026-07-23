@@ -70,21 +70,35 @@ public raw-CAS `GET /v1/cas/{cid}` path: immutable payload reads require a
 managed Bucket ID and API key and go through the Bucket-scoped route. The
 client still hashes every returned block against its authenticated CID.
 
-The browser App can connect to these Bucket routes with a Bucket ID and API
-key. It keeps the API key in memory, stores a local candidate before refreshing
-the remote head, and accepts `fast_forward`, `merged`, or `branched` push
-outcomes only after the returned main ref, final commit, submitted candidate,
-and optional conflict branch are bound to the original request. Selecting an
-observed or merged head remains an explicit client action, and all content
+The browser App signs in directly with a Gateway API key, validates the account
+through `/v1/me`, and lists only the Buckets returned for that principal. The
+user selects a Bucket instead of entering a Bucket ID or root. That selection
+fetches the Bucket's current `main` ref and uses its root as the tab's browsing
+snapshot; the App does not silently follow later head changes. All content
 reads still verify proofs and payload CIDs locally.
+
+Managed same-origin builds configure the Gateway URL at build time, so the App
+does not expose Gateway topology as an end-user setting. Local development can
+still point the sign-in form at a separate Gateway. The API key stays in memory
+only and must be entered again after a reload or sign-out. The current open
+Gateway does not implement password or browser-session authentication; a
+future account-password flow should exchange credentials for a secure
+HttpOnly session rather than persisting a long-lived API key in browser
+storage.
+
+For uploads, the App stores a local candidate before refreshing the remote
+head, and accepts `fast_forward`, `merged`, or `branched` push outcomes only
+after the returned main ref, final commit, submitted candidate, and optional
+conflict branch are bound to the original request.
 Credentialed requests require HTTPS except for loopback development Gateways
 and reject redirects so the bearer token is never forwarded to another URL.
 Pending and branched browser stashes are listed after reload; users can retry a
 pending push with its original push ID/base or explicitly restore its candidate
 root without first replacing it with the latest remote head. Each stash is an
-independent localStorage record bound to the canonical Gateway URL, local
-profile, and Bucket ID, so one tab cannot overwrite another stash through a
-shared array update and edited settings cannot redirect an old retry. The
+independent localStorage record bound to the canonical Gateway URL,
+tenant/principal identity, and Bucket ID, so one tab cannot overwrite another
+stash through a shared array update and a later sign-in cannot redirect an old
+retry. The
 stored `base_revision` records what the browser observed; it is diagnostic
 metadata, not a client-selected compare-and-swap token. Legacy array stashes
 that predate Gateway scoping remain visible, but cannot be opened or retried
@@ -94,7 +108,7 @@ deterministic push ID, so a retry can recover a response lost before the
 browser learned the first push result. Binding requires the browser Web Locks
 API and records one structured, Gateway-independent ownership marker for the
 legacy ID. Competing tabs can therefore bind a legacy candidate to only one
-canonical Gateway/profile/Bucket scope. The App rechecks that marker before
+canonical Gateway/account/Bucket scope. The App rechecks that marker before
 restore, before and after a retry refresh, immediately before the push, and
 again before completing or deleting the stash. Until binding, the App performs
 no Gateway read for that legacy candidate.

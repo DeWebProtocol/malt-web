@@ -565,6 +565,13 @@ body.malt-app-page .malt-app {
   letter-spacing: 0;
 }
 
+.malt-app__login-copy {
+  margin: 0;
+  color: var(--vp-c-text-2);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
 .malt-app__login button,
 .malt-app__button-row button:first-child {
   border-color: var(--vp-c-brand-1);
@@ -606,6 +613,13 @@ body.malt-app-page .malt-app {
   white-space: nowrap;
 }
 
+.malt-app__identity .malt-app__bucket-label {
+  border-left: 1px solid var(--malt-gh-border);
+  padding-left: 10px;
+  color: var(--vp-c-text-1);
+  font-weight: 650;
+}
+
 .malt-app__top-actions,
 .malt-app__button-row,
 .malt-app__pathbar,
@@ -630,6 +644,84 @@ body.malt-app-page .malt-app {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
   max-width: 1120px;
+}
+
+.malt-app__bucket-picker {
+  gap: 16px;
+}
+
+.malt-app__bucket-picker-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: start;
+}
+
+.malt-app__bucket-picker-head h2,
+.malt-app__bucket-picker-head p {
+  margin: 0;
+}
+
+.malt-app__bucket-picker-head h2 {
+  border: 0;
+  padding: 0;
+  font-size: 18px;
+}
+
+.malt-app__bucket-picker-head p {
+  margin-top: 4px;
+  color: var(--vp-c-text-2);
+  font-size: 13px;
+}
+
+.malt-app__bucket-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+  max-width: 1120px;
+}
+
+.malt-app__bucket-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--malt-gh-border);
+  border-radius: 8px;
+  padding: 14px;
+  text-align: left;
+  background: var(--malt-gh-panel);
+}
+
+.malt-app__bucket-card:hover,
+.malt-app__bucket-card.is-selected {
+  border-color: var(--vp-c-brand-1);
+  background: var(--vp-c-brand-soft);
+}
+
+.malt-app__bucket-card > span {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+  min-width: 0;
+  color: var(--vp-c-text-2);
+  font-size: 12px;
+}
+
+.malt-app__bucket-card strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--vp-c-text-1);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.malt-app__bucket-card code {
+  overflow: hidden;
+  color: var(--vp-c-text-3);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .malt-app__main {
@@ -1625,6 +1717,12 @@ body.malt-app-page .malt-app {
   .malt-app__settings-grid,
   .malt-app__result dl div {
     grid-template-columns: 1fr;
+  }
+
+  .malt-app__bucket-picker-head,
+  .malt-app__bucket-card > span {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .malt-app__main {

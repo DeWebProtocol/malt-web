@@ -9,6 +9,23 @@ export const defaultDaemonURL = defaultGatewayURL
 export const defaultCASURL = defaultGatewayURL
 export const appFallbackStorageKey = 'malt-app-fallback-path'
 
+export function managedGatewayBaseURL(configuredURL, browserOrigin, fallback = defaultGatewayURL) {
+	const selected = String(configuredURL || '').trim()
+	if (!selected) return canonicalGatewayBaseURL(fallback)
+	return canonicalGatewayBaseURL(new URL(selected, browserOrigin).toString())
+}
+
+export function bucketAllowsWrite(bucket) {
+	return (
+		bucket?.state === 'active' &&
+		['writer', 'admin', 'owner'].includes(String(bucket?.role || ''))
+	)
+}
+
+export function bucketCanOpen(bucket) {
+	return Boolean(bucket?.id) && bucket.state !== 'archived'
+}
+
 export function buildResolveURL(baseURL, root, rawPath = '', bucketID = '') {
 	void root
 	void rawPath
@@ -37,12 +54,22 @@ export function buildBucketURL(baseURL, bucketID, suffix = []) {
 	return buildGatewayURL(baseURL, ['v1', 'buckets', selected, ...suffix])
 }
 
+export async function fetchGatewayIdentity({ baseURL, apiKey, signal }) {
+	const url = buildGatewayURL(baseURL, ['v1', 'me'])
+	const response = await fetch(url, gatewayRequestOptions(url, apiKey, { signal }))
+	return validateGatewayIdentity(await readJSONResponse(response))
+}
+
 export async function fetchBuckets({ baseURL, apiKey, signal }) {
 	const url = buildGatewayURL(baseURL, ['v1', 'buckets'])
 	const response = await fetch(url, gatewayRequestOptions(url, apiKey, { signal }))
 	const payload = await readJSONResponse(response)
 	if (!Array.isArray(payload.buckets)) throw new Error('gateway did not return a Bucket list')
-	return payload.buckets
+	const buckets = payload.buckets.map(validateBucketView)
+	if (new Set(buckets.map((bucket) => bucket.id)).size !== buckets.length) {
+		throw new Error('gateway returned duplicate Buckets')
+	}
+	return buckets
 }
 
 export async function fetchBucketHead({ baseURL, bucketID, apiKey, signal }) {
@@ -51,6 +78,47 @@ export async function fetchBucketHead({ baseURL, bucketID, apiKey, signal }) {
 	const head = await readJSONResponse(response)
 	if (response.status !== 200) throw new Error(`gateway returned unexpected Bucket head status ${response.status}`)
 	return validateBucketRef(head, String(bucketID || '').trim(), { name: 'main', kind: 'main' })
+}
+
+function validateGatewayIdentity(value) {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) {
+		throw new Error('gateway returned an invalid identity')
+	}
+	const identity = {
+		tenant_id: String(value.tenant_id || '').trim(),
+		principal_id: String(value.principal_id || '').trim(),
+		credential_id: String(value.credential_id || '').trim()
+	}
+	if (!identity.tenant_id || !identity.principal_id || !identity.credential_id) {
+		throw new Error('gateway returned an incomplete identity')
+	}
+	return identity
+}
+
+function validateBucketView(value) {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) {
+		throw new Error('gateway returned an invalid Bucket')
+	}
+	const bucket = {
+		id: String(value.id || '').trim(),
+		tenant_id: String(value.tenant_id || '').trim(),
+		name: String(value.name || '').trim(),
+		state: String(value.state || '').trim(),
+		role: String(value.role || '').trim(),
+		created_by: String(value.created_by || '').trim(),
+		created_at: String(value.created_at || '').trim(),
+		updated_at: String(value.updated_at || '').trim()
+	}
+	if (
+		!bucket.id ||
+		!bucket.tenant_id ||
+		!bucket.name ||
+		!['active', 'read_only', 'archived'].includes(bucket.state) ||
+		!['reader', 'writer', 'admin', 'owner'].includes(bucket.role)
+	) {
+		throw new Error('gateway returned invalid Bucket metadata')
+	}
+	return bucket
 }
 
 export async function pushBucketRoot({
@@ -1406,7 +1474,7 @@ function gatewayRequestOptions(url, apiKey, options = {}) {
 	return {
 		...rest,
 		headers: gatewayHeaders(token, headers),
-		...(token ? { redirect: 'error' } : {})
+		...(token ? { redirect: 'error', cache: 'no-store' } : {})
 	}
 }
 

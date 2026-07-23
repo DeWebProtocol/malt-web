@@ -3,7 +3,6 @@ import MarkdownIt from 'markdown-it'
 import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import { withBase } from 'vitepress'
 import {
-  activeProfileStorageKey,
 	appendBucketStashValue,
 	applyBucketStashResult,
 	assertBucketStashLegacyBinding,
@@ -12,11 +11,16 @@ import {
   ancestorDirectoryPaths,
   appFallbackStorageKey,
   buildAppStatePath,
+	bucketAllowsWrite,
+	bucketCanOpen,
 	bucketStashNamespace,
 	createBucketStashScope,
   defaultGatewayURL,
+	fetchBuckets,
 	fetchBucketHead,
+	fetchGatewayIdentity,
   joinMaltPath,
+	managedGatewayBaseURL,
   normalizeUploadPath,
   pathBasename,
   pathParent,
@@ -43,8 +47,12 @@ import {
   verifyResolveLocally
 } from '../malt-verifier.mjs'
 
+const configuredGatewayURL = String(import.meta.env.VITE_MALT_MANAGED_GATEWAY_URL || '').trim()
 const baseURL = ref(defaultGatewayURL)
 const apiKey = ref('')
+const accessKeyInput = ref('')
+const identity = ref(null)
+const buckets = ref([])
 const bucketID = ref('')
 const bucketHead = ref(null)
 const bucketHeadScope = ref(null)
@@ -53,11 +61,9 @@ const bucketStashes = ref([])
 const loadedBucketStashNamespace = ref('')
 const loadedLegacyBucketStashKey = ref('')
 const loadedLegacyBucketStashBindingNamespace = ref('')
-const profileInput = ref('')
 const activeProfile = ref('')
 const root = ref('')
 const currentPath = ref('')
-const prefix = ref('')
 const entries = ref([])
 const directoryCache = ref({})
 const loadedTreeDirectories = ref({})
@@ -70,7 +76,9 @@ const previewMode = ref('code')
 const previewView = ref(false)
 const proofView = ref(null)
 const verifiedPaths = ref({})
-const settingsOpen = ref(false)
+const bucketPickerOpen = ref(false)
+const routeNavigationActive = ref(false)
+const rootNavigationActive = ref(false)
 const openMenuPath = ref('')
 const dropActive = ref(false)
 const dragDepth = ref(0)
@@ -166,9 +174,24 @@ const previewLanguageAliases = new Map([
 let dragResetTimer = 0
 let copyFeedbackTimer = 0
 let directoryHydrationGeneration = 0
+let rootNavigationGeneration = 0
 
-const signedIn = computed(() => activeProfile.value !== '')
+const managedDeployment = computed(() => Boolean(configuredGatewayURL))
+const signedIn = computed(() => Boolean(identity.value && apiKey.value))
+const interactionBusy = computed(
+	() => busy.value || routeNavigationActive.value || rootNavigationActive.value
+)
 const bucketConfigured = computed(() => Boolean(bucketID.value.trim() && apiKey.value.trim()))
+const selectedBucket = computed(() =>
+	buckets.value.find((bucket) => bucket.id === bucketID.value) || null
+)
+const canWriteBucket = computed(() => bucketAllowsWrite(selectedBucket.value))
+const identityLabel = computed(() => {
+	if (!identity.value) return ''
+	const principal = identity.value.principal_id
+	const tenant = identity.value.tenant_id
+	return principal === tenant ? principal : `${principal} · ${tenant}`
+})
 const legacyBindingSupported = computed(
 	() => typeof globalThis.navigator?.locks?.request === 'function'
 )
@@ -238,6 +261,7 @@ const uploadText = computed(() => {
 onMounted(() => {
   document.body.classList.add('malt-app-page')
   document.title = 'App | MALT'
+	baseURL.value = browserGatewayBaseURL()
   window.addEventListener('dragenter', beginPageDrag)
   window.addEventListener('dragover', handlePageDragOver)
   window.addEventListener('dragleave', handlePageDragLeave)
@@ -246,11 +270,6 @@ onMounted(() => {
   window.addEventListener('popstate', handleAppPopState)
 	window.addEventListener('storage', handleBucketStorageChange)
   void initializeSyntaxHighlighter()
-  const stored = window.localStorage.getItem(activeProfileStorageKey())
-  if (stored) {
-    profileInput.value = stored
-    signIn()
-  }
 })
 
 onUnmounted(() => {
@@ -267,61 +286,70 @@ onUnmounted(() => {
   clearPreview()
 })
 
-function signIn() {
-  const name = profileInput.value.trim()
-  if (!name) {
-    error.value = 'profile name is required'
-    return
-  }
+function browserGatewayBaseURL() {
+	return managedGatewayBaseURL(configuredGatewayURL, window.location.origin, defaultGatewayURL)
+}
 
-  activeProfile.value = name
-  window.localStorage.setItem(activeProfileStorageKey(), name)
-  const saved = loadStoredProfile(name)
-  const routeState = currentAppRouteState()
-  const hasRouteRoot = Boolean(routeState?.root)
-  baseURL.value = saved.baseURL || baseURL.value || defaultGatewayURL
-	bucketID.value = saved.bucketID || ''
-	bucketHead.value = saved.bucketHead || null
-	bucketHeadScope.value = saved.bucketHeadScope || null
-	if (bucketHead.value && !bucketHeadScope.value && bucketID.value) {
-		try {
-			bucketHeadScope.value = currentBucketStashScope()
-		} catch {
-			bucketHeadScope.value = null
-		}
+async function signIn() {
+	const token = accessKeyInput.value.trim()
+	if (!token) {
+		error.value = 'Gateway API key is required'
+		return
 	}
-	apiKey.value = ''
-	bucketStatus.value = bucketID.value ? 'Enter the API key to refresh this Bucket head.' : ''
-	loadBucketStashes()
-  root.value = hasRouteRoot ? routeState.root : saved.root || ''
-  currentPath.value = root.value ? (hasRouteRoot ? routeState.path : saved.currentPath || '') : ''
-  prefix.value = saved.prefix || ''
-  verifiedPaths.value = saved.verifiedPaths || {}
-  settingsOpen.value = !root.value
-  error.value = ''
-  uploadResult.value = null
-  preview.value = null
-  previewView.value = false
-  proofView.value = null
-  entries.value = []
-  resetTreeState()
-  if (root.value) {
-    if (hasRouteRoot) {
-      void openAppRouteState(routeState, { history: 'replace' })
-    } else {
-      void loadRoot(currentPath.value, { history: 'replace' })
-    }
-  } else {
-    syncBrowserLocation('replace')
-  }
+
+	error.value = ''
+	busy.value = true
+	try {
+		baseURL.value = managedDeployment.value
+			? browserGatewayBaseURL()
+			: managedGatewayBaseURL('', window.location.origin, baseURL.value)
+		const [nextIdentity, nextBuckets] = await withDaemonTimeout('sign in', (signal) =>
+			Promise.all([
+				fetchGatewayIdentity({ baseURL: baseURL.value, apiKey: token, signal }),
+				fetchBuckets({ baseURL: baseURL.value, apiKey: token, signal })
+			])
+		)
+		if (nextBuckets.some((bucket) => bucket.tenant_id !== nextIdentity.tenant_id)) {
+			throw new Error('Gateway returned a Bucket for a different tenant')
+		}
+		apiKey.value = token
+		identity.value = nextIdentity
+		activeProfile.value = `${nextIdentity.tenant_id}/${nextIdentity.principal_id}`
+		buckets.value = nextBuckets
+		accessKeyInput.value = ''
+		resetBucketWorkspace()
+		bucketPickerOpen.value = true
+		bucketStatus.value = nextBuckets.length
+			? 'Choose a Bucket to open its current main root.'
+			: 'This account does not have access to any Buckets.'
+		syncBrowserLocation('replace')
+	} catch (err) {
+		apiKey.value = ''
+		identity.value = null
+		activeProfile.value = ''
+		buckets.value = []
+		error.value = err instanceof Error ? err.message : String(err)
+	} finally {
+		busy.value = false
+	}
 }
 
 function signOut() {
-  persistProfile()
+	if (activeProfile.value && typeof window !== 'undefined') {
+		window.localStorage.removeItem(profileStorageKey(activeProfile.value))
+	}
   activeProfile.value = ''
-  profileInput.value = ''
-  baseURL.value = defaultGatewayURL
+	accessKeyInput.value = ''
+	identity.value = null
+	buckets.value = []
+  baseURL.value = browserGatewayBaseURL()
 	apiKey.value = ''
+	resetBucketWorkspace()
+  bucketPickerOpen.value = false
+  syncBrowserLocation('replace')
+}
+
+function resetBucketWorkspace() {
 	bucketID.value = ''
 	bucketHead.value = null
 	bucketHeadScope.value = null
@@ -330,27 +358,17 @@ function signOut() {
 	loadedBucketStashNamespace.value = ''
 	loadedLegacyBucketStashKey.value = ''
 	loadedLegacyBucketStashBindingNamespace.value = ''
-  root.value = ''
-  currentPath.value = ''
-  prefix.value = ''
-  entries.value = []
-  resetTreeState()
-  uploadResult.value = null
-  settingsOpen.value = false
-  openMenuPath.value = ''
-  cancelPageDrag()
-  uploadStatus.value = ''
-  clearPreview()
-  proofView.value = null
-  syncBrowserLocation('replace')
-}
-
-function loadStoredProfile(name) {
-  try {
-    return JSON.parse(window.localStorage.getItem(profileStorageKey(name)) || '{}')
-  } catch {
-    return {}
-  }
+	root.value = ''
+	currentPath.value = ''
+	entries.value = []
+	verifiedPaths.value = {}
+	resetTreeState()
+	uploadResult.value = null
+	openMenuPath.value = ''
+	cancelPageDrag()
+	uploadStatus.value = ''
+	clearPreview()
+	proofView.value = null
 }
 
 function persistProfile() {
@@ -366,43 +384,57 @@ function persistProfile() {
 		bucketHeadScope: bucketHeadScope.value,
       root: root.value,
       currentPath: currentPath.value,
-      prefix: prefix.value,
       verifiedPaths: verifiedPaths.value
     })
   )
 }
 
-async function applySettings() {
-  error.value = ''
-  openMenuPath.value = ''
-	if (bucketID.value.trim() && !apiKey.value.trim()) {
-		error.value = 'API key is required for a managed Bucket'
-		return
-	}
-	loadBucketStashes()
-	if (bucketConfigured.value) {
-		try {
-			await observeBucketHead()
-		} catch (err) {
-			error.value = err instanceof Error ? err.message : String(err)
-			return
+async function refreshBuckets() {
+	if (!signedIn.value) return
+	error.value = ''
+	busy.value = true
+	try {
+		const nextBuckets = await withDaemonTimeout('refresh Buckets', (signal) =>
+			fetchBuckets({ baseURL: baseURL.value, apiKey: apiKey.value, signal })
+		)
+		if (nextBuckets.some((bucket) => bucket.tenant_id !== identity.value.tenant_id)) {
+			throw new Error('Gateway returned a Bucket for a different tenant')
 		}
+		buckets.value = nextBuckets
+		const currentBucket = nextBuckets.find((bucket) => bucket.id === bucketID.value)
+		if (bucketID.value && (!currentBucket || !bucketCanOpen(currentBucket))) {
+			resetBucketWorkspace()
+			bucketPickerOpen.value = true
+			bucketStatus.value =
+				currentBucket?.state === 'archived'
+					? 'The previously selected Bucket is archived and can no longer be opened.'
+					: 'The previously selected Bucket is no longer available.'
+		}
+	} catch (err) {
+		error.value = err instanceof Error ? err.message : String(err)
+	} finally {
+		busy.value = false
 	}
-  if (!root.value.trim()) {
-    currentPath.value = ''
-    entries.value = []
-    resetTreeState()
-    uploadResult.value = null
-    clearPreview()
-    proofView.value = null
-    persistProfile()
-		settingsOpen.value = Boolean(bucketHead.value?.root)
-    syncBrowserLocation('replace')
-    return
-  }
-  settingsOpen.value = false
-  resetTreeState()
-  await loadRoot(currentPath.value, { history: 'replace' })
+}
+
+async function selectBucket(bucket) {
+	const selected = buckets.value.find((candidate) => candidate.id === bucket?.id)
+	if (!selected || !bucketCanOpen(selected) || interactionBusy.value) return
+	error.value = ''
+	busy.value = true
+	resetBucketWorkspace()
+	bucketID.value = selected.id
+	loadBucketStashes()
+	try {
+		await observeBucketHead()
+		await useObservedBucketHead()
+		bucketPickerOpen.value = false
+	} catch (err) {
+		error.value = err instanceof Error ? err.message : String(err)
+		bucketPickerOpen.value = true
+	} finally {
+		busy.value = false
+	}
 }
 
 function gatewayAccess() {
@@ -457,6 +489,7 @@ async function refreshBucketHead() {
 	busy.value = true
 	try {
 		await observeBucketHead()
+		await useObservedBucketHead()
 	} catch (err) {
 		error.value = err instanceof Error ? err.message : String(err)
 	} finally {
@@ -466,7 +499,6 @@ async function refreshBucketHead() {
 
 async function useObservedBucketHead() {
 	const observedRoot = String(bucketHead.value?.root || '').trim()
-	if (!observedRoot) return
 	try {
 		assertBucketStashScope({ scope: bucketHeadScope.value }, currentBucketStashScope())
 	} catch (err) {
@@ -476,10 +508,20 @@ async function useObservedBucketHead() {
 	root.value = observedRoot
 	currentPath.value = ''
 	verifiedPaths.value = {}
+	entries.value = []
 	resetTreeState()
-	bucketStatus.value = `Selected observed main revision ${bucketHead.value.revision}. Reads still require local proof and payload verification.`
+	clearPreview()
+	proofView.value = null
+	uploadResult.value = null
+	bucketStatus.value = observedRoot
+		? `Using main revision ${bucketHead.value.revision}. Reads are verified locally against this root.`
+		: 'This Bucket is empty. Drop files to create its first root.'
 	persistProfile()
-	await loadRoot('', { history: 'replace' })
+	if (observedRoot) {
+		await loadRoot('', { history: 'replace' })
+	} else {
+		syncBrowserLocation('replace')
+	}
 }
 
 function currentBucketStashScope() {
@@ -601,7 +643,7 @@ async function bindLegacyBucketStash(stash) {
 }
 
 async function retryBucketStash(stash) {
-	if (!bucketConfigured.value || stash?.status !== 'pending') return
+	if (!bucketConfigured.value || !canWriteBucket.value || stash?.status !== 'pending') return
 	error.value = ''
 	busy.value = true
 	try {
@@ -719,22 +761,69 @@ async function loadRoot(nextPath = '', options = {}) {
     error.value = 'root is required'
     return
   }
+	const routePath = normalizeOptionalPath(nextPath)
+	const generation = ++rootNavigationGeneration
+	currentPath.value = routePath
+	const snapshot = captureWorkspaceSnapshot(routePath, generation)
+	rootNavigationActive.value = true
+	try {
   openMenuPath.value = ''
-  currentPath.value = normalizeOptionalPath(nextPath)
   seedTreePath(currentPath.value)
   expandTreeAncestors(currentPath.value)
   if (options.syncURL !== false) {
     syncBrowserLocation(options.history || 'push')
   }
-  await loadTreeAncestors(currentPath.value)
-  await refreshDirectory()
+		const ancestorsLoaded = await loadTreeAncestors(routePath, snapshot)
+		if (!ancestorsLoaded || !workspaceSnapshotMatches(snapshot)) {
+			return
+		}
+		await refreshDirectory(snapshot)
+	} catch (err) {
+		if (workspaceSnapshotMatches(snapshot)) {
+			throw err
+		}
+	} finally {
+		if (generation === rootNavigationGeneration) {
+			rootNavigationActive.value = false
+		}
+	}
+}
+
+function captureWorkspaceSnapshot(path, generation = rootNavigationGeneration) {
+	const scope = currentBucketStashScope()
+	return Object.freeze({
+		generation,
+		baseURL: scope.baseURL,
+		bucketID: scope.bucketID,
+		apiKey: apiKey.value,
+		root: root.value.trim(),
+		path: normalizeOptionalPath(path),
+		scope
+	})
+}
+
+function workspaceSnapshotMatches(snapshot) {
+	if (
+		!snapshot ||
+		snapshot.generation !== rootNavigationGeneration ||
+		snapshot.root !== root.value.trim() ||
+		snapshot.path !== currentPath.value ||
+		snapshot.apiKey !== apiKey.value
+	) {
+		return false
+	}
+	try {
+		assertBucketStashScope({ scope: snapshot.scope }, currentBucketStashScope())
+		return true
+	} catch {
+		return false
+	}
 }
 
 async function openAppRouteState(routeState, options = {}) {
-  if (!routeState) {
+  if (!routeState || routeState.root !== root.value.trim()) {
     return
   }
-  root.value = routeState.root
   const routePath = normalizeOptionalPath(routeState.path)
   if (!root.value) {
     currentPath.value = ''
@@ -794,32 +883,42 @@ async function openAppRouteState(routeState, options = {}) {
   }
 }
 
-async function refreshDirectory() {
+async function refreshDirectory(snapshot = captureWorkspaceSnapshot(currentPath.value)) {
+  if (!workspaceSnapshotMatches(snapshot)) {
+    return
+  }
+	const directoryPath = snapshot.path
   error.value = ''
   clearPreview()
   proofView.value = null
   busy.value = true
   try {
-    const { manifest, loadedEntries } = await loadDirectoryEntries(currentPath.value, '', {
-      omitProof: false
+    const { manifest, loadedEntries } = await loadDirectoryEntries(directoryPath, '', {
+      omitProof: false,
+			snapshot
     })
     if (!manifest.proofList) {
       throw new Error('directory response did not include ProofList material')
     }
-    const verification = await verifyContentAndMark(currentPath.value, manifest)
+    const verification = await verifyContentAndMark(directoryPath, manifest, snapshot)
+		if (!workspaceSnapshotMatches(snapshot)) {
+			return
+		}
     proofView.value = {
-      path: currentPath.value,
+      path: directoryPath,
       kind: 'dir',
       proofList: manifest.proofList,
       verification
     }
     entries.value = loadedEntries
-    cacheDirectoryEntries(currentPath.value, entries.value)
+    cacheDirectoryEntries(directoryPath, entries.value)
     persistProfile()
-    void hydrateDirectoryEntries(currentPath.value, loadedEntries)
+    void hydrateDirectoryEntries(directoryPath, loadedEntries)
   } catch (err) {
-    entries.value = []
-    error.value = err instanceof Error ? err.message : String(err)
+		if (workspaceSnapshotMatches(snapshot)) {
+			entries.value = []
+			error.value = err instanceof Error ? err.message : String(err)
+		}
   } finally {
     busy.value = false
   }
@@ -829,11 +928,21 @@ async function loadDirectoryEntries(path, payload, options = {}) {
   const directoryPath = normalizeOptionalPath(path)
   void payload
   const omitProof = options.omitProof !== false
+	const request = options.snapshot
+		? {
+				baseURL: options.snapshot.baseURL,
+				bucketID: options.snapshot.bucketID,
+				apiKey: options.snapshot.apiKey,
+				root: options.snapshot.root
+			}
+		: {
+				baseURL: baseURL.value,
+				...gatewayAccess(),
+				root: root.value
+			}
   const manifest = await withDaemonTimeout('read directory', (signal) =>
     readDirectory({
-		baseURL: baseURL.value,
-		...gatewayAccess(),
-		root: root.value,
+			...request,
       path: directoryPath,
       signal,
       omitProof
@@ -861,18 +970,29 @@ function lazyDirectoryEntry(directoryPath, name) {
 
 async function hydrateDirectoryEntries(directoryPath, sourceEntries) {
   const generation = ++directoryHydrationGeneration
+	const scope = currentBucketStashScope()
+	const hydration = Object.freeze({
+		generation,
+		directoryPath,
+		root: root.value.trim(),
+		apiKey: apiKey.value,
+		scope
+	})
   await mapWithConcurrency(sourceEntries, 6, async (entry) => {
-    if (generation !== directoryHydrationGeneration || currentPath.value !== directoryPath) {
+    if (!hydrationRequestMatches(hydration)) {
       return
     }
     if (!entry || entry.kind !== 'unknown') {
       return
     }
-    await statEntry(entry, { silent: true, generation, directoryPath })
+    await statEntry(entry, { silent: true, hydration })
   })
 }
 
 function resetTreeState() {
+	rootNavigationGeneration += 1
+	rootNavigationActive.value = false
+  directoryHydrationGeneration += 1
   directoryCache.value = {}
   loadedTreeDirectories.value = {}
   treeExpanded.value = { '': true }
@@ -1063,7 +1183,7 @@ function setDropEffect(event, effect) {
 }
 
 function canAcceptFileDrop() {
-  return signedIn.value && !busy.value
+  return signedIn.value && Boolean(selectedBucket.value) && canWriteBucket.value && !interactionBusy.value
 }
 
 function schedulePageDragReset() {
@@ -1127,6 +1247,7 @@ function syncBrowserLocation(mode = 'push', pathOverride = currentPath.value) {
     return
   }
   const state = {
+    bucketID: bucketID.value.trim(),
     root: root.value.trim(),
     path: normalizeOptionalPath(pathOverride)
   }
@@ -1134,7 +1255,12 @@ function syncBrowserLocation(mode = 'push', pathOverride = currentPath.value) {
   url.pathname = buildAppStatePath(withBase('/app'), state.root, state.path)
   url.search = ''
   url.hash = ''
-  if (url.pathname === window.location.pathname && !window.location.search && !window.location.hash) {
+  if (
+    mode !== 'replace' &&
+    url.pathname === window.location.pathname &&
+    !window.location.search &&
+    !window.location.hash
+  ) {
     return
   }
   if (mode === 'replace') {
@@ -1144,29 +1270,58 @@ function syncBrowserLocation(mode = 'push', pathOverride = currentPath.value) {
   window.history.pushState(state, '', url)
 }
 
-async function handleAppPopState() {
-  if (!signedIn.value) {
+async function handleAppPopState(event) {
+  if (!signedIn.value || !selectedBucket.value) {
     return
   }
   const routeState = currentAppRouteState()
   if (!routeState) {
     return
   }
-  await openAppRouteState(routeState, { syncURL: false })
+  const historyState = event?.state
+  const selectedRoot = root.value.trim()
+  const stateMatchesSelection =
+    historyState &&
+    historyState.bucketID === bucketID.value &&
+    historyState.root === selectedRoot &&
+    normalizeOptionalPath(historyState.path) === normalizeOptionalPath(routeState.path) &&
+    routeState.root === selectedRoot
+  if (!stateMatchesSelection || interactionBusy.value) {
+    syncBrowserLocation('replace')
+    return
+  }
+  routeNavigationActive.value = true
+  try {
+    await openAppRouteState(routeState, { syncURL: false })
+  } finally {
+    routeNavigationActive.value = false
+  }
 }
 
 async function handleDrop(event) {
-  if (busy.value) {
+  if (interactionBusy.value) {
     return
   }
+	if (!selectedBucket.value) {
+		error.value = 'choose a Bucket before uploading'
+		return
+	}
+	if (!canWriteBucket.value) {
+		error.value = 'this Bucket is read-only for the current account'
+		return
+	}
   error.value = ''
   uploadResult.value = null
   uploadStatus.value = ''
+	busy.value = true
   try {
+		const uploadContext = captureUploadContext()
     const uploadItems = await droppedUploadItems(event.dataTransfer)
-    await uploadDropped(uploadItems)
+    await uploadDropped(uploadItems, uploadContext)
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
+	} finally {
+		busy.value = false
   }
 }
 
@@ -1236,13 +1391,29 @@ async function readDroppedDirectoryEntries(reader) {
   }
 }
 
-function targetUploadPath(rawPath) {
+function targetUploadPath(rawPath, basePath = currentPath.value) {
   const rel = normalizeUploadPath(rawPath)
-  const cleanPrefix = prefix.value.trim() ? normalizeUploadPath(prefix.value) : ''
-  return joinMaltPath(currentPath.value, joinMaltPath(cleanPrefix, rel))
+  return joinMaltPath(basePath, rel)
 }
 
-async function uploadDropped(uploadItems) {
+function captureUploadContext() {
+	const materializationRoot = root.value.trim()
+	const materializationPath = currentPath.value
+	const scope = currentBucketStashScope()
+	return Object.freeze({
+		root: materializationRoot,
+		path: materializationPath,
+		scope,
+		access: Object.freeze({
+			baseURL: scope.baseURL,
+			bucketID: scope.bucketID,
+			apiKey: apiKey.value
+		}),
+		base: captureBucketBase(materializationRoot)
+	})
+}
+
+async function uploadDropped(uploadItems, uploadContext) {
   error.value = ''
   uploadResult.value = null
   proofView.value = null
@@ -1253,32 +1424,42 @@ async function uploadDropped(uploadItems) {
     error.value = 'drop files or folders first'
     return
   }
+	if (!canWriteBucket.value) {
+		error.value = 'this Bucket is read-only for the current account'
+		return
+	}
 
-  busy.value = true
   try {
-		const materializationRoot = root.value.trim()
+		const {
+			root: materializationRoot,
+			path: materializationPath,
+			scope: materializationScope,
+			access: materializationAccess,
+			base: bucketBase
+		} = uploadContext
 		// Capture the exact base before the first asynchronous materialization
-		// request. Later head observations cannot rebind this candidate.
-		const bucketBase = bucketConfigured.value ? captureBucketBase(materializationRoot) : null
+		// request. Later head observations or route events cannot rebind this
+		// candidate, its Bucket, or the destination directory.
     let currentRoot = materializationRoot
     const writes = []
     for (const [index, item] of uploadItems.entries()) {
-      const writePath = targetUploadPath(item.path)
+			assertBucketStashScope({ scope: materializationScope }, currentBucketStashScope())
+			const writePath = targetUploadPath(item.path, materializationPath)
+			const writeBaseRoot = currentRoot
       uploadStatus.value = `Uploading ${index + 1}/${uploadItems.length}: ${writePath}`
       const write = await withDaemonTimeout(
         `upload ${writePath}`,
         (signal) =>
           uploadUnixFSFile({
-			baseURL: baseURL.value,
-			...gatewayAccess(),
-			root: currentRoot,
+			...materializationAccess,
+			root: writeBaseRoot,
             path: writePath,
             file: item.file,
             signal,
             verifyExistingContent: async (existingPath, payload, verifySignal) => {
               const proofVerification = await verifyContentProofLocally({
                 proofList: payload.proofList,
-                expectedRoot: currentRoot,
+                expectedRoot: writeBaseRoot,
                 expectedPath: existingPath,
                 runtimeURL: withBase('/verifier/wasm_exec.js'),
                 wasmURL: withBase('/verifier/malt-verifier.wasm'),
@@ -1291,7 +1472,7 @@ async function uploadDropped(uploadItems) {
                 proofList: payload.proofList,
                 body: payload.bytes,
                 fetchSegment: (cid) =>
-					readPayloadBlock({ baseURL: baseURL.value, ...gatewayAccess(), cid, signal: verifySignal })
+					readPayloadBlock({ ...materializationAccess, cid, signal: verifySignal })
               })
             },
             verifyExistingResolve: async (_existingPath, stat, verifySignal) => {
@@ -1322,8 +1503,9 @@ async function uploadDropped(uploadItems) {
       accepted: false,
       files: writes
     }
-		if (bucketConfigured.value) {
-			uploadStatus.value = 'Local candidate stashed. Fetching the latest Bucket head before push…'
+			if (bucketConfigured.value) {
+				assertBucketStashScope({ scope: materializationScope }, currentBucketStashScope())
+				uploadStatus.value = 'Local candidate stashed. Fetching the latest Bucket head before push…'
 			const pushed = await pushUploadedCandidate(currentRoot, bucketBase)
 			const selectedCandidate = pushed.status === 'branched' ? currentRoot : pushed.observedHead.root
 			uploadResult.value = {
@@ -1342,8 +1524,6 @@ async function uploadDropped(uploadItems) {
     persistProfile()
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
-  } finally {
-    busy.value = false
   }
 }
 
@@ -1398,8 +1578,21 @@ async function statEntry(entry, options = {}) {
     busy.value = true
   }
   try {
+		const hydration = options.hydration
+		const request = hydration
+			? {
+					baseURL: hydration.scope.baseURL,
+					bucketID: hydration.scope.bucketID,
+					apiKey: hydration.apiKey,
+					root: hydration.root
+				}
+			: {
+					baseURL: baseURL.value,
+					...gatewayAccess(),
+					root: root.value
+				}
     const stat = await withDaemonTimeout('stat path', (signal) =>
-		statPath({ baseURL: baseURL.value, root: root.value, path: entry.path, ...gatewayAccess(), signal })
+			statPath({ ...request, path: entry.path, signal })
     )
     const resolved = {
       ...entry,
@@ -1410,10 +1603,7 @@ async function statEntry(entry, options = {}) {
       size: stat.size,
       error: ''
     }
-    if (
-      options.generation != null &&
-      (options.generation !== directoryHydrationGeneration || currentPath.value !== options.directoryPath)
-    ) {
+    if (hydration && !hydrationRequestMatches(hydration)) {
       return resolved
     }
     replaceCachedEntry(resolved)
@@ -1423,6 +1613,9 @@ async function statEntry(entry, options = {}) {
       ...entry,
       error: err instanceof Error ? err.message : String(err)
     }
+		if (options.hydration && !hydrationRequestMatches(options.hydration)) {
+			return failed
+		}
     replaceCachedEntry(failed)
     if (!options.silent) {
       error.value = failed.error
@@ -1433,6 +1626,24 @@ async function statEntry(entry, options = {}) {
       busy.value = false
     }
   }
+}
+
+function hydrationRequestMatches(hydration) {
+	if (
+		!hydration ||
+		hydration.generation !== directoryHydrationGeneration ||
+		hydration.directoryPath !== currentPath.value ||
+		hydration.root !== root.value.trim() ||
+		hydration.apiKey !== apiKey.value
+	) {
+		return false
+	}
+	try {
+		assertBucketStashScope({ scope: hydration.scope }, currentBucketStashScope())
+		return true
+	} catch {
+		return false
+	}
 }
 
 function replaceCachedEntry(nextEntry) {
@@ -1496,20 +1707,28 @@ async function loadTreeDirectory(entry) {
   cacheDirectoryEntries(path, loadedEntries)
 }
 
-async function loadTreeAncestors(path) {
+async function loadTreeAncestors(path, snapshot = captureWorkspaceSnapshot(currentPath.value)) {
   for (const ancestorPath of ancestorDirectoryPaths(path)) {
+		if (!workspaceSnapshotMatches(snapshot)) {
+			return false
+		}
     if (loadedTreeDirectories.value[ancestorPath]) {
       continue
     }
     const { manifest, loadedEntries } = await loadDirectoryEntries(ancestorPath, '', {
-      omitProof: false
+      omitProof: false,
+			snapshot
     })
     if (!manifest.proofList) {
       throw new Error('directory response did not include ProofList material')
     }
-    await verifyContentAndMark(ancestorPath, manifest)
+    await verifyContentAndMark(ancestorPath, manifest, snapshot)
+		if (!workspaceSnapshotMatches(snapshot)) {
+			return false
+		}
     cacheDirectoryEntries(ancestorPath, loadedEntries)
   }
+	return workspaceSnapshotMatches(snapshot)
 }
 
 async function previewFile(entry, options = {}) {
@@ -1739,18 +1958,31 @@ async function runEntryAction(action, entry) {
   }
 }
 
-async function verifyContentAndMark(path, payload) {
+async function verifyContentAndMark(path, payload, snapshot = null) {
   const proofList = payload?.proofList
   if (!proofList) {
-    markVerification(path, false)
+		if (!snapshot || workspaceSnapshotMatches(snapshot)) {
+			markVerification(path, false, snapshot?.root)
+		}
     throw new Error('content response did not include ProofList material')
   }
+	const verificationRoot = snapshot?.root || root.value.trim()
+	const verificationAccess = snapshot
+		? {
+				baseURL: snapshot.baseURL,
+				bucketID: snapshot.bucketID,
+				apiKey: snapshot.apiKey
+			}
+		: {
+				baseURL: baseURL.value,
+				...gatewayAccess()
+			}
   try {
-		const verification = await withDaemonTimeout('verify proof and payload locally', async (signal) => {
-			const proofVerification = await verifyContentProofLocally({
-				proofList,
-				expectedRoot: root.value.trim(),
-				expectedPath: path,
+			const verification = await withDaemonTimeout('verify proof and payload locally', async (signal) => {
+				const proofVerification = await verifyContentProofLocally({
+					proofList,
+					expectedRoot: verificationRoot,
+					expectedPath: path,
         runtimeURL: withBase('/verifier/wasm_exec.js'),
         wasmURL: withBase('/verifier/malt-verifier.wasm'),
         signal
@@ -1758,23 +1990,27 @@ async function verifyContentAndMark(path, payload) {
       if (!proofVerification.valid) {
         throw new Error(proofVerification.error || 'local proof verification failed')
       }
-      const payloadVerification = await verifyPayloadBytes({
+	      const payloadVerification = await verifyPayloadBytes({
         proofList,
         body: payload.bytes ?? payload.blob,
-        contentRange: payload.contentRange,
-        fetchSegment: (cid) =>
-		readPayloadBlock({ baseURL: baseURL.value, ...gatewayAccess(), cid, signal })
-      })
+	        contentRange: payload.contentRange,
+	        fetchSegment: (cid) =>
+						readPayloadBlock({ ...verificationAccess, cid, signal })
+	      })
       return {
         ...proofVerification,
         payloadBound: true,
         payloadVerification
       }
     })
-    markVerification(path, true)
+		if (!snapshot || workspaceSnapshotMatches(snapshot)) {
+			markVerification(path, true, verificationRoot)
+		}
     return verification
   } catch (err) {
-    markVerification(path, false)
+		if (!snapshot || workspaceSnapshotMatches(snapshot)) {
+			markVerification(path, false, verificationRoot)
+		}
     throw err
   }
 }
@@ -1794,10 +2030,10 @@ async function withDaemonTimeout(label, operation, timeoutMs = daemonRequestTime
   }
 }
 
-function markVerification(path, valid) {
+function markVerification(path, valid, verificationRoot = root.value) {
   verifiedPaths.value = {
     ...verifiedPaths.value,
-    [verificationKey(root.value, path)]: Boolean(valid)
+    [verificationKey(verificationRoot, path)]: Boolean(valid)
   }
   persistProfile()
 }
@@ -2148,11 +2384,24 @@ function formatSize(size) {
     <form v-if="!signedIn" class="malt-app__login" @submit.prevent="signIn">
       <div class="malt-app__login-brand">MALT</div>
       <h1>Sign in</h1>
-      <label>
-        <span>Profile</span>
-        <input v-model="profileInput" autocomplete="username" spellcheck="false" />
-      </label>
-      <button type="submit">Continue</button>
+			<p class="malt-app__login-copy">
+				Use the API key issued for your MALT account. The key stays in this tab's memory and is never saved.
+			</p>
+			<label v-if="!managedDeployment">
+				<span>Gateway URL</span>
+				<input v-model="baseURL" :disabled="interactionBusy" autocomplete="url" spellcheck="false" />
+			</label>
+			<label>
+				<span>API key</span>
+				<input
+					v-model="accessKeyInput"
+					:disabled="interactionBusy"
+					type="password"
+					autocomplete="off"
+					spellcheck="false"
+				/>
+			</label>
+      <button type="submit" :disabled="interactionBusy">{{ busy ? 'Signing in…' : 'Sign in' }}</button>
       <p v-if="error" class="malt-app__error">{{ error }}</p>
     </form>
 
@@ -2160,65 +2409,67 @@ function formatSize(size) {
       <header class="malt-app__topbar">
         <div class="malt-app__identity">
           <strong>MALT</strong>
-          <span>{{ activeProfile }}</span>
+          <span>{{ identityLabel }}</span>
+					<span v-if="selectedBucket" class="malt-app__bucket-label">{{ selectedBucket.name }}</span>
         </div>
         <div class="malt-app__top-actions">
-          <button type="button" :disabled="busy" @click="openVerifierPage">Verify page</button>
-          <button type="button" :disabled="busy" @click="settingsOpen = !settingsOpen">Settings</button>
-          <button type="button" :disabled="busy" @click="signOut">Sign out</button>
+          <button type="button" :disabled="interactionBusy" @click="openVerifierPage">Verify page</button>
+					<button type="button" :disabled="interactionBusy" @click="bucketPickerOpen = !bucketPickerOpen">
+						Buckets
+					</button>
+					<button v-if="selectedBucket" type="button" :disabled="interactionBusy" @click="refreshBucketHead">
+						Refresh head
+					</button>
+          <button type="button" :disabled="interactionBusy" @click="signOut">Sign out</button>
         </div>
       </header>
 
-      <section v-if="settingsOpen" class="malt-app__settings" aria-label="App settings">
-        <div class="malt-app__settings-grid">
-          <label>
-            <span>Root</span>
-            <input v-model="root" :disabled="busy" autocomplete="off" spellcheck="false" />
-          </label>
-          <label>
-            <span>Gateway URL</span>
-            <input v-model="baseURL" :disabled="busy" autocomplete="off" spellcheck="false" />
-          </label>
-			<label>
-				<span>Bucket ID</span>
-				<input v-model="bucketID" :disabled="busy" autocomplete="off" spellcheck="false" />
-			</label>
-			<label>
-				<span>Gateway API key</span>
-				<input v-model="apiKey" :disabled="busy" type="password" autocomplete="off" spellcheck="false" />
-			</label>
-          <label>
-            <span>Upload prefix</span>
-            <input v-model="prefix" :disabled="busy" autocomplete="off" spellcheck="false" />
-          </label>
-        </div>
-        <div class="malt-app__button-row">
-          <button type="button" :disabled="busy" @click="applySettings">Apply</button>
-			<button v-if="bucketConfigured" type="button" :disabled="busy" @click="refreshBucketHead">
-				Refresh Bucket head
-			</button>
-			<button v-if="bucketHead?.root" type="button" :disabled="busy" @click="useObservedBucketHead">
-				Use observed head
-			</button>
-          <button type="button" :disabled="busy" @click="settingsOpen = false">Close</button>
-        </div>
-		<p v-if="bucketStatus" class="malt-app__status-line">{{ bucketStatus }}</p>
-		<p v-if="bucketID" class="malt-app__status-line">
-			The API key stays in memory only. Bucket heads are Gateway observations, not automatically trusted roots.
-		</p>
+      <section v-if="bucketPickerOpen" class="malt-app__settings malt-app__bucket-picker" aria-label="Buckets">
+				<div class="malt-app__bucket-picker-head">
+					<div>
+						<h2>Your Buckets</h2>
+							<p>Select a Bucket to use its current main root as this tab's browsing snapshot. Each read is verified locally against it.</p>
+					</div>
+					<div class="malt-app__button-row">
+						<button type="button" :disabled="interactionBusy" @click="refreshBuckets">Refresh list</button>
+						<button v-if="selectedBucket" type="button" :disabled="interactionBusy" @click="bucketPickerOpen = false">
+							Close
+						</button>
+					</div>
+				</div>
+				<p v-if="error" class="malt-app__error">{{ error }}</p>
+				<div v-if="buckets.length" class="malt-app__bucket-grid">
+					<button
+						v-for="bucket in buckets"
+						:key="bucket.id"
+						type="button"
+						class="malt-app__bucket-card"
+						:class="{ 'is-selected': bucket.id === bucketID }"
+						:disabled="interactionBusy || !bucketCanOpen(bucket)"
+						@click="selectBucket(bucket)"
+					>
+						<span>
+							<strong>{{ bucket.name }}</strong>
+							<code>{{ bucket.id }}</code>
+						</span>
+						<span>{{ bucket.role }} · {{ bucket.state }}</span>
+					</button>
+				</div>
+				<p v-else class="malt-app__empty">No Buckets are available for this account.</p>
+				<p v-if="bucketStatus" class="malt-app__status-line">{{ bucketStatus }}</p>
 		<section v-if="bucketStashes.length" class="malt-app__proof-summary" aria-label="Bucket stashes">
 			<h3>Local Bucket stashes</h3>
 			<div v-for="stash in bucketStashes" :key="stash.id" class="malt-app__proof-row">
 				<code>{{ stash.candidateRoot }}</code>
 				<span>{{ stash.legacy ? 'legacy unscoped' : stash.status }} · base revision {{ stash.base?.revision || 0 }}</span>
 				<div class="malt-app__button-row">
-					<button v-if="stash.status === 'pending' && !stash.legacy" type="button" :disabled="busy || !bucketConfigured" @click="retryBucketStash(stash)">
+					<button v-if="stash.status === 'pending' && !stash.legacy" type="button" :disabled="interactionBusy || !bucketConfigured || !canWriteBucket" @click="retryBucketStash(stash)">
 						Retry push
 					</button>
-					<button v-if="stash.legacy" type="button" :disabled="busy || !bucketConfigured || !legacyBindingSupported" @click="bindLegacyBucketStash(stash)">
+					<button v-if="stash.legacy" type="button" :disabled="interactionBusy || !bucketConfigured || !legacyBindingSupported" @click="bindLegacyBucketStash(stash)">
 						Bind to this Gateway
 					</button>
-					<button type="button" :disabled="busy || stash.legacy || !bucketConfigured" @click="restoreBucketStash(stash)">Use candidate</button>
+					<button type="button" :disabled="interactionBusy || stash.legacy || !bucketConfigured" @click="restoreBucketStash(stash)">Use candidate</button>
 				</div>
 			</div>
 			<p v-if="bucketStashes.some((stash) => stash.legacy) && !legacyBindingSupported" class="malt-app__status-line">
@@ -2232,7 +2483,7 @@ function formatSize(size) {
         <span>{{ root ? `Target: ${currentLabel}` : 'Target: new root' }}</span>
       </div>
 
-      <main class="malt-app__main">
+      <main v-if="selectedBucket" class="malt-app__main">
         <aside class="malt-app__sidebar" aria-label="File tree">
           <div class="malt-app__sidebar-head">
             <span class="malt-app__sidebar-icon" aria-hidden="true">
@@ -2246,7 +2497,7 @@ function formatSize(size) {
           </div>
           <div class="malt-app__tree">
             <p v-if="treeRows.length === 0" class="malt-app__tree-empty">
-              {{ root ? 'No files' : 'Set a root' }}
+              {{ root ? 'No files' : 'Empty Bucket' }}
             </p>
             <div
               v-for="node in treeRows"
@@ -2264,7 +2515,7 @@ function formatSize(size) {
                 v-if="node.entry.kind === 'dir'"
                 type="button"
                 class="malt-app__tree-toggle"
-                :disabled="busy"
+                :disabled="interactionBusy"
                 :aria-label="node.expanded ? 'Collapse folder' : 'Expand folder'"
                 @click="toggleTreeDirectory(node.entry)"
               >
@@ -2284,7 +2535,7 @@ function formatSize(size) {
               <button
                 type="button"
                 class="malt-app__tree-link"
-                :disabled="busy"
+                :disabled="interactionBusy"
                 @click="openEntry(node.entry)"
               >
                 <span
@@ -2317,6 +2568,7 @@ function formatSize(size) {
 
         <section class="malt-app__content" aria-label="Current directory">
           <p v-if="error" class="malt-app__error">{{ error }}</p>
+					<p v-if="bucketStatus" class="malt-app__status-line">{{ bucketStatus }}</p>
           <p v-if="uploadStatus" class="malt-app__status-line">{{ uploadStatus }}</p>
 
           <div class="malt-app__repo-bar malt-app__crumbbar">
@@ -2324,7 +2576,7 @@ function formatSize(size) {
               <template v-for="(crumb, index) in breadcrumbs" :key="crumb.path">
                 <button
                   type="button"
-                  :disabled="busy || crumb.path === displayPath"
+                  :disabled="interactionBusy || crumb.path === displayPath"
                   @click="openBreadcrumbPath(crumb)"
                 >
                   {{ crumb.label }}
@@ -2356,7 +2608,7 @@ function formatSize(size) {
                     type="button"
                     class="malt-app__icon-button"
                     :class="{ 'is-copied': copyFeedbackVisible }"
-                    :disabled="busy || !canCopyPreviewContent"
+                    :disabled="interactionBusy || !canCopyPreviewContent"
                     :title="copyFeedbackVisible ? 'Copied!' : 'Copy file content'"
                     :aria-label="copyFeedbackVisible ? 'Copied!' : 'Copy file content'"
                     @click="copyPreviewContent"
@@ -2393,7 +2645,7 @@ function formatSize(size) {
                   <button
                     type="button"
                     class="malt-app__icon-button"
-                    :disabled="busy"
+                    :disabled="interactionBusy"
                     title="Download file"
                     aria-label="Download file"
                     @click="downloadFile({ name: preview.name, path: preview.path, kind: 'file' })"
@@ -2466,13 +2718,19 @@ function formatSize(size) {
         <div v-else class="malt-app__browser-layout">
           <section class="malt-app__browser malt-app__file-list" aria-label="File browser">
             <div v-if="entries.length === 0" class="malt-app__empty">
-              {{ root ? 'No entries' : 'Drop files or set a root' }}
+              {{
+								root
+									? 'No entries'
+									: canWriteBucket
+										? 'Drop files to add them to this Bucket'
+										: 'This Bucket is empty'
+							}}
             </div>
             <div v-if="currentPath" class="malt-app__row">
               <button
                 type="button"
                 class="malt-app__name"
-                :disabled="busy"
+                :disabled="interactionBusy"
                 title="Parent directory"
                 @click="openParentDirectory"
               >
@@ -2493,7 +2751,7 @@ function formatSize(size) {
               <button
                 type="button"
                 class="malt-app__name"
-                :disabled="busy"
+                :disabled="interactionBusy"
                 :title="kindLabel(entry)"
                 @click="openEntry(entry)"
               >
@@ -2534,7 +2792,7 @@ function formatSize(size) {
                 <button
                   type="button"
                   class="malt-app__more"
-                  :disabled="busy"
+                  :disabled="interactionBusy"
                   :aria-expanded="openMenuPath === entry.path"
                   aria-label="Actions"
                   @click="toggleEntryMenu(entry)"
@@ -2605,7 +2863,7 @@ function formatSize(size) {
             Upload receipts do not authenticate a root transition. Review or independently publish this candidate before trusting it.
           </p>
           <div v-if="!uploadResult.accepted" class="malt-app__button-row">
-            <button type="button" :disabled="busy" @click="acceptCandidateRoot">
+            <button type="button" :disabled="interactionBusy" @click="acceptCandidateRoot">
               Accept candidate root
             </button>
           </div>

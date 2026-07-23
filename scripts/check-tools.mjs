@@ -28,7 +28,9 @@ import {
 	decodeProofListHeader,
 	extractProofListInput,
 	extractVerificationInput,
+	fetchBuckets,
 	fetchBucketHead,
+	fetchGatewayIdentity,
   isAppStateRoute,
 	joinMaltPath,
 	legacyBucketStashBindingNamespace,
@@ -147,7 +149,7 @@ for (const pattern of [
   /copyPreviewContent/,
   /openBreadcrumbPath/,
   /malt-app__icon-button/,
-  /settingsOpen/,
+  /bucketPickerOpen/,
   /malt-app__settings/,
   /Gateway URL/,
   /compareEntries/,
@@ -218,7 +220,7 @@ assert.match(appSource, /\^\(go\\\.mod\|go\\\.sum\|Dockerfile\|Makefile\)\$/)
 assert.match(appSource, /c\|h\|cc\|cpp\|cxx\|hpp/)
 assert.match(
   appSource,
-  /<div class="malt-app__top-actions">[\s\S]*@click="openVerifierPage"[\s\S]*>Verify page<\/button>[\s\S]*@click="settingsOpen = !settingsOpen"[\s\S]*>Settings<\/button>/
+  /<div class="malt-app__top-actions">[\s\S]*@click="openVerifierPage"[\s\S]*>Verify page<\/button>[\s\S]*@click="bucketPickerOpen = !bucketPickerOpen"[\s\S]*Buckets[\s\S]*<\/button>/
 )
 assert.match(appSource, /class="malt-app__proof-sidebar" aria-label="Directory ProofList"/)
 assert.match(appSource, /class="malt-app__proof-sidebar" aria-label="File ProofList"/)
@@ -248,7 +250,7 @@ assert.ok(openAppRouteStateSource, 'openAppRouteState function is missing')
 assert.match(openAppRouteStateSource, /await loadRoot\(routePath, \{ syncURL: false \}\)/)
 assert.doesNotMatch(openAppRouteStateSource, /loadRoot\(routePath,\s*\{[^}]*payload:\s*stat\.payload/)
 const loadTreeAncestorsSource = appSource.match(
-  /async function loadTreeAncestors\(path\) \{[\s\S]*?\n\}\n\nasync function previewFile/
+  /async function loadTreeAncestors\(path, snapshot = captureWorkspaceSnapshot\(currentPath\.value\)\) \{[\s\S]*?\n\}\n\nasync function previewFile/
 )?.[0]
 assert.ok(loadTreeAncestorsSource, 'loadTreeAncestors function is missing')
 assert.match(loadTreeAncestorsSource, /ancestorDirectoryPaths\(path\)/)
@@ -279,7 +281,7 @@ assert.match(appSource, /resetCopyFeedback\(\)[\s\S]*?preview\.value = null/)
 assert.doesNotMatch(appSource, /navigator\.clipboard\.writeText\(preview\.value\.path\)/)
 assert.match(appSource, /<div class="malt-app__preview-body">[\s\S]*?<div class="malt-app__preview-toolbar"/)
 assert.match(appSource, /<div class="malt-app__file-actions" aria-label="File actions">/)
-assert.match(appSource, /:disabled="busy \|\| !canCopyPreviewContent"/)
+assert.match(appSource, /:disabled="interactionBusy \|\| !canCopyPreviewContent"/)
 assert.match(appSource, /:class="\{ 'is-copied': copyFeedbackVisible \}"/)
 assert.match(appSource, /:title="copyFeedbackVisible \? 'Copied!' : 'Copy file content'"/)
 assert.match(appSource, /:aria-label="copyFeedbackVisible \? 'Copied!' : 'Copy file content'"/)
@@ -340,11 +342,11 @@ assert.match(loadTreeDirectorySource, /loadDirectoryEntries\(path,\s*'',\s*\{ om
 assert.match(loadTreeDirectorySource, /await verifyContentAndMark\(path, manifest\)/)
 assert.match(appSource, /:style="treeRowStyle\(node\.depth\)"/)
 assert.match(appSource, /document\.title\s*=\s*'App \| MALT'/)
-assert.match(appSource, /await loadTreeAncestors\(currentPath\.value\)/)
+assert.match(appSource, /await loadTreeAncestors\(routePath, snapshot\)/)
 assert.match(appSource, /directory response did not include ProofList material/)
 assert.match(appSource, /file response did not include ProofList material/)
-assert.match(appSource, /await verifyContentAndMark\(ancestorPath, manifest\)/)
-assert.match(appSource, /async function verifyContentAndMark\(path, payload\)/)
+assert.match(appSource, /await verifyContentAndMark\(ancestorPath, manifest, snapshot\)/)
+assert.match(appSource, /async function verifyContentAndMark\(path, payload, snapshot = null\)/)
 assert.match(appSource, /resolveVerificationFromProofList/)
 assert.match(appSource, /verifyContentProofLocally/)
 assert.match(appSource, /verifyPayloadBytes/)
@@ -352,7 +354,57 @@ assert.match(appSource, /readPayloadBlock/)
 assert.match(appSource, /async function acceptCandidateRoot\(\)/)
 assert.match(appSource, />\s*Accept candidate root\s*</)
 assert.match(appSource, /Gateway API key/)
-assert.match(appSource, /Refresh Bucket head/)
+assert.match(appSource, /Refresh head/)
+assert.match(appSource, /fetchGatewayIdentity\(\{ baseURL: baseURL\.value, apiKey: token, signal \}\)/)
+assert.match(appSource, /fetchBuckets\(\{ baseURL: baseURL\.value, apiKey: token, signal \}\)/)
+assert.match(appSource, /async function selectBucket\(bucket\)/)
+assert.match(appSource, /await observeBucketHead\(\)[\s\S]*await useObservedBucketHead\(\)/)
+assert.match(appSource, /v-for="bucket in buckets"/)
+assert.match(appSource, /VITE_MALT_MANAGED_GATEWAY_URL/)
+assert.match(appSource, /v-if="!managedDeployment"[\s\S]*Gateway URL/)
+const bucketPickerSource = appSource.match(
+	/<section v-if="bucketPickerOpen"[\s\S]*?<\/section>\n\s*<\/section>/
+)?.[0]
+assert.ok(bucketPickerSource, 'Bucket picker is missing')
+assert.doesNotMatch(bucketPickerSource, /<input/)
+assert.doesNotMatch(bucketPickerSource, />\s*Root\s*</)
+assert.doesNotMatch(bucketPickerSource, />\s*Gateway URL\s*</)
+assert.doesNotMatch(bucketPickerSource, />\s*Bucket ID\s*</)
+assert.doesNotMatch(bucketPickerSource, />\s*API key\s*</)
+const signInSource = appSource.match(
+	/async function signIn\(\) \{[\s\S]*?\n\}\n\nfunction signOut/
+)?.[0]
+assert.ok(signInSource, 'Gateway sign-in flow is missing')
+assert.ok(
+	signInSource.indexOf('fetchGatewayIdentity') < signInSource.indexOf('apiKey.value = token'),
+	'The API key must not establish a signed-in session before identity validation succeeds'
+)
+assert.ok(
+	signInSource.indexOf('fetchBuckets') < signInSource.indexOf('apiKey.value = token'),
+	'The API key must not establish a signed-in session before Bucket discovery succeeds'
+)
+assert.doesNotMatch(signInSource, /localStorage/)
+const selectBucketSource = appSource.match(
+	/async function selectBucket\(bucket\) \{[\s\S]*?\n\}\n\nfunction gatewayAccess/
+)?.[0]
+assert.ok(selectBucketSource, 'Bucket selection flow is missing')
+assert.ok(
+	selectBucketSource.indexOf('resetBucketWorkspace()') <
+		selectBucketSource.indexOf('bucketID.value = selected.id'),
+	'Bucket selection must clear the previous Bucket workspace before binding the new Bucket'
+)
+assert.ok(
+	selectBucketSource.indexOf('await observeBucketHead()') <
+		selectBucketSource.indexOf('await useObservedBucketHead()'),
+	'Bucket selection must validate the selected head before opening its root'
+)
+const signOutSource = appSource.match(
+	/function signOut\(\) \{[\s\S]*?\n\}\n\nfunction resetBucketWorkspace/
+)?.[0]
+assert.ok(signOutSource, 'Sign-out flow is missing')
+assert.match(signOutSource, /apiKey\.value = ''/)
+assert.match(signOutSource, /identity\.value = null/)
+assert.match(signOutSource, /buckets\.value = \[\]/)
 assert.match(appSource, /async function pushUploadedCandidate\(candidateRoot, base\)/)
 assert.match(appSource, /async function retryBucketStash\(stash\)/)
 assert.match(appSource, /async function restoreBucketStash\(stash\)/)
@@ -364,7 +416,7 @@ assert.match(appSource, />\s*Bind to this Gateway\s*</)
 assert.match(appSource, /legacyBindingSupported/)
 assert.match(appSource, /lockManager:\s*globalThis\.navigator\?\.locks/)
 assert.match(appSource, /stash\.status === 'pending' && !stash\.legacy/)
-assert.match(appSource, /:disabled="busy \|\| stash\.legacy \|\| !bucketConfigured"/)
+assert.match(appSource, /:disabled="interactionBusy \|\| stash\.legacy \|\| !bucketConfigured"/)
 assert.match(appSource, />\s*Retry push\s*</)
 assert.match(appSource, />\s*Use candidate\s*</)
 const pushUploadedCandidateSource = appSource.match(
@@ -440,14 +492,30 @@ const persistProfileSource = appSource.match(
 )?.[0]
 assert.ok(persistProfileSource, 'persistProfile is missing')
 assert.doesNotMatch(persistProfileSource, /apiKey/)
+const handleDropSource = appSource.match(
+	/async function handleDrop\(event\) \{[\s\S]*?\n\}\n\nasync function droppedUploadItems/
+)?.[0]
+assert.ok(handleDropSource, 'drop handler is missing')
+assert.ok(
+	handleDropSource.indexOf('busy.value = true') <
+		handleDropSource.indexOf('await droppedUploadItems(event.dataTransfer)'),
+	'File-drop interaction must be locked before asynchronous directory traversal'
+)
+assert.ok(
+	handleDropSource.indexOf('captureUploadContext()') <
+		handleDropSource.indexOf('await droppedUploadItems(event.dataTransfer)'),
+	'Upload scope/root/path must be captured before asynchronous directory traversal'
+)
+assert.match(handleDropSource, /uploadDropped\(uploadItems, uploadContext\)/)
+const captureUploadContextSource = appSource.match(
+	/function captureUploadContext\(\) \{[\s\S]*?\n\}\n\nasync function uploadDropped/
+)?.[0]
+assert.ok(captureUploadContextSource, 'upload-context capture is missing')
+assert.match(captureUploadContextSource, /captureBucketBase\(materializationRoot\)/)
 const uploadDroppedSource = appSource.match(
-  /async function uploadDropped\(uploadItems\) \{[\s\S]*?\n\}\n\nasync function acceptCandidateRoot/
+  /async function uploadDropped\(uploadItems, uploadContext\) \{[\s\S]*?\n\}\n\nasync function acceptCandidateRoot/
 )?.[0]
 assert.ok(uploadDroppedSource, 'uploadDropped function is missing')
-assert.ok(
-	uploadDroppedSource.indexOf('captureBucketBase') < uploadDroppedSource.indexOf('uploadUnixFSFile'),
-	'Bucket base must be captured before materialization starts'
-)
 assert.match(uploadDroppedSource, /pushUploadedCandidate\(currentRoot, bucketBase\)/)
 assert.doesNotMatch(uploadDroppedSource, /root\.value\s*=\s*currentRoot/)
 assert.match(uploadDroppedSource, /candidateRoot:\s*currentRoot/)
@@ -623,6 +691,101 @@ for (const invalidPath of ['/absolute', 'trailing/', 'a//b', 'a/../b', '@payload
 }
 
 const originalFetch = globalThis.fetch
+const accountRequests = []
+globalThis.fetch = async (url, options = {}) => {
+	accountRequests.push({ url: String(url), options })
+	if (String(url).endsWith('/v1/me')) {
+		return new Response(
+			JSON.stringify({
+				tenant_id: 'tenant-one',
+				principal_id: 'alice',
+				credential_id: 'key-one'
+			})
+		)
+	}
+	return new Response(
+		JSON.stringify({
+			buckets: [
+				{
+					id: 'bkt_one',
+					tenant_id: 'tenant-one',
+					name: 'Alice files',
+					state: 'active',
+					role: 'owner',
+					created_by: 'alice',
+					created_at: '2026-07-23T00:00:00Z',
+					updated_at: '2026-07-23T00:00:00Z'
+				}
+			]
+		})
+	)
+}
+assert.deepEqual(
+	await fetchGatewayIdentity({
+		baseURL: 'https://alpha.example/api',
+		apiKey: 'secret'
+	}),
+	{ tenant_id: 'tenant-one', principal_id: 'alice', credential_id: 'key-one' }
+)
+assert.deepEqual(
+	await fetchBuckets({
+		baseURL: 'https://alpha.example/api',
+		apiKey: 'secret'
+	}),
+	[
+		{
+			id: 'bkt_one',
+			tenant_id: 'tenant-one',
+			name: 'Alice files',
+			state: 'active',
+			role: 'owner',
+			created_by: 'alice',
+			created_at: '2026-07-23T00:00:00Z',
+			updated_at: '2026-07-23T00:00:00Z'
+		}
+	]
+)
+assert.equal(accountRequests[0].url, 'https://alpha.example/api/v1/me')
+assert.equal(accountRequests[1].url, 'https://alpha.example/api/v1/buckets')
+for (const request of accountRequests) {
+	assert.equal(request.options.headers.Authorization, 'Bearer secret')
+	assert.equal(request.options.redirect, 'error')
+	assert.equal(request.options.cache, 'no-store')
+}
+globalThis.fetch = async () => new Response(JSON.stringify({ tenant_id: 'tenant-one' }))
+await assert.rejects(
+	fetchGatewayIdentity({ baseURL: 'https://alpha.example/api', apiKey: 'secret' }),
+	/incomplete identity/
+)
+globalThis.fetch = async () =>
+	new Response(
+		JSON.stringify({
+			buckets: [{ id: 'bkt_one', tenant_id: 'tenant-one', name: 'Alice files', state: 'active', role: 'invalid' }]
+		})
+	)
+await assert.rejects(
+	fetchBuckets({ baseURL: 'https://alpha.example/api', apiKey: 'secret' }),
+	/invalid Bucket metadata/
+)
+const duplicateBucket = {
+	id: 'bkt_one',
+	tenant_id: 'tenant-one',
+	name: 'Alice files',
+	state: 'active',
+	role: 'owner'
+}
+globalThis.fetch = async () =>
+	new Response(JSON.stringify({ buckets: [duplicateBucket, duplicateBucket] }))
+await assert.rejects(
+	fetchBuckets({ baseURL: 'https://alpha.example/api', apiKey: 'secret' }),
+	/duplicate Buckets/
+)
+globalThis.fetch = async () =>
+	new Response(JSON.stringify({ message: 'tenant bearer token is required' }), { status: 401 })
+await assert.rejects(
+	fetchGatewayIdentity({ baseURL: 'https://alpha.example/api', apiKey: 'wrong' }),
+	/gateway API error \(401\): tenant bearer token is required/
+)
 const casBytes = new TextEncoder().encode('verified CAS bytes')
 const casCID = CID.createV1(raw.code, await sha256.digest(casBytes)).toString()
 let payloadFetchCount = 0
