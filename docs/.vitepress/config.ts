@@ -1,41 +1,11 @@
 import { defineConfig } from 'vitepress'
 
-const appFallbackRedirectScript = `<script>
-;(() => {
-  const storageKey = 'malt-app-fallback-path'
-  const pathname = window.location.pathname
-  const appMarker = '/app/'
-  const appIndex = pathname.indexOf(appMarker)
-  if (appIndex === -1) {
-    return
-  }
-  const appPath = pathname.slice(0, appIndex + '/app'.length) || '/app'
-  try {
-    window.sessionStorage.setItem(
-      storageKey,
-      JSON.stringify({
-        pathname,
-        search: window.location.search,
-        hash: window.location.hash
-      })
-    )
-  } catch {}
-  window.location.replace(appPath)
-})()
-</script>`
-
 export default defineConfig({
   title: 'MALT',
   description: 'Arc-granularity data authentication for graph-shaped relations.',
   lang: 'en-US',
   cleanUrls: true,
   base: process.env.BASE_PATH || '/',
-  transformHtml(code, id) {
-    if (!id.endsWith('404.html')) {
-      return
-    }
-    return code.replace('</head>', `${appFallbackRedirectScript}\n  </head>`)
-  },
   head: [
     ['meta', { name: 'theme-color', content: '#0f766e' }],
     ['meta', { property: 'og:type', content: 'website' }],
@@ -53,7 +23,7 @@ export default defineConfig({
     logo: '/visuals/malt-mark.svg',
     nav: [
       { text: 'Overview', link: '/overview' },
-      { text: 'App', link: '/app' },
+      { text: 'Gateway Console', link: 'https://gateway.deweb.world' },
       { text: 'Tools', link: '/tools/verify' },
       { text: 'Narrative', link: '/narrative/problem' },
       { text: 'Docs', link: '/docs/runtime' },
@@ -70,8 +40,11 @@ export default defineConfig({
         items: [{ text: 'MALT Design Overview', link: '/overview' }]
       },
       {
-        text: 'App',
-        items: [{ text: 'Browser App', link: '/app' }]
+        text: 'Managed Service',
+        items: [
+          { text: 'Gateway Console', link: 'https://gateway.deweb.world' },
+          { text: 'Service Boundary', link: '/service' }
+        ]
       },
       {
         text: 'Tools',

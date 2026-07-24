@@ -2,7 +2,10 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Public website and design documentation for MALT.
+Public website, design documentation, and browser proof-verification tools for
+MALT. The managed account and Bucket UI lives in
+[`DeWebProtocol/gateway/console`](https://github.com/DeWebProtocol/gateway/tree/main/console);
+this repository does not ship the Gateway Console.
 
 MALT is a general arc-granularity data-authentication system for graph-shaped
 relations. Vector-commitment backends authenticate arcs, immutable payloads
@@ -64,14 +67,16 @@ result generation live in
 [`DeWebProtocol/malt-evaluation`](https://github.com/dewebprotocol/malt-evaluation).
 This site summarizes concepts, tutorials, and public narrative, and links back
 to the implementation repository for source-of-truth technical details.
+Managed-service behavior and the same-origin Console are defined by
+[`DeWebProtocol/gateway`](https://github.com/DeWebProtocol/gateway).
 
 ## Related Repositories
 
 - [`DeWebProtocol/malt`](https://github.com/dewebprotocol/malt) — application-neutral authentication SDK, normative contracts, MIPs, and verifier
-- [`DeWebProtocol/gateway`](https://github.com/dewebprotocol/gateway) — managed gateway, ArcTable/KV/CAS materialization, and service integration
+- [`DeWebProtocol/gateway`](https://github.com/dewebprotocol/gateway) — managed gateway, same-origin Console, ArcTable/KV/CAS materialization, and service integration
 - [`DeWebProtocol/malt-client`](https://github.com/dewebprotocol/malt-client) — trusted CLI/daemon, MALT-authenticated UnixFS, and IPFS-compatible Merkle DAG UnixFS import, separated into transport, trust, application, and compatibility layers
 - [`DeWebProtocol/malt-evaluation`](https://github.com/dewebprotocol/malt-evaluation) — preserved historical evaluation plus an isolated current-product track and unified boundary gate
-- [`DeWebProtocol/malt-web`](https://github.com/dewebprotocol/malt-web) — browser client, public website, conceptual docs, and tutorials
+- [`DeWebProtocol/malt-web`](https://github.com/dewebprotocol/malt-web) — public website, conceptual docs, tutorials, and browser proof-verification tools
 - [`DeWebProtocol/.github`](https://github.com/dewebprotocol/.github) — organization profile and community defaults
 
 ## License

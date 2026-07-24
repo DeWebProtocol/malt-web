@@ -47,7 +47,8 @@ also import IPFS-compatible Merkle DAG UnixFS with
 `malt add --target merkle-dag`; that compatibility target returns a DAG CID and
 does not claim a MALT root or ProofList.
 
-This Web App is another client. It uses the same generic gateway routes and the
+The managed Gateway Console is another client. It uses the same generic
+gateway routes and the
 WASM verifier built from core. UnixFS preview/upload logic stays in the browser
 client instead of becoming a gateway or core route.
 

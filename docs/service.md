@@ -72,22 +72,27 @@ managed Bucket ID and an authenticated cookie session or API key, and go
 through the Bucket-scoped route. The client still hashes every returned block
 against its authenticated CID.
 
-The browser App registers or signs in with an email or username and password.
+The managed [Gateway Console](https://gateway.deweb.world) registers or signs
+in with an email or username and password, and can add a discoverable Passkey
+after the first cookie-session sign-in.
 On the managed HTTPS deployment, the Gateway keeps the resulting session in a
 `Secure`, `HttpOnly`, same-site cookie; JavaScript does not persist a password
-or session token.
-Existing API keys remain available as a compatibility sign-in method and stay
-in tab memory only. After authentication, the App lists only the Buckets
+or session token. Existing API keys remain available for programmatic
+compatibility, but the managed Console does not ask users to paste one.
+After authentication, the Console lists only the Buckets
 returned for that principal. The user selects a Bucket instead of entering a
 Bucket ID or root. That selection fetches the Bucket's current `main` ref and
-uses its root as the tab's browsing snapshot; the App does not silently follow
+uses its root as the tab's browsing snapshot; the Console does not silently follow
 later head changes. All content reads still verify proofs and payload CIDs
 locally.
 
-Managed same-origin builds configure the Gateway URL at build time, so the App
-does not expose Gateway topology as an end-user setting. Local development can
-still point the sign-in form at a separate Gateway. A new deployment exposes a
-one-time administrator initialization form only while bootstrap is required.
+The Console lives in `DeWebProtocol/gateway/console` and defaults to the
+same-origin `/api` reverse-proxy route, so production builds do not require a
+Gateway URL and do not expose topology as an end-user setting. Local
+development can proxy `/api` to another loopback Gateway. A new deployment is
+initialized explicitly with the Gateway CLI, which creates the first
+administrator before the service starts; browser bootstrap remains a legacy
+compatibility path rather than the normal production flow.
 Signed-in users can edit their display name and inspect their tier and quota.
 Only a cookie session whose account has `system_role: "admin"` exposes the
 service Console; the Gateway independently enforces every Console API call.
@@ -107,7 +112,7 @@ roots, mutations, branches, or pushes cannot bypass storage limits. Historical
 charges remain until an explicit garbage-collection and reconciliation policy
 exists.
 
-For uploads, the App stores a local candidate before refreshing the remote
+For uploads, the Console stores a local candidate before refreshing the remote
 head, and accepts `fast_forward`, `merged`, or `branched` push outcomes only
 after the returned main ref, final commit, submitted candidate, and optional
 conflict branch are bound to the original request.
@@ -129,9 +134,9 @@ deterministic push ID, so a retry can recover a response lost before the
 browser learned the first push result. Binding requires the browser Web Locks
 API and records one structured, Gateway-independent ownership marker for the
 legacy ID. Competing tabs can therefore bind a legacy candidate to only one
-canonical Gateway/account/Bucket scope. The App rechecks that marker before
+canonical Gateway/account/Bucket scope. The Console rechecks that marker before
 restore, before and after a retry refresh, immediately before the push, and
-again before completing or deleting the stash. Until binding, the App performs
+again before completing or deleting the stash. Until binding, the Console performs
 no Gateway read for that legacy candidate.
 
 Observed main refs are merged monotonically within one canonical Gateway
@@ -144,10 +149,10 @@ Gateway response. Revisions from different Gateway scopes are not compared.
 
 Accounts, API keys, the service Console, storage tiers, private datasets, and
 managed publication channels belong to the gateway product surface or a
-private deployment overlay. The documentation site outside the App remains
-static and verifiable.
+private deployment overlay. This repository remains a static public
+documentation and verifier site.
 
-Suggested split when that happens:
+The current split is:
 
 - project website and docs: this VitePress site
 - runtime API: hosted service endpoint

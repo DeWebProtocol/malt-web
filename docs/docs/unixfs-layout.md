@@ -4,7 +4,8 @@ UnixFS is an application model above MALT list/map semantics and immutable
 payload objects. It is not the core MALT abstraction.
 
 With core `v0.0.6`, UnixFS lives entirely in application clients. The native
-implementation is in `DeWebProtocol/malt-client/unixfs`; the Web App implements
+implementation is in `DeWebProtocol/malt-client/unixfs`; the managed Gateway
+Console implements
 the same client-side model for browser upload, preview, and verification.
 
 The native client supports two UnixFS targets. `malt add --target malt`

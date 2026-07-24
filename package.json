@@ -12,19 +12,16 @@
     "check:payload": "node scripts/check-payload-verifier.mjs",
     "check:tools": "node scripts/check-tools.mjs",
     "check:verifier": "node scripts/check-verifier-wasm.cjs",
-    "test:component": "VITE_MALT_MANAGED_GATEWAY_URL=/api vitest run",
-    "test": "npm run check:content && npm run check:tools && npm run check:payload && npm run check:verifier && npm run test:component"
+    "test": "npm run check:content && npm run check:tools && npm run check:payload && npm run check:verifier"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "5.2.4",
-    "@vue/test-utils": "2.4.11",
-    "happy-dom": "20.11.1",
-    "vitest": "3.2.6",
     "vitepress": "^1.6.4"
   },
+  "overrides": {
+    "@vitejs/plugin-vue": "6.0.8",
+    "vite": "7.3.6"
+  },
   "dependencies": {
-    "markdown-it": "^14.2.0",
-    "multiformats": "13.4.1",
-    "shiki": "^2.5.0"
+    "multiformats": "13.4.1"
   }
 }

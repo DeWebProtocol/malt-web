@@ -1,24 +1,12 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { withBase } from 'vitepress'
-import {
-	defaultGatewayURL,
-	readContent,
-	readPayloadBlock,
-	resolvePath
-} from '../malt-client.mjs'
-import { verifyPayloadBytes } from '../malt-payload-verifier.mjs'
-import {
-  resolveVerificationFromProofList,
-  verifyContentProofLocally,
-  verifyResolveLocally
-} from '../malt-verifier.mjs'
+import { defaultGatewayURL, resolvePath } from '../malt-client.mjs'
+import { verifyResolveLocally } from '../malt-verifier.mjs'
 
 const baseURL = ref(defaultGatewayURL)
 const root = ref('')
 const path = ref('')
-const range = ref('')
-const mode = ref('resolve')
 const busy = ref(false)
 const error = ref('')
 const result = ref(null)
@@ -31,15 +19,14 @@ const verificationLabel = computed(() => {
   if (!verification.value.valid) {
     return 'invalid'
   }
-  return verification.value.payloadBound ? 'proof + payload verified' : 'proof verified'
+  return 'proof verified'
 })
 
 const proofText = computed(() =>
   result.value?.proofList ? JSON.stringify(result.value.proofList, null, 2) : ''
 )
 
-async function run(nextMode) {
-  mode.value = nextMode
+async function run() {
   error.value = ''
   result.value = null
   verification.value = null
@@ -49,63 +36,25 @@ async function run(nextMode) {
   }
   busy.value = true
   try {
-    const payload =
-      nextMode === 'content'
-        ? await readContent({
-            baseURL: baseURL.value,
-            root: root.value,
-            path: path.value,
-            range: range.value
-          })
-        : await resolvePath({ baseURL: baseURL.value, root: root.value, path: path.value })
+    const payload = await resolvePath({
+      baseURL: baseURL.value,
+      root: root.value,
+      path: path.value
+    })
     if (!payload.proofList) {
       throw new Error('response did not include ProofList material')
     }
-		const proofVerification =
-			nextMode === 'content'
-				? await verifyContentProofLocally({
-						proofList: payload.proofList,
-						expectedRoot: root.value.trim(),
-						expectedPath: path.value,
-						runtimeURL: withBase('/verifier/wasm_exec.js'),
-						wasmURL: withBase('/verifier/malt-verifier.wasm')
-					})
-				: await verifyResolveLocally({
-						request: payload.request,
-						result: payload.result,
-						runtimeURL: withBase('/verifier/wasm_exec.js'),
-						wasmURL: withBase('/verifier/malt-verifier.wasm')
-					})
+		const proofVerification = await verifyResolveLocally({
+			request: payload.request,
+			result: payload.result,
+			runtimeURL: withBase('/verifier/wasm_exec.js'),
+			wasmURL: withBase('/verifier/malt-verifier.wasm')
+		})
     if (!proofVerification.valid) {
       verification.value = proofVerification
       throw new Error(proofVerification.error || 'local proof verification failed')
     }
-    if (nextMode === 'content') {
-      let payloadVerification
-      try {
-        payloadVerification = await verifyPayloadBytes({
-          proofList: payload.proofList,
-          body: payload.bytes,
-          contentRange: payload.contentRange,
-          fetchSegment: (cid) => readPayloadBlock({ baseURL: baseURL.value, cid })
-        })
-      } catch (err) {
-        verification.value = {
-          ...proofVerification,
-          valid: false,
-          payloadBound: false,
-          error: err instanceof Error ? err.message : String(err)
-        }
-        throw err
-      }
-      verification.value = {
-        ...proofVerification,
-        payloadBound: true,
-        payloadVerification
-      }
-    } else {
-      verification.value = { ...proofVerification, payloadBound: false }
-    }
+    verification.value = proofVerification
     result.value = payload
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
@@ -118,18 +67,14 @@ function sendToVerifier() {
   if (!proofText.value || typeof window === 'undefined') {
     return
   }
-	const verification =
-		mode.value === 'content'
-			? resolveVerificationFromProofList({
-					proofList: result.value?.proofList,
-					root: root.value,
-					path: path.value,
-					payload: 'auto'
-				})
-			: { request: result.value?.request, result: result.value?.result }
 	window.sessionStorage.setItem(
 		'malt-verification-input',
-		JSON.stringify({ verification })
+		JSON.stringify({
+      verification: {
+        request: result.value?.request,
+        result: result.value?.result
+      }
+    })
   )
   window.location.href = withBase('/tools/verify')
 }
@@ -160,15 +105,10 @@ function sendToVerifier() {
         <span>Path</span>
         <input v-model="path" autocomplete="off" spellcheck="false" placeholder="@payload" />
       </label>
-      <label>
-        <span>Range</span>
-        <input v-model="range" autocomplete="off" spellcheck="false" placeholder="bytes=0-1023" />
-      </label>
     </div>
 
     <div class="malt-tool__actions">
-      <button type="button" :disabled="busy" @click="run('resolve')">Resolve</button>
-      <button type="button" :disabled="busy" @click="run('content')">Read content</button>
+      <button type="button" :disabled="busy" @click="run">Resolve and verify</button>
       <button type="button" :disabled="!proofText" @click="sendToVerifier">Verify page</button>
     </div>
 
@@ -188,28 +128,13 @@ function sendToVerifier() {
           <dt>Target</dt>
           <dd>{{ result.response.target }}</dd>
         </div>
-        <div v-if="result.contentRange">
-          <dt>Content-Range</dt>
-          <dd>{{ result.contentRange }}</dd>
-        </div>
         <div v-if="verification">
           <dt>Local verification</dt>
           <dd>
-            {{
-              verification.valid
-                ? verification.payloadBound
-                  ? 'valid: proof and returned payload bytes are bound'
-                  : 'valid: proof only (no payload was returned)'
-                : `valid: false (${verification.error || 'rejected'})`
-            }}
+            {{ verification.valid ? 'valid: proof verified locally' : `valid: false (${verification.error || 'rejected'})` }}
           </dd>
         </div>
       </dl>
-
-      <div v-if="mode === 'content'" class="malt-tool__panel">
-        <h3>Content</h3>
-        <pre>{{ result.body }}</pre>
-      </div>
 
       <div class="malt-tool__panel">
         <h3>ProofList</h3>

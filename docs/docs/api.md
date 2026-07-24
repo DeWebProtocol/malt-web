@@ -123,7 +123,8 @@ deltas with canonical coordinate changes and optional replay constraints:
 
 A successful mutation returns `201 Created` with an operational receipt and a
 candidate `new_root`. MALT v0.0.6 does not provide a state-transition proof, so
-the Web App and `malt-client` never promote this root automatically.
+the managed Gateway Console and `malt-client` never promote this root
+automatically.
 
 ## Operator Root Publication
 

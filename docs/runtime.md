@@ -38,7 +38,8 @@ useful for integration checks but cannot replace client-side verification.
 
 `malt-client` is the native CLI/daemon application. Its current package split
 separates untrusted transport, accepted/candidate root policy, UnixFS behavior,
-and Merkle DAG compatibility. The Web App is the browser application. Both own application path
+and Merkle DAG compatibility. The managed Gateway Console is the browser
+application. Both own application path
 parsing and UnixFS semantics, pass segment arrays to the gateway, verify
 ProofLists locally, and bind bytes to authenticated CIDs.
 
