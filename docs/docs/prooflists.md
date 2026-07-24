@@ -58,17 +58,25 @@ is application policy; any correctly verified derivation is valid core output.
 
 ## HTTP Transport
 
-The generic gateway returns ProofList directly in operation result JSON:
+The generic/reference gateway returns ProofList directly in operation result
+JSON:
 
 ```text
 POST /v1/resolve -> { profile, target, prooflist }
 POST /v1/read    -> { profile, target, range_segments?, prooflist }
 ```
 
-CAS bytes are fetched separately from `/v1/cas/{cid}` and bound to the target
-or authenticated range segments by the client. Remote verification is
-diagnostic only; the authoritative path runs in the client through Go or
-browser WASM.
+In a managed deployment, the same operations and payload reads are scoped under
+`/v1/buckets/{bucket}/...` and require a cookie session or API key plus Bucket
+ACL authorization. The managed Console uses those Bucket routes. It does not
+fetch bytes from a public `/v1/cas/{cid}` endpoint.
+
+CAS bytes are fetched separately from the applicable private materialization
+route and bound to the target or authenticated range segments by the client.
+An unscoped `GET`/`HEAD /v1/cas/{cid}` is reserved for the process-bound
+loopback evaluator and is not a production persistence surface. Remote
+verification is diagnostic only; the authoritative path runs in the client
+through Go or browser WASM.
 
 ## Compatibility
 

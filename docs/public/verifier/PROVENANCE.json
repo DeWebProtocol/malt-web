@@ -1,12 +1,19 @@
 {
   "schema": "malt.web-verifier.provenance/v1",
-  "source_repository": "git@github.com:DeWebProtocol/malt.git",
-  "source_commit": "841c22415a54810006d6640a24c54566b6ba3f39",
+  "source_repository": "https://github.com/DeWebProtocol/malt.git",
+  "source_commit": "e08046456bfacc1dc6866c94aa0714857cdc87af",
   "go_version": "go1.26.2",
   "go_toolchain": "go version go1.26.2 linux/amd64",
   "target": "js/wasm",
   "build_flags": [
+    "-mod=readonly",
     "-buildvcs=false",
     "-trimpath"
-  ]
+  ],
+  "build_environment": {
+    "GOENV": "off",
+    "GOWORK": "off",
+    "GOFLAGS": "",
+    "GOTOOLCHAIN": "local"
+  }
 }

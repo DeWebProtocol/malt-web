@@ -69,7 +69,7 @@ export default defineConfig({
           { text: 'HTTP API', link: '/docs/api' },
           { text: 'ProofLists', link: '/docs/prooflists' },
           { text: 'UnixFS Application', link: '/docs/unixfs-layout' },
-          { text: 'Benchmark Protocol', link: '/docs/evaluation' }
+          { text: 'Evaluation Protocol', link: '/docs/evaluation' }
         ]
       },
       {
@@ -92,7 +92,7 @@ export default defineConfig({
         items: [
           { text: 'Evaluation Bridge', link: '/evaluation' },
           { text: 'Evaluation Story', link: '/narrative/evaluation-story' },
-          { text: 'Benchmark Protocol', link: '/docs/evaluation' }
+          { text: 'Evaluation Protocol', link: '/docs/evaluation' }
         ]
       }
     ],

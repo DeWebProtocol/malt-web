@@ -24,13 +24,20 @@ passed separately with its ProofList. The module checks every binding and runs
 the portable KZG/IPA verifier locally; it does not call a gateway.
 
 `maltVerifyArtifact` only preserves the released `malt.artifact/v0alpha2`
-v0.0.4 compatibility contract. MALT v0.0.6 integrations use
+v0.0.4 compatibility contract. Current integrations use
 `malt.resolve/v0alpha1` and `malt.read/v0alpha1`.
 
 `PROVENANCE.json` records the exact MALT Git commit, source remote, Go version,
 full Go toolchain string, target, and build flags used for the published
 module. The build refuses a dirty `MALT_SOURCE`, so the recorded commit always
-names the source bytes used for the build.
+names the source bytes used for the build. That commit—not the website's Core
+release badge—defines the Root codec registry and verification behavior
+supported by this particular artifact.
+
+The builder disables ambient Go workspaces and `GOFLAGS`, verifies module-cache
+content, uses the same selected Go toolchain for `wasm_exec.js` and the WASM,
+and runs the source commit's complete Resolve/Read conformance corpus before it
+returns.
 
 `SHA256SUMS` records the checksums for the deployed module, matching Go runtime,
 and provenance record. Regenerate all published files through the build script;

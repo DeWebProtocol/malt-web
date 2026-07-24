@@ -18,7 +18,7 @@ The website has two main lanes:
 Status labels matter in the technical lane: `v0.0.6` is the current released
 core baseline. It makes `malt` an SDK-only repository, moves persistent
 ArcTable/KV/CAS execution into `gateway`, and moves CLI/daemon/UnixFS ownership
-into `malt-client` and browser clients.
+into `malt-client` and the managed browser client in `gateway/console`.
 
 The native `malt-client` deliberately supports both MALT-authenticated UnixFS
 and IPFS-compatible Merkle DAG UnixFS import. Those are separate targets under

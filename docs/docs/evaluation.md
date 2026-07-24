@@ -1,27 +1,64 @@
-# Benchmark Protocol
+# Evaluation and Benchmark Protocol
 
-This page records the pre-v0.0.6 evaluation harness contract. It is not a
-paper-results page or a current core CLI contract. The SDK-only core no longer
-ships `malt-eval`. The former v0.0.5 evaluator is retired from the active
-[`DeWebProtocol/malt-evaluation`](https://github.com/DeWebProtocol/malt-evaluation)
-tree. Its source remains recoverable from the
+The active evaluator is the root module of
+[`DeWebProtocol/malt-evaluation`](https://github.com/DeWebProtocol/malt-evaluation).
+It is separate from the SDK-only Core and has two explicit measurement
+boundaries:
+
+- **`current-product`** measures real Gateway/trusted-client operations,
+  including HTTP, local ProofList verification, CID-bound payload reads, and
+  selected Gateway diagnostics. Product correctness pass/fail remains in the
+  Gateway-owned end-to-end suite; the evaluator owns reproducible measurements
+  and provenance.
+- **`current-core`** invokes the public application-neutral SDK directly over
+  the reference in-memory ArcSet materializer. It excludes HTTP, Gateway,
+  client policy, CAS payload transfer, persistent ArcTable, and network
+  latency, so its results must not be described as deployed-product results.
+
+The exact Core integration identity for either active track is recorded by the
+evaluator's `go.mod`, build metadata, and result manifests. A local `go.work`
+compatibility build is not publication provenance.
+
+## Phase 0 and the Section 5 Suite
+
+Two contracts must not be confused:
+
+- `examples/paper-campaign-plan.json` is the Phase 0 registration and guardrail
+  contract. `malt-eval-plan` validates and normalizes it, but the normalized
+  form remains non-dispatchable and is not a benchmark result.
+- `examples/paper-section5-plan.json` describes the executable paper Section 5
+  suite. RQ1-RQ4 runners, schemas, provenance gates, and pinned report
+  pipelines are implemented.
+
+The implemented suite covers verified reads and measured ranges (RQ1),
+multi-platform client-root behavior (RQ2), controlled mutation/write
+accounting and Git first-parent traces (RQ3), and structural, ArcTable,
+commitment-backend, and same-layout causal studies (RQ4).
+
+Implementation is not publication evidence. The checked-in Section 5 plan is
+still at `stage=implementation` with an unfrozen revision lock, so campaign
+runners reject dispatch. The exact Core, Gateway, client, evaluator, workers,
+fixtures, corpora, datasets, configuration, and machine identities must be
+frozen before formal E0. Only a passing E0 over those exact inputs can enable a
+campaign. No checked-in file is a paper result, and no final RQ1-RQ4 campaign
+has been run or accepted for paper claims.
+
+See the evaluator's
+[`README`](https://github.com/DeWebProtocol/malt-evaluation) and
+[`Phase 0 campaign contracts`](https://github.com/DeWebProtocol/malt-evaluation/blob/main/docs/phase0-campaign-contracts.md)
+for the live executable status.
+
+## Frozen v0.0.5 Harness
+
+The remainder of this page records the pre-v0.0.6 evaluation harness contract.
+It is not a paper-results page or a current evaluator CLI contract. The former
+v0.0.5 evaluator is retired from the active `malt-evaluation` tree. Its source
+remains recoverable from the
 [standalone import commit](https://github.com/DeWebProtocol/malt-evaluation/commit/774854b5d90c1ba5d57c3d74619dd97a78fd9dcf),
 repository history, and the
 [MALT v0.0.5 release](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.5).
 Historical result files remain provenance only and must not be relabeled as
 current results.
-
-The active evaluator now lives at the `malt-evaluation` repository root; there
-is no nested `current/` module. Its current-product workload implements
-resolve/read local verification, CAS binding, client read/candidate acceptance
-adapters, a deterministic depth/path matrix, logical storage accounting, and
-immutable baseline links. New runs record normalized plans, build provenance,
-and exact write-trace commits; this does not retroactively recover moving
-`HEAD` inputs
-from older results that omitted them. Current product pass/fail correctness
-belongs to the gateway-owned CAS-to-gateway-to-client E2E suite, while the
-evaluator records reproducible measurements over that boundary. Fresh
-measurements remain separate from the frozen v0.0.5 records.
 
 The benchmark protocol is designed to compare MALT, IPLD UnixFS, and IPLD
 UnixFS+HAMT as the implementation and artifacts mature.
@@ -159,7 +196,6 @@ It verified a MALT-only read path and did not include the current required
 record machine profile, OS, CPU, memory, Go version, CAS latency configuration,
 warmup policy, run count, and statistical aggregation policy.
 
-Before using results in a paper claim, the project still needs refreshed
-three-system artifacts, framework run outputs, repeated measurements,
-workload-lock metadata, backend/config labels, and statistical aggregation on
-top of the generated summary CSVs.
+Before using any historical reconstruction in a paper claim, the project still
+needs a predeclared role for that evidence and matching provenance. Frozen
+v0.0.5 records cannot substitute for fresh runs of the current RQ1-RQ4 suite.

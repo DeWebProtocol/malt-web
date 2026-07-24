@@ -5,12 +5,31 @@ MALT evaluation has two public documentation layers:
 - [Evaluation Story](/narrative/evaluation-story): research framing for read
   latency, write amplification, cost breakdown, sensitivity studies, and
   semantic reachability.
-- [Benchmark Protocol](/docs/evaluation): the frozen v0.0.5 `malt-eval`
-  command shape, systems, operations, metrics, and artifact caveats.
+- [Evaluation and Benchmark Protocol](/docs/evaluation): current evaluator
+  boundaries, Phase 0 and executable Section 5 status, plus the frozen v0.0.5
+  harness contract and artifact caveats.
 
 The main quantitative evaluation focuses on read latency and write
 amplification. Cost breakdown explains the results; it is not a separate main
 claim.
+
+## Current Evaluator Status
+
+The active `malt-evaluation` root module has two distinct tracks:
+
+- `current-product` measures the Gateway/trusted-client boundary, including
+  local proof and payload verification.
+- `current-core` measures public Core algorithms over the reference in-memory
+  materializer and excludes Gateway, network, persistent ArcTable, and client
+  policy.
+
+Phase 0 plan validation and normalization are registration only and cannot
+dispatch experiments. The executable Section 5 RQ1-RQ4 suites and publication
+pipeline are implemented, but the checked-in plan remains unfrozen at
+`stage=implementation`. Formal E0 and campaign dispatch therefore remain
+closed. No checked-in output is a current paper result, and the paper's result
+tables must stay unfilled until exact artifacts and machine identities are
+frozen, the campaigns run, and the pinned reporting gates accept them.
 
 ## Systems
 
@@ -86,11 +105,10 @@ The encrypted setting tests the deployment assumption that embedded Merkle-DAG
 links can create sequential reveal dependencies when the storage service cannot
 inspect plaintext structure.
 
-See [Benchmark Protocol](/docs/evaluation) for the historical harness contract.
-The runner is preserved in
-[`DeWebProtocol/malt-evaluation`](https://github.com/DeWebProtocol/malt-evaluation)
-with an intentional v0.0.5 dependency pin. Current v0.0.6 product correctness
-is exercised by gateway-owned CAS-to-gateway-to-client E2E tests. The current
-evaluation track now runs public resolve/read/CAS/client adapters and the real
-read-depth matrix; fresh result publication remains separate. Evaluation CLI
-ownership remains outside the SDK-only core.
+See [Evaluation and Benchmark Protocol](/docs/evaluation) for the active
+current-product/current-core boundary and the historical harness contract. The
+retired v0.0.5 source remains recoverable from immutable history with its
+intentional dependency pin; it is not the active runner. Current product
+correctness is exercised by Gateway-owned end-to-end tests, while
+`malt-evaluation` owns reproducible measurements and result provenance.
+Evaluation CLI ownership remains outside the SDK-only Core.

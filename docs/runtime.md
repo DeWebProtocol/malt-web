@@ -23,9 +23,13 @@ is persisted and owns no CAS, HTTP server, CLI, daemon, or UnixFS package.
 ## Gateway
 
 The gateway embeds core execution and implements the stateful materialization
-boundary. Its generic API is `POST /v1/resolve`, `POST /v1/read`, root-scoped
-mutations, root creation, and `/v1/cas` payload access. See the
-[Gateway API](/docs/api).
+boundary. Generic/reference deployments expose `POST /v1/resolve`,
+`POST /v1/read`, and diagnostics; local unmanaged deployments may additionally
+expose unscoped root, mutation, and CAS-write routes. Managed deployments use
+authenticated Bucket-scoped routes for those persistence operations and
+payload reads. Unauthenticated raw-CID `GET`/`HEAD` exists only in the
+process-bound, loopback evaluation surface. See the
+[Gateway API boundaries](/docs/api).
 
 Internally it presents separate native MALT, CAS, and Merkle DAG compatibility
 profiles over a per-scope composition. Root publication is managed policy
@@ -38,10 +42,11 @@ useful for integration checks but cannot replace client-side verification.
 
 `malt-client` is the native CLI/daemon application. Its current package split
 separates untrusted transport, accepted/candidate root policy, UnixFS behavior,
-and Merkle DAG compatibility. The managed Gateway Console is the browser
-application. Both own application path
-parsing and UnixFS semantics, pass segment arrays to the gateway, verify
-ProofLists locally, and bind bytes to authenticated CIDs.
+and Merkle DAG compatibility. The managed browser application is
+`DeWebProtocol/gateway/console`; this site does not ship it. Both trusted
+clients own application path parsing and UnixFS semantics, pass segment arrays
+to the gateway, verify ProofLists locally, and bind bytes to authenticated
+CIDs.
 
 `/` is therefore a UnixFS/HTTP presentation detail. MALT core operates on
 segments and canonical arcs; it does not interpret `/`, `.`, or `[]` as a

@@ -4,9 +4,11 @@ const { createHash, webcrypto } = require('node:crypto')
 const { TextDecoder, TextEncoder } = require('node:util')
 
 const repositoryRoot = path.resolve(__dirname, '..')
-const verifierRoot = path.join(repositoryRoot, 'docs', 'public', 'verifier')
-const rootContentFixture = JSON.parse(
-  fs.readFileSync(path.join(repositoryRoot, 'scripts', 'fixtures', 'root-directory-content.json'), 'utf8')
+const verifierRoot = process.env.MALT_VERIFIER_ROOT
+  ? path.resolve(process.env.MALT_VERIFIER_ROOT)
+  : path.join(repositoryRoot, 'docs', 'public', 'verifier')
+const currentResolveFixture = JSON.parse(
+  fs.readFileSync(path.join(repositoryRoot, 'scripts', 'fixtures', 'resolve-kzg-payload.json'), 'utf8')
 )
 
 globalThis.require = require
@@ -47,12 +49,12 @@ async function main() {
     throw new Error(`identity resolve was not accepted: ${JSON.stringify(accepted)}`)
   }
 
-  const rootContentAccepted = JSON.parse(
-    globalThis.maltVerifyResolve(JSON.stringify(rootContentFixture.verification))
+  const currentResolveAccepted = JSON.parse(
+    globalThis.maltVerifyResolve(JSON.stringify(currentResolveFixture.verification))
   )
-  if (rootContentAccepted.profile !== request.request.profile || rootContentAccepted.valid !== true) {
+  if (currentResolveAccepted.profile !== request.request.profile || currentResolveAccepted.valid !== true) {
     throw new Error(
-      `real daemon root-content resolve was not accepted: ${JSON.stringify(rootContentAccepted)}`
+      `current KZG payload resolve was not accepted: ${JSON.stringify(currentResolveAccepted)}`
     )
   }
 
@@ -98,13 +100,26 @@ async function main() {
 }
 
 function verifyChecksums() {
+  const requiredArtifacts = new Set([
+    'malt-verifier.wasm',
+    'wasm_exec.js',
+    'PROVENANCE.json'
+  ])
   const sums = fs
     .readFileSync(path.join(verifierRoot, 'SHA256SUMS'), 'utf8')
-    .trim()
+    .trimEnd()
     .split('\n')
   const checked = new Set()
   for (const line of sums) {
-    const [expected, filename] = line.trim().split(/\s+/, 2)
+    const match = /^([0-9a-f]{64}) ([ *])([^/\r\n]+)$/.exec(line)
+    const filename = match?.[3]
+    if (!filename || !requiredArtifacts.has(filename)) {
+      throw new Error(`unexpected verifier checksum entry ${JSON.stringify(line)}`)
+    }
+    const expected = match[1]
+    if (checked.has(filename)) {
+      throw new Error(`duplicate verifier checksum entry ${JSON.stringify(filename)}`)
+    }
     const actual = createHash('sha256')
       .update(fs.readFileSync(path.join(verifierRoot, filename)))
       .digest('hex')
@@ -113,7 +128,7 @@ function verifyChecksums() {
     }
     checked.add(filename)
   }
-  for (const filename of ['malt-verifier.wasm', 'wasm_exec.js', 'PROVENANCE.json']) {
+  for (const filename of requiredArtifacts) {
     if (!checked.has(filename)) {
       throw new Error(`SHA256SUMS does not cover ${filename}`)
     }
@@ -127,6 +142,11 @@ function verifyProvenance() {
   if (provenance.schema !== 'malt.web-verifier.provenance/v1') {
     throw new Error(`unexpected verifier provenance schema ${JSON.stringify(provenance.schema)}`)
   }
+  if (provenance.source_repository !== 'https://github.com/DeWebProtocol/malt.git') {
+    throw new Error(
+      `unexpected verifier source repository ${JSON.stringify(provenance.source_repository)}`
+    )
+  }
   if (!/^[0-9a-f]{40}$/.test(provenance.source_commit || '')) {
     throw new Error('verifier provenance does not contain an exact MALT commit')
   }
@@ -139,9 +159,27 @@ function verifyProvenance() {
   if (provenance.target !== 'js/wasm') {
     throw new Error(`unexpected verifier build target ${JSON.stringify(provenance.target)}`)
   }
-  if (rootContentFixture.verified_commit !== provenance.source_commit) {
+  const expectedFlags = ['-mod=readonly', '-buildvcs=false', '-trimpath']
+  if (JSON.stringify(provenance.build_flags) !== JSON.stringify(expectedFlags)) {
+    throw new Error(`unexpected verifier build flags ${JSON.stringify(provenance.build_flags)}`)
+  }
+  const expectedEnvironment = {
+    GOENV: 'off',
+    GOWORK: 'off',
+    GOFLAGS: '',
+    GOTOOLCHAIN: 'local'
+  }
+  if (
+    JSON.stringify(provenance.build_environment) !==
+    JSON.stringify(expectedEnvironment)
+  ) {
     throw new Error(
-      `root-content fixture verification ${rootContentFixture.verified_commit} does not match verifier source ${provenance.source_commit}`
+      `unexpected verifier build environment ${JSON.stringify(provenance.build_environment)}`
+    )
+  }
+  if (currentResolveFixture.verified_commit !== provenance.source_commit) {
+    throw new Error(
+      `current resolve fixture verification ${currentResolveFixture.verified_commit} does not match verifier source ${provenance.source_commit}`
     )
   }
 }

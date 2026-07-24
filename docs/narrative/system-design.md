@@ -76,8 +76,11 @@ single-step facades and algorithms:
 
 Those facades expose storage-free `Commit`, `ProveSlot`, and `VerifySlot`
 operations. `auth/semantic/list/tree` and `auth/semantic/mapping/radix` compose
-them with an injected `auth/arcset/materializer.Store` capability and multi-step
-traversal. Persistent ArcTable implementations live in the gateway.
+them with narrow injected capabilities from `auth/arcset/materializer`, such as
+coordinate lookup and root-relative update, plus multi-step traversal.
+Snapshot access is requested only by algorithms that need a complete
+root-relative view. The aggregate `Store` remains a compatibility/conformance
+interface; persistent ArcTable implementations live in the gateway.
 
 The portable authentication kernel in `auth/verifier` selects a supported VC
 verification backend from the typed MALT root. The current built-in backends

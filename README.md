@@ -75,7 +75,7 @@ Managed-service behavior and the same-origin Console are defined by
 - [`DeWebProtocol/malt`](https://github.com/dewebprotocol/malt) — application-neutral authentication SDK, normative contracts, MIPs, and verifier
 - [`DeWebProtocol/gateway`](https://github.com/dewebprotocol/gateway) — managed gateway, same-origin Console, ArcTable/KV/CAS materialization, and service integration
 - [`DeWebProtocol/malt-client`](https://github.com/dewebprotocol/malt-client) — trusted CLI/daemon, MALT-authenticated UnixFS, and IPFS-compatible Merkle DAG UnixFS import, separated into transport, trust, application, and compatibility layers
-- [`DeWebProtocol/malt-evaluation`](https://github.com/dewebprotocol/malt-evaluation) — preserved historical evaluation plus an isolated current-product track and unified boundary gate
+- [`DeWebProtocol/malt-evaluation`](https://github.com/dewebprotocol/malt-evaluation) — current-product and current-core workloads, executable paper plans/suites, result schemas, and preserved historical provenance
 - [`DeWebProtocol/malt-web`](https://github.com/dewebprotocol/malt-web) — public website, conceptual docs, tutorials, and browser proof-verification tools
 - [`DeWebProtocol/.github`](https://github.com/dewebprotocol/.github) — organization profile and community defaults
 
