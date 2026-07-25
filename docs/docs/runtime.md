@@ -17,6 +17,7 @@ authentication surface:
 - resolve/read/mutation values and language-neutral schemas;
 - commitment backends and list/map algorithms;
 - ProofList generation/verification semantics;
+- application-neutral client-root view, intent, bundle, and receipt profiles;
 - the local verifier and browser WASM build.
 
 The module-root facade exposes `ResolveRequest`, `ResolveResult`,
@@ -43,6 +44,11 @@ policy registry and never selects the root of a resolve/read request. The
 [Gateway repository](https://github.com/DeWebProtocol/gateway) is the source of
 truth for route registration and managed-service policy.
 
+Process-bound evaluation instances additionally expose token-protected path,
+CAR, update-view, and exact client-root materialization routes. Those routes
+exist to reproduce cross-repository measurements; they are not production
+Gateway APIs, Bucket synchronization operations, or client trust promotion.
+
 The gateway is a proof producer and storage service, not a correctness
 authority. A client supplies the root it trusts and checks every accepted
 result locally.
@@ -59,6 +65,11 @@ keeps gateway-produced roots as candidates until explicit acceptance. It can
 also import IPFS-compatible Merkle DAG UnixFS with
 `malt add --target merkle-dag`; that compatibility target returns a DAG CID and
 does not claim a MALT root or ProofList.
+
+Client-owned evaluator workers live under
+`malt-client/tools/evaluation/cmd`, and their private Gateway bootstrap and raw
+measurement transport live under `malt-client/internal/evaluation`. They are
+not part of the `malt` CLI or reusable production transport surface.
 
 The managed Gateway Console is another client. It lives in
 [`gateway/console`](https://github.com/DeWebProtocol/gateway/tree/main/console),
@@ -79,6 +90,7 @@ Console.
 | `malt/auth/verifier` | Portable ProofList verification kernel |
 | `malt/auth/semantic/*` | Application-neutral map/list semantics and algorithms |
 | `malt/graph/*`, `malt/execution` | Generic resolver/writer/executor composition |
+| `malt/sdk/writer` | Application-neutral client-root computation and exact materialization-session checks |
 | `gateway/internal/arctable`, `gateway/internal/kv` | Persistent materialization owned by the service |
 | `gateway/internal/backend/embedded` | Embedded untrusted core execution and CAS |
 | `gateway/internal/runtime`, `gateway/internal/profile/*` | Per-scope composition and isolated native/CAS/compatibility ports |
@@ -87,12 +99,15 @@ Console.
 | `malt-client/transport`, `malt-client/trust` | Untrusted HTTP capabilities and explicit accepted/candidate policy |
 | `malt-client/unixfs/*` | UnixFS application rules and payload verification |
 | `malt-client/merkledag/*` | Merkle DAG import and local CID/link replay compatibility |
+| `malt-client/tools/evaluation`, `malt-client/internal/evaluation` | Private cross-repository workers and process-bound measurement transport |
 | `malt/sdk/verifier` | Local trusted verifier envelope, including WASM export |
 
 ## Mutation Limit
 
-Mutation receipts report operational work and a candidate root. They are not
-state-transition proofs. Gateway publication can name and freeze a root, but
+Mutation receipts report operational work and a candidate root. The newer
+Core client-root profiles can bind exact local computation to exact
+materialization, but neither receipt is a portable authenticated
+state-transition proof. Gateway publication can name and freeze a root, but
 does not make it trusted automatically; clients must explicitly accept or
 independently authenticate each new trusted root.
 

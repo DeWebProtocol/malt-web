@@ -7,7 +7,7 @@ decide trust locally. The HTTP surface depends on the deployment mode:
 | Surface | Purpose | Persistence and payload routes |
 | --- | --- | --- |
 | Generic/reference | Local integration and protocol diagnostics, commonly at `http://127.0.0.1:8080` | Resolve/read are unscoped; unmanaged local deployments may also enable unscoped root, mutation, and CAS writes |
-| Process-bound evaluation | Reproducible evaluator instances on loopback | Adds token-bound evaluation routes and the only unscoped raw-CID `GET`/`HEAD` |
+| Process-bound evaluation | Reproducible evaluator instances on loopback | Adds token-bound path, CAR, update-view, exact client-root, and raw-CID routes |
 | Managed Bucket | Account/API-key clients and the same-origin Gateway Console | Uses authenticated, ACL-protected `/v1/buckets/{bucket}/...` routes; there is no public raw-CID read |
 
 The managed Console lives in
@@ -22,6 +22,15 @@ registration are defined by the
 [Gateway repository](https://github.com/DeWebProtocol/gateway). Normative
 resolve/read schemas remain in the
 [MALT Core repository](https://github.com/DeWebProtocol/malt/tree/main/docs/spec).
+
+The process-bound evaluation additions currently include
+`POST /v1/compat/merkledag/path/read`,
+`POST /v1/compat/merkledag/car/read`,
+`GET /v1/roots/{root}/update-view`, and `POST /v1/client-roots`. They require
+the evaluation-instance token and are intentionally omitted from production
+and managed runtimes. The Core repository defines the application-neutral
+client-root values; the Gateway repository defines this non-product HTTP
+projection.
 
 ## Resolve and Read
 

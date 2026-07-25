@@ -27,7 +27,6 @@ export default defineConfig({
       { text: 'Tools', link: '/tools/verify' },
       { text: 'Narrative', link: '/narrative/problem' },
       { text: 'Docs', link: '/docs/runtime' },
-      { text: 'Runtime', link: '/runtime' },
       { text: 'Service', link: '/service' },
       {
         text: 'v0.0.6',
@@ -78,13 +77,6 @@ export default defineConfig({
           { text: 'Roots and Proofs', link: '/concepts/roots' },
           { text: 'List and Map Semantics', link: '/concepts/list-map' },
           { text: 'ArcTable and Commitments', link: '/concepts/arctable' }
-        ]
-      },
-      {
-        text: 'Runtime and Service',
-        items: [
-          { text: 'Server Runtime Model', link: '/runtime' },
-          { text: 'Public Service Boundary', link: '/service' }
         ]
       },
       {
