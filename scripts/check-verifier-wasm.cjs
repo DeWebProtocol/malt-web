@@ -93,8 +93,16 @@ async function main() {
     throw new Error(`client-query mismatch was not rejected: ${JSON.stringify(queryRejected)}`)
   }
 
-  if (typeof globalThis.maltVerifyRead !== 'function' || typeof globalThis.maltVerifyArtifact !== 'function') {
-    throw new Error('WASM did not register read and legacy artifact verifier functions')
+  if (
+    typeof globalThis.maltVerifyRead !== 'function' ||
+    typeof globalThis.maltVerifyMapProof !== 'function' ||
+    typeof globalThis.maltVerifyArtifact !== 'function'
+  ) {
+    throw new Error('WASM did not register read, map-proof, and legacy artifact verifier functions')
+  }
+  const malformedMapProof = JSON.parse(globalThis.maltVerifyMapProof('{}'))
+  if (malformedMapProof.profile !== 'malt.map-proof/v0alpha1' || malformedMapProof.valid !== false) {
+    throw new Error(`malformed map proof was not rejected: ${JSON.stringify(malformedMapProof)}`)
   }
   console.log('Local WASM verifier contract passed.')
 }
@@ -142,13 +150,28 @@ function verifyProvenance() {
   if (provenance.schema !== 'malt.web-verifier.provenance/v1') {
     throw new Error(`unexpected verifier provenance schema ${JSON.stringify(provenance.schema)}`)
   }
-  if (provenance.source_repository !== 'https://github.com/DeWebProtocol/malt.git') {
+  if (provenance.source_repository !== 'https://github.com/DeWebProtocol/malt-core.git') {
     throw new Error(
       `unexpected verifier source repository ${JSON.stringify(provenance.source_repository)}`
     )
   }
+  if (provenance.source_module !== 'github.com/dewebprotocol/malt-core') {
+    throw new Error(
+      `unexpected verifier source module ${JSON.stringify(provenance.source_module)}`
+    )
+  }
+  if (provenance.source_version !== 'v0.0.7') {
+    throw new Error(
+      `unexpected verifier source version ${JSON.stringify(provenance.source_version)}`
+    )
+  }
   if (!/^[0-9a-f]{40}$/.test(provenance.source_commit || '')) {
     throw new Error('verifier provenance does not contain an exact MALT commit')
+  }
+  if (provenance.source_commit !== '53b5a18b5f4d5df823b7fc5be959014b2a928887') {
+    throw new Error(
+      `unexpected verifier source commit ${JSON.stringify(provenance.source_commit)}`
+    )
   }
   if (!/^go\d+\.\d+(?:\.\d+)?/.test(provenance.go_version || '')) {
     throw new Error('verifier provenance does not contain a Go version')
@@ -188,7 +211,8 @@ async function waitForProvider() {
   const deadline = Date.now() + 30_000
   while (
     typeof globalThis.maltVerifyResolve !== 'function' ||
-    typeof globalThis.maltVerifyRead !== 'function'
+    typeof globalThis.maltVerifyRead !== 'function' ||
+    typeof globalThis.maltVerifyMapProof !== 'function'
   ) {
     if (globalThis.maltVerifierInitError) {
       throw new Error(globalThis.maltVerifierInitError)

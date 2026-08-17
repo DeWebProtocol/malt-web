@@ -3,12 +3,12 @@
 UnixFS is an application model above MALT list/map semantics and immutable
 payload objects. It is not the core MALT abstraction.
 
-With core `v0.0.6`, UnixFS lives entirely in application clients. The native
-implementation is in `DeWebProtocol/malt-client/unixfs`; the managed Gateway
-Console implements
-the same client-side model for browser upload, preview, and verification.
+With `malt-core v0.0.7`, UnixFS remains an application/runtime concern. The
+local implementation is currently in `DeWebProtocol/malt-client/unixfs`; the
+managed Gateway Console implements the same application-side model for browser
+upload, preview, and verification.
 
-The native client supports two UnixFS targets. `malt add --target malt`
+The local runtime supports two UnixFS targets. `malt add --target malt`
 materializes MALT-authenticated structure and returns a MALT root whose reads
 can carry ProofLists. `malt add --target merkle-dag` constructs an
 IPFS-compatible Merkle DAG, writes its blocks to CAS, and returns the DAG root
@@ -45,7 +45,7 @@ to the authenticated segments.
 
 ## Current Hybrid Materialization
 
-The native `malt-client` currently accepts one MALT materialization value:
+The local runtime currently accepts one MALT materialization value:
 `malt add --layout hybrid`. It is also the default. The flag names a UnixFS
 application strategy; it does not make UnixFS a MALT core layout.
 
@@ -59,7 +59,7 @@ The hybrid materialization path:
 Earlier pre-release clients exposed `flat` and `hierarchical`, but both names
 selected this same implementation. They are no longer accepted as current CLI
 values. Pure flat root-map and pure per-directory hierarchical materialization
-remain possible future design/evaluation dimensions, not shipped client modes.
+remain possible future design/evaluation dimensions, not shipped runtime modes.
 
 ## Possible Future Materialization Split
 

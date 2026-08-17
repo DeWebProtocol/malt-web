@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: MALT
-  text: Arc-granularity data authentication
-  tagline: Authenticate graph-shaped relations with vector commitments, keep payloads in CAS, and verify locally without making a Merkle-DAG block the proof carrier.
+  text: A user-controlled local data runtime
+  tagline: Keep keys and accepted roots on the user's device, authenticate structured relationships with malt-core, and treat gateways or peers as replaceable untrusted data sources.
   actions:
     - theme: brand
       text: Research narrative
@@ -13,16 +13,16 @@ hero:
       text: Technical docs
       link: /docs/runtime
     - theme: alt
-      text: v0.0.6 release
-      link: https://github.com/DeWebProtocol/malt/releases/tag/v0.0.6
+      text: malt-core v0.0.7
+      link: https://github.com/DeWebProtocol/malt-core/releases/tag/v0.0.7
 
 features:
-  - title: Research narrative
-    details: Problem framing, abstraction, system design, and evaluation story aligned with the current paper memory.
-  - title: Technical docs
-    details: The released v0.0.6 SDK-only core plus independent gateway and trusted clients, with frozen v0.0.4 artifact compatibility.
-  - title: Root-centric verification
-    details: Readers verify result plus ProofList against an explicit trusted root. The server runtime does not publish heads or decide freshness.
+  - title: Local runtime
+    details: The malt CLI and daemon own local trust, keys, UnixFS application behavior, backup/sync orchestration, and verified payload exposure.
+  - title: MALT Core v0.0.7
+    details: The application-neutral malt-core SDK defines canonical relations, roots, commitments, ProofLists, and local verification.
+  - title: Optional Gateway
+    details: Gateways provide Bucket, CAS, proof generation, and managed execution, but cannot promote an observed head or bypass local verification.
 ---
 
 <script setup>
@@ -32,41 +32,40 @@ import { withBase } from 'vitepress'
 <section class="malt-band">
   <div class="malt-band-inner">
     <div>
-      <p class="malt-kicker">Design focus</p>
-      <h2>Authenticate structure as graph-shaped relations, keep verification local.</h2>
+      <p class="malt-kicker">Product boundary</p>
+      <h2>Keep user data control local, and make storage and transport replaceable.</h2>
       <p>
-        MALT starts from structured data whose relationships can be normalized
-        as graph-shaped nodes and relations. It authenticates individual arcs
-        through list and map semantics, vector-commitment proofs, and a portable
-        verifier.
+        MALT is a local data runtime that runs on the user's device. Its daemon
+        is the primary long-running process, while CLI, future GUI, foreground
+        mode, and local APIs share the same application and trust boundaries.
       </p>
       <p>
-        Immutable payloads can still live naturally in CAS. MALT keeps their
-        storage separate from arc authentication and from execution/access.
-        ArcTable, caches, executors, and gateways are untrusted materialization
-        and delivery components; reads return results plus ProofLists that
-        clients verify locally.
+        MALT Core authenticates graph-shaped relationships through list/map
+        semantics, typed roots, and ProofLists. Payloads may live on local
+        disk, in CAS, behind a Gateway, or in future peer transports; every
+        remote proof and payload CID is checked locally before use.
       </p>
       <p>
-        A public MALT service can accelerate root-relative reads. It is not the
-        authority for the latest root. Applications publish roots; readers
-        verify every returned result against those roots.
+        A Gateway can accelerate execution and provide Bucket/CAS services. It
+        is optional and untrusted: observed heads remain observations,
+        candidate roots remain separate, and only local policy promotes an
+        accepted root.
       </p>
     </div>
     <img class="malt-diagram" :src="withBase('/visuals/root-proof-flow.svg')" alt="Root-centric read and ProofList verification flow">
   </div>
   <div class="malt-strips">
     <div class="malt-strip">
-      <strong>Research narrative</strong>
-      <span>Follow the problem, abstraction, system design, and evaluation story for MALT as a systems research project.</span>
+      <strong>Current runtime</strong>
+      <span>The current implementation provides the malt CLI/daemon, local trust state, Gateway HTTP transport, backup/sync flows, and UnixFS adapters.</span>
     </div>
     <div class="malt-strip">
       <strong>Current pre-v1 contracts</strong>
-      <span>Use canonical segments with malt.resolve/v0alpha1 and malt.read/v0alpha1 through the gateway; the API remains pre-v1.</span>
+      <span>Use canonical segments with malt.resolve/v0alpha1 and malt.read/v0alpha1; the wire API remains pre-v1 even though the Core module is formally released.</span>
     </div>
     <div class="malt-strip">
-      <strong>Server runtime model</strong>
-      <span>Understand the root-centric resolver/writer contract: apply explicit-root mutations and return result + ProofList.</span>
+      <strong>Filesystem roadmap</strong>
+      <span>Authenticated remote Bucket mounts and local/P2P/hybrid transports are target architecture, not capabilities claimed by the current release.</span>
     </div>
   </div>
 </section>

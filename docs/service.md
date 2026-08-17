@@ -66,7 +66,7 @@ against the authenticated CID
 
 CAS is not defined by MALT core, and the gateway is not part of the
 authentication trust boundary. Bucket ACLs authorize service access; they do
-not make a Gateway head a trusted client root. The browser does not use a
+not make a Gateway head a locally accepted root. The browser does not use a
 public raw-CAS `GET /v1/cas/{cid}` path: immutable payload reads require a
 managed Bucket ID and an authenticated cookie session or API key, and go
 through the Bucket-scoped route. The client still hashes every returned block

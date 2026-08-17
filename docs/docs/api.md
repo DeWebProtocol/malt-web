@@ -15,13 +15,12 @@ The managed Console lives in
 and sends same-origin requests through `/api`. This website ships public
 documentation and verifier tools, not that Console.
 
-[MALT v0.0.6](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.6)
-remains the public Core release baseline. A current Gateway integration may pin
-a later reviewed Core commit in its `go.mod`; that exact integration and route
-registration are defined by the
+[malt-core v0.0.7](https://github.com/DeWebProtocol/malt-core/releases/tag/v0.0.7)
+is the public Core release baseline. The current Gateway integration pins that
+exact module version; its route registration is defined by the
 [Gateway repository](https://github.com/DeWebProtocol/gateway). Normative
 resolve/read schemas remain in the
-[MALT Core repository](https://github.com/DeWebProtocol/malt/tree/main/docs/spec).
+[MALT Core repository](https://github.com/DeWebProtocol/malt-core/tree/main/docs/spec).
 
 The process-bound evaluation additions currently include
 `POST /v1/compat/merkledag/path/read`,
@@ -182,8 +181,8 @@ the authenticated managed persistence surface:
 
 A successful mutation returns `201 Created` with an operational receipt and a
 candidate `new_root`. MALT does not currently provide a portable
-state-transition proof, so the managed Gateway Console and `malt-client` never
-promote this root automatically.
+state-transition proof, so the managed Gateway Console and local MALT runtime
+never promote this root automatically.
 
 ## Managed Bucket Synchronization
 
@@ -199,7 +198,7 @@ A client persists its local candidate and original base before refreshing the
 remote head. It then pushes that exact base and candidate. The Gateway may
 fast-forward, conservatively merge independent map-coordinate changes, or
 preserve an unmergeable candidate on a conflict branch. The Bucket head is an
-observed synchronization ref, not an automatically trusted client root.
+observed synchronization ref, not an automatically accepted local root.
 
 The complete ACL, ref, push, conflict, and private-CAS contract is maintained in
 the Gateway source of truth:

@@ -5,14 +5,14 @@ The active evaluator is the root module of
 It is separate from the SDK-only Core and has two explicit measurement
 boundaries:
 
-- **`current-product`** measures real Gateway/trusted-client operations,
+- **`current-product`** measures real Gateway/local-runtime operations,
   including HTTP, local ProofList verification, CID-bound payload reads, and
   selected Gateway diagnostics. Product correctness pass/fail remains in the
   Gateway-owned end-to-end suite; the evaluator owns reproducible measurements
   and provenance.
 - **`current-core`** invokes the public application-neutral SDK directly over
   the reference in-memory ArcSet materializer. It excludes HTTP, Gateway,
-  client policy, CAS payload transfer, persistent ArcTable, and network
+  local trust policy, CAS payload transfer, persistent ArcTable, and network
   latency, so its results must not be described as deployed-product results.
 
 The exact Core integration identity for either active track is recorded by the
@@ -56,7 +56,7 @@ v0.0.5 evaluator is retired from the active `malt-evaluation` tree. Its source
 remains recoverable from the
 [standalone import commit](https://github.com/DeWebProtocol/malt-evaluation/commit/774854b5d90c1ba5d57c3d74619dd97a78fd9dcf),
 repository history, and the
-[MALT v0.0.5 release](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.5).
+[MALT v0.0.5 release](https://github.com/DeWebProtocol/malt-core/releases/tag/v0.0.5).
 Historical result files remain provenance only and must not be relabeled as
 current results.
 
@@ -74,9 +74,9 @@ Frozen v0.0.5 readbench systems:
 
 `maltflat` identifies the frozen v0.0.5 evaluator's full-path flat-map baseline
 and remains the label in its historical result schemas. It is not a
-`malt-client` layout value and does not name the current client's `hybrid`
+`malt-client` layout value and does not name the current runtime's `hybrid`
 materialization. New
-client/product tests should describe the actual target and `layout=hybrid`
+runtime/product tests should describe the actual target and `layout=hybrid`
 instead of reusing this label.
 
 The read command selects systems with:
@@ -170,7 +170,8 @@ depths, and file mutations.
 
 The historical write-trace schema, adapters, tests, and artifacts belong to the
 retired evaluator and remain recoverable from the immutable sources linked
-above. They are not shipped by MALT core v0.0.6.
+above. They were removed before MALT Core v0.0.6 and remain absent from
+`malt-core v0.0.7`.
 
 Required write metrics include:
 

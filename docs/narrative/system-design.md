@@ -1,9 +1,12 @@
 # System Design
 
-MALT realizes the abstraction as a root-centric, server-assisted,
-client-verifiable authentication system for graph-normalized structured data.
-Immutable payloads can be stored in CAS, while MALT authenticates the
-relationships that bind structure together.
+MALT realizes the abstraction through a user-controlled local runtime and an
+application-neutral authentication Core. The local runtime owns keys,
+accepted/candidate roots, application adapters, and verification. Immutable
+payloads can be stored locally or in CAS, while MALT Core authenticates the
+relationships that bind structure together. Gateways and future peers may
+execute requests and return proofs, but remain outside the correctness trust
+boundary.
 
 ## Separated System Concerns
 
@@ -18,8 +21,9 @@ CAS + payload CIDs     canonical arcs, list/map proofs,      layouts, ArcTable,
         +------ authenticated target+------ result + proof --------+
 ```
 
-Application clients translate source-domain data into semantic mutations. The
-module-root `malt` package exposes typed resolve/read values and verification.
+Local-runtime application adapters translate source-domain data into semantic
+mutations. The module root in `malt-core` exposes typed resolve/read values and
+verification.
 `auth/verifier` checks real list/map/range ProofLists without ArcTable, CAS, a
 runtime, an application, a server, or network access. A gateway-owned
 materializer and other execution components may accelerate proof generation
@@ -130,9 +134,9 @@ In the current MALT UnixFS direction:
 This layout demonstrates that the semantic layer can support practical file
 and directory behavior while keeping payload identity unchanged.
 
-The core implementation is published as the experimental
-[`v0.0.6`](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.6) source
-release. Native UnixFS and CLI behavior live in `malt-client`. New integrations
+The Core implementation is published as
+[`malt-core v0.0.7`](https://github.com/DeWebProtocol/malt-core/releases/tag/v0.0.7).
+Local-runtime UnixFS and CLI behavior currently live in `malt-client`. New integrations
 use operation-specific `malt.resolve/v0alpha1` and
 `malt.read/v0alpha1`; the `malt.artifact/v0alpha2` operation set remains frozen
 v0.0.4 compatibility behavior. It is not yet a production managed service or

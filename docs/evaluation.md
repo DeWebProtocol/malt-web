@@ -42,9 +42,9 @@ Frozen v0.0.5 evaluator systems:
 
 `MALT-flat` identifies the frozen v0.0.5 evaluator's full-path flat-map
 baseline and is preserved by existing result artifacts. It is not a current
-`malt-client` layout value: the native client exposes `layout=hybrid`. New
+`malt-client` layout value: the local runtime exposes `layout=hybrid`. New
 product tests should name that actual strategy instead of treating
-`MALT-flat` as a client configuration.
+`MALT-flat` as a runtime configuration.
 
 HAMT is a directory or map-relation baseline. It is not the large-file content
 layout baseline.

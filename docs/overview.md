@@ -1,12 +1,15 @@
 # MALT Design Overview
 
-MALT targets authenticated structured data: data whose relationships can be
-normalized into graph-shaped nodes and relations.
+MALT is a user-controlled local data runtime for structured data. It runs on
+the user's device, owns keys and accepted roots, and keeps application access
+separate from the storage or network system that supplies bytes and proofs.
 
-MALT authenticates those relationships at arc granularity. Immutable payload
-objects remain ordinary CAS content identified by CIDs, vector-commitment (VC)
-backends commit to typed relations, and execution/access components locate and
-serve results without entering the correctness trust boundary.
+MALT Core authenticates relationships at arc granularity after an application
+adapter normalizes them into graph-shaped nodes and relations. Immutable
+payload objects remain ordinary CAS content identified by CIDs,
+vector-commitment (VC) backends commit to typed relations, and execution/access
+components locate and serve results without entering the correctness trust
+boundary.
 
 The website has two main lanes:
 
@@ -15,15 +18,17 @@ The website has two main lanes:
 - [Technical Docs](/docs/runtime): current prototype status, HTTP API,
   ProofLists, UnixFS application model, and benchmark protocol.
 
-Status labels matter in the technical lane: `v0.0.6` is the current released
-core baseline. It makes `malt` an SDK-only repository, moves persistent
-ArcTable/KV/CAS execution into `gateway`, and moves CLI/daemon/UnixFS ownership
-into `malt-client` and the managed browser client in `gateway/console`.
+Status labels matter in the technical lane: `malt-core v0.0.7` is the current
+released Core baseline. It preserves the application-neutral SDK in the
+renamed `malt-core` repository, keeps persistent ArcTable/KV/CAS execution in
+`gateway`, and keeps the user-controlled local runtime, daemon, and UnixFS in
+the repository currently named `malt-client`. The managed browser application
+remains in `gateway/console`.
 
-The native `malt-client` deliberately supports both MALT-authenticated UnixFS
-and IPFS-compatible Merkle DAG UnixFS import. Those are separate targets under
-one client workflow: Merkle DAG compatibility does not change MALT core
-semantics or imply ProofList authentication for the returned DAG root.
+The local runtime deliberately supports both MALT-authenticated UnixFS and
+IPFS-compatible Merkle DAG UnixFS import. Those are separate targets under one
+runtime workflow: Merkle DAG compatibility does not change MALT Core semantics
+or imply ProofList authentication for the returned DAG root.
 
 ## Core Claim
 
@@ -62,17 +67,19 @@ CAS objects + CIDs    typed arcs + VC proofs      layouts, ArcTable, caches,
         +--- payload CID -----+--- result + ProofList -----+
 ```
 
-In v0.0.6, the module-root `malt` package is the application-neutral facade for
-resolve/read values, mutations, and verification. Semantic algorithms live
-under `auth/semantic`; `auth/verifier` is the portable authentication kernel.
+In v0.0.7, the module-root package in `malt-core` (Go package name `malt`) is
+the application-neutral facade for resolve/read values, mutations, and
+verification. Semantic algorithms live under `auth/semantic`; `auth/verifier`
+is the portable authentication kernel.
 No persistent ArcTable, CAS, HTTP server, CLI, daemon, or UnixFS package is part
 of core.
 
 UnixFS is one application model/profile that composes these primitives; it is
-not the definition of the core abstraction. The native client currently uses
+not the definition of the core abstraction. The local runtime currently uses
 one `hybrid` materialization strategy: directories form authenticated map roots
 while ancestor maps may also retain descendant full-path bindings. Layout
-selection remains a client/application concern rather than a core semantic.
+selection remains a runtime adapter/application concern rather than a Core
+semantic.
 
 ## Read Interface
 
@@ -113,7 +120,7 @@ availability, or define tenant and quota policy. Those are application or
 deployment concerns built around MALT. Managed gateway service behavior belongs
 in the separate `DeWebProtocol/gateway` repository.
 
-The current [`v0.0.6`](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.6)
+The current [`malt-core v0.0.7`](https://github.com/DeWebProtocol/malt-core/releases/tag/v0.0.7)
 source release publishes the operation-specific resolve/read profiles and
 retains the frozen v0alpha2 Artifact compatibility contract from v0.0.4.
 It remains pre-`v1` and is not a production stability promise.

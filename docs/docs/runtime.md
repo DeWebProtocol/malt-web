@@ -1,17 +1,16 @@
 # Runtime and Repository Boundaries
 
 The current public Core release is
-[MALT v0.0.6](https://github.com/DeWebProtocol/malt/releases/tag/v0.0.6). It
-establishes a three-part product boundary: an SDK-only core, an untrusted
-gateway, and trusted application clients. Gateway, client, evaluator, and
-browser-verifier integration artifacts may select a later reviewed Core
-commit; each integration records that exact source independently of the public
-release label.
+[malt-core v0.0.7](https://github.com/DeWebProtocol/malt-core/releases/tag/v0.0.7).
+It establishes a three-part product boundary: an application-neutral Core, an
+optional untrusted gateway/executor, and a user-controlled local runtime.
+Gateway, runtime, evaluator, and browser-verifier integrations pin v0.0.7 and
+record the exact release source independently of the public release label.
 
 ## MALT Core SDK
 
-[`DeWebProtocol/malt`](https://github.com/DeWebProtocol/malt) owns the normative
-authentication surface:
+[`DeWebProtocol/malt-core`](https://github.com/DeWebProtocol/malt-core) owns
+the normative authentication surface:
 
 - canonical segments, arcs, ArcSets, roots, and typed CIDs;
 - resolve/read/mutation values and language-neutral schemas;
@@ -31,8 +30,9 @@ policy.
 
 ## Gateway
 
-[`DeWebProtocol/gateway`](https://github.com/DeWebProtocol/gateway) embeds the
-core executor and owns concrete ArcTable/KV/CAS implementations. It exposes
+[`DeWebProtocol/gateway`](https://github.com/DeWebProtocol/gateway) is an
+optional untrusted hosted executor and storage gateway. It embeds the Core
+executor and owns concrete ArcTable/KV/CAS implementations. It exposes
 generic resolve/read and diagnostic routes for reference and evaluation use.
 When managed accounts are disabled, local integrations may also expose
 unscoped root-creation, mutation, and CAS-write routes. Managed deployments use
@@ -53,20 +53,29 @@ The gateway is a proof producer and storage service, not a correctness
 authority. A client supplies the root it trusts and checks every accepted
 result locally.
 
-## Trusted Clients
+## User-Controlled Local Runtime
 
 [`DeWebProtocol/malt-client`](https://github.com/DeWebProtocol/malt-client)
-owns the `malt` CLI and local daemon. Its current package structure separates
-`transport`, `trust`, `unixfs`, and `merkledag` so untrusted I/O, root policy,
-MALT-authenticated UnixFS, and CID/link replay remain independently reviewable.
-The client parses UnixFS `/` paths into segment arrays, verifies
+is the current source repository for the MALT local data runtime; it will be
+renamed to `malt` after all consumers complete the Core namespace migration.
+The Go module remains `github.com/dewebprotocol/malt-client` during the initial
+runtime refactor. The runtime owns the `malt` CLI and local daemon, and its
+current package structure separates `transport`, `trust`, `unixfs`, and
+`merkledag` so untrusted I/O, root policy, MALT-authenticated UnixFS, and
+CID/link replay remain independently reviewable. The runtime parses UnixFS `/`
+paths into segment arrays, verifies
 resolve/read results, binds returned payload bytes to authenticated CIDs, and
 keeps gateway-produced roots as candidates until explicit acceptance. It can
 also import IPFS-compatible Merkle DAG UnixFS with
 `malt add --target merkle-dag`; that compatibility target returns a DAG CID and
 does not claim a MALT root or ProofList.
 
-Client-owned evaluator workers live under
+The current production transport is Gateway HTTP. Authenticated remote Bucket
+mounts, local-CAS, P2P, and hybrid transports are target architecture, not
+capabilities claimed by this release. They must share the same local verifier
+and cannot promote an observed remote head directly into an accepted root.
+
+Runtime-owned evaluator workers live under
 `malt-client/tools/evaluation/cmd`, and their private Gateway bootstrap and raw
 measurement transport live under `malt-client/internal/evaluation`. They are
 not part of the `malt` CLI or reusable production transport surface.
@@ -83,14 +92,14 @@ Console.
 
 | Repository/package | Responsibility |
 |---|---|
-| `malt` module root | Trusted operation values and verification facade |
-| `malt/protocol` | Profiled resolve/read serialization and schemas |
-| `malt/auth/arcset` | Canonical ArcSet values |
-| `malt/auth/arcset/materializer` | Narrow lookup/update/snapshot/iteration capabilities, no persistence format |
-| `malt/auth/verifier` | Portable ProofList verification kernel |
-| `malt/auth/semantic/*` | Application-neutral map/list semantics and algorithms |
-| `malt/graph/*`, `malt/execution` | Generic resolver/writer/executor composition |
-| `malt/sdk/writer` | Application-neutral client-root computation and exact materialization-session checks |
+| `malt-core` module root | Trusted operation values and verification facade |
+| `malt-core/protocol` | Profiled resolve/read serialization and schemas |
+| `malt-core/auth/arcset` | Canonical ArcSet values |
+| `malt-core/auth/arcset/materializer` | Narrow lookup/update/snapshot/iteration capabilities, no persistence format |
+| `malt-core/auth/verifier` | Portable ProofList verification kernel |
+| `malt-core/auth/semantic/*` | Application-neutral map/list semantics and algorithms |
+| `malt-core/graph/*`, `malt-core/execution` | Generic resolver/writer/executor composition |
+| `malt-core/sdk/writer` | Application-neutral client-root computation and exact materialization-session checks |
 | `gateway/internal/arctable`, `gateway/internal/kv` | Persistent materialization owned by the service |
 | `gateway/internal/backend/embedded` | Embedded untrusted core execution and CAS |
 | `gateway/internal/runtime`, `gateway/internal/profile/*` | Per-scope composition and isolated native/CAS/compatibility ports |
@@ -100,7 +109,7 @@ Console.
 | `malt-client/unixfs/*` | UnixFS application rules and payload verification |
 | `malt-client/merkledag/*` | Merkle DAG import and local CID/link replay compatibility |
 | `malt-client/tools/evaluation`, `malt-client/internal/evaluation` | Private cross-repository workers and process-bound measurement transport |
-| `malt/sdk/verifier` | Local trusted verifier envelope, including WASM export |
+| `malt-core/sdk/verifier` | Local trusted verifier envelope, including WASM export |
 
 ## Mutation Limit
 
@@ -114,5 +123,5 @@ independently authenticate each new trusted root.
 The browser verifier's
 [provenance record](/verifier/PROVENANCE.json) identifies the exact MALT commit
 and Go toolchain used to build the deployed WASM. That integration identity,
-not the website's v0.0.6 release badge, determines which typed Root codecs the
+not the website's v0.0.7 release badge, determines which typed Root codecs the
 artifact accepts.
