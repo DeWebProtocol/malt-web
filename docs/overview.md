@@ -22,8 +22,8 @@ Status labels matter in the technical lane: `malt-core v0.0.7` is the current
 released Core baseline. It preserves the application-neutral SDK in the
 renamed `malt-core` repository, keeps persistent ArcTable/KV/CAS execution in
 `gateway`, and keeps the user-controlled local runtime, daemon, and UnixFS in
-the repository currently named `malt-client`. The managed browser application
-remains in `gateway/console`.
+the `malt` repository. The managed browser application remains in
+`gateway/console`.
 
 The local runtime deliberately supports both MALT-authenticated UnixFS and
 IPFS-compatible Merkle DAG UnixFS import. Those are separate targets under one

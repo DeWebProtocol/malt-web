@@ -77,7 +77,7 @@ Managed-service behavior and the same-origin Console are defined by
 
 - [`DeWebProtocol/malt-core`](https://github.com/dewebprotocol/malt-core) — application-neutral authentication SDK, normative contracts, MIPs, and verifier
 - [`DeWebProtocol/gateway`](https://github.com/dewebprotocol/gateway) — optional untrusted hosted executor, Bucket/CAS gateway, same-origin Console, and managed-service integration
-- [`DeWebProtocol/malt-client`](https://github.com/dewebprotocol/malt-client) — current source repository for the user-controlled MALT local runtime, CLI/daemon, trusted-root policy, UnixFS, and Merkle DAG compatibility; the repository is migrating to the `malt` product name while retaining its module namespace during the initial refactor
+- [`DeWebProtocol/malt`](https://github.com/dewebprotocol/malt) — user-controlled MALT local runtime, CLI/daemon, trusted-root policy, UnixFS, and Merkle DAG compatibility; its Go module remains `github.com/dewebprotocol/malt-client` during the initial refactor
 - [`DeWebProtocol/malt-evaluation`](https://github.com/dewebprotocol/malt-evaluation) — current-product and current-core workloads, executable paper plans/suites, result schemas, and preserved historical provenance
 - [`DeWebProtocol/malt-web`](https://github.com/dewebprotocol/malt-web) — public website, conceptual docs, tutorials, and browser proof-verification tools
 - [`DeWebProtocol/.github`](https://github.com/dewebprotocol/.github) — organization profile and community defaults

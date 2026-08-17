@@ -92,7 +92,8 @@ range reads. The step carries authenticated fixed chunk metadata, covered
 segment CIDs, and metadata/index proof payload. ProofList verification binds
 that metadata and the ordered segment CIDs; UnixFS callers accepting returned
 bytes additionally perform an equivalent body-binding check. The
-`malt-client/unixfs.VerifyRangeBody` helper is a client-side check rather than
+`github.com/dewebprotocol/malt-client/unixfs.VerifyRangeBody` helper is a
+runtime-side check rather than
 part of MALT core.
 
 Encrypted private-CAS read:

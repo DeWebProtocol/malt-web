@@ -55,9 +55,8 @@ result locally.
 
 ## User-Controlled Local Runtime
 
-[`DeWebProtocol/malt-client`](https://github.com/DeWebProtocol/malt-client)
-is the current source repository for the MALT local data runtime; it will be
-renamed to `malt` after all consumers complete the Core namespace migration.
+[`DeWebProtocol/malt`](https://github.com/DeWebProtocol/malt)
+is the source repository for the MALT local data runtime.
 The Go module remains `github.com/dewebprotocol/malt-client` during the initial
 runtime refactor. The runtime owns the `malt` CLI and local daemon, and its
 current package structure separates `transport`, `trust`, `unixfs`, and
@@ -76,8 +75,8 @@ capabilities claimed by this release. They must share the same local verifier
 and cannot promote an observed remote head directly into an accepted root.
 
 Runtime-owned evaluator workers live under
-`malt-client/tools/evaluation/cmd`, and their private Gateway bootstrap and raw
-measurement transport live under `malt-client/internal/evaluation`. They are
+`malt/tools/evaluation/cmd`, and their private Gateway bootstrap and raw
+measurement transport live under `malt/internal/evaluation`. They are
 not part of the `malt` CLI or reusable production transport surface.
 
 The managed Gateway Console is another client. It lives in
@@ -104,11 +103,11 @@ Console.
 | `gateway/internal/backend/embedded` | Embedded untrusted core execution and CAS |
 | `gateway/internal/runtime`, `gateway/internal/profile/*` | Per-scope composition and isolated native/CAS/compatibility ports |
 | `gateway/internal/policy/publication` | Named-root revision metadata and freeze policy; not client trust |
-| `malt-client/cmd/malt` | CLI and local daemon lifecycle |
-| `malt-client/transport`, `malt-client/trust` | Untrusted HTTP capabilities and explicit accepted/candidate policy |
-| `malt-client/unixfs/*` | UnixFS application rules and payload verification |
-| `malt-client/merkledag/*` | Merkle DAG import and local CID/link replay compatibility |
-| `malt-client/tools/evaluation`, `malt-client/internal/evaluation` | Private cross-repository workers and process-bound measurement transport |
+| `malt/cmd/malt` | CLI and local daemon lifecycle |
+| `malt/transport`, `malt/trust` | Untrusted HTTP capabilities and explicit accepted/candidate policy |
+| `malt/unixfs/*` | UnixFS application rules and payload verification |
+| `malt/merkledag/*` | Merkle DAG import and local CID/link replay compatibility |
+| `malt/tools/evaluation`, `malt/internal/evaluation` | Private cross-repository workers and process-bound measurement transport |
 | `malt-core/sdk/verifier` | Local trusted verifier envelope, including WASM export |
 
 ## Mutation Limit
