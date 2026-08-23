@@ -15,9 +15,9 @@ The managed Console lives in
 and sends same-origin requests through `/api`. This website ships public
 documentation and verifier tools, not that Console.
 
-[malt-core v0.0.7](https://github.com/DeWebProtocol/malt-core/releases/tag/v0.0.7)
-is the public Core release baseline. The current Gateway integration pins that
-exact module version; its route registration is defined by the
+[malt-core v0.0.8](https://github.com/DeWebProtocol/malt-core/releases/tag/v0.0.8)
+is the latest public Core release. The current Gateway integration pins that
+exact wire-compatible Map-proof performance update; its route registration is defined by the
 [Gateway repository](https://github.com/DeWebProtocol/gateway). Normative
 resolve/read schemas remain in the
 [MALT Core repository](https://github.com/DeWebProtocol/malt-core/tree/main/docs/spec).

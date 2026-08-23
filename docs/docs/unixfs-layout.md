@@ -3,7 +3,8 @@
 UnixFS is an application model above MALT list/map semantics and immutable
 payload objects. It is not the core MALT abstraction.
 
-With `malt-core v0.0.7`, UnixFS remains an application/runtime concern. The
+With the current `malt-core v0.0.8` line, UnixFS remains an
+application/runtime concern. The
 local implementation is currently in `DeWebProtocol/malt/unixfs`; the
 managed Gateway Console implements the same application-side model for browser
 upload, preview, and verification.

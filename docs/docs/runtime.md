@@ -1,11 +1,13 @@
 # Runtime and Repository Boundaries
 
 The current public Core release is
-[malt-core v0.0.7](https://github.com/DeWebProtocol/malt-core/releases/tag/v0.0.7).
+[malt-core v0.0.8](https://github.com/DeWebProtocol/malt-core/releases/tag/v0.0.8).
 It establishes a three-part product boundary: an application-neutral Core, an
 optional untrusted gateway/executor, and a user-controlled local runtime.
-Gateway, runtime, evaluator, and browser-verifier integrations pin v0.0.7 and
-record the exact release source independently of the public release label.
+The runtime, evaluator, and browser verifier retain their exact `v0.0.7`
+migration/provenance baseline; Gateway pins the later `v0.0.8` Map-proof
+performance update. `v0.0.8` changes no roots, CIDs, ProofLists, transcripts,
+schemas, receipts, or wire encodings.
 
 ## MALT Core SDK
 
@@ -69,10 +71,15 @@ also import IPFS-compatible Merkle DAG UnixFS with
 `malt add --target merkle-dag`; that compatibility target returns a DAG CID and
 does not claim a MALT root or ProofList.
 
-The current production transport is Gateway HTTP. Authenticated remote Bucket
-mounts, local-CAS, P2P, and hybrid transports are target architecture, not
-capabilities claimed by this release. They must share the same local verifier
-and cannot promote an observed remote head directly into an accepted root.
+Gateway HTTP currently supplies native resolve/read, mutation, Bucket-head,
+and remote CAS capabilities. The CAS plane can instead select a bounded durable
+local store or a Gateway-primary, CID-verifying read-through hybrid. On Linux,
+the daemon can mount an accepted remote Bucket view through FUSE, read-only by
+default or with an explicit write-back policy; local staging, fsync journaling,
+candidate computation, and accepted-root promotion remain separate. A peer
+network transport and non-Linux mount adapters are future work. Every transport
+shares the same local verifier and cannot promote an observed remote head
+directly into an accepted root.
 
 Runtime-owned evaluator workers live under
 `malt/tools/evaluation/cmd`, and their private Gateway bootstrap and raw
@@ -103,8 +110,13 @@ Console.
 | `gateway/internal/backend/embedded` | Embedded untrusted core execution and CAS |
 | `gateway/internal/runtime`, `gateway/internal/profile/*` | Per-scope composition and isolated native/CAS/compatibility ports |
 | `gateway/internal/policy/publication` | Named-root revision metadata and freeze policy; not client trust |
-| `malt/cmd/malt` | CLI and local daemon lifecycle |
-| `malt/transport`, `malt/trust` | Untrusted HTTP capabilities and explicit accepted/candidate policy |
+| `malt/cmd/malt`, `malt/internal/runtime` | CLI/daemon adapters and reusable process composition |
+| `malt/application/*` | Shared backup, sync, root, mount, and verified write-back use cases |
+| `malt/transport/capability` | URL-free semantic Native/CAS/Mutation/DatasetBranch ports |
+| `malt/transport`, `malt/transport/local`, `malt/transport/hybrid` | Untrusted Gateway HTTP plus durable local and verified hybrid CAS adapters |
+| `malt/trust`, `malt/cache`, `malt/journal` | Separate accepted/candidate/observed roots, non-authoritative cache, and durable operation intent |
+| `malt/filesystem/service`, `malt/filesystem/staging` | Root-bound verified reads and crash-recoverable local dirty overlay |
+| `malt/filesystem/mount`, `malt/filesystem/platform/fuse` | Daemon-managed mount lifecycle and the outer Linux syscall adapter |
 | `malt/unixfs/*` | UnixFS application rules and payload verification |
 | `malt/merkledag/*` | Merkle DAG import and local CID/link replay compatibility |
 | `malt/tools/evaluation`, `malt/internal/evaluation` | Private cross-repository workers and process-bound measurement transport |
@@ -122,5 +134,5 @@ independently authenticate each new trusted root.
 The browser verifier's
 [provenance record](/verifier/PROVENANCE.json) identifies the exact MALT commit
 and Go toolchain used to build the deployed WASM. That integration identity,
-not the website's v0.0.7 release badge, determines which typed Root codecs the
+not the website's current-release badge, determines which typed Root codecs the
 artifact accepts.

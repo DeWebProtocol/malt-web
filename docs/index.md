@@ -13,13 +13,13 @@ hero:
       text: Technical docs
       link: /docs/runtime
     - theme: alt
-      text: malt-core v0.0.7
-      link: https://github.com/DeWebProtocol/malt-core/releases/tag/v0.0.7
+      text: malt-core v0.0.8
+      link: https://github.com/DeWebProtocol/malt-core/releases/tag/v0.0.8
 
 features:
   - title: Local runtime
     details: The malt CLI and daemon own local trust, keys, UnixFS application behavior, backup/sync orchestration, and verified payload exposure.
-  - title: MALT Core v0.0.7
+  - title: MALT Core v0.0.8
     details: The application-neutral malt-core SDK defines canonical relations, roots, commitments, ProofLists, and local verification.
   - title: Optional Gateway
     details: Gateways provide Bucket, CAS, proof generation, and managed execution, but cannot promote an observed head or bypass local verification.
@@ -57,15 +57,15 @@ import { withBase } from 'vitepress'
   <div class="malt-strips">
     <div class="malt-strip">
       <strong>Current runtime</strong>
-      <span>The current implementation provides the malt CLI/daemon, local trust state, Gateway HTTP transport, backup/sync flows, and UnixFS adapters.</span>
+      <span>The current implementation provides the malt CLI/daemon, local trust state, Gateway/local/hybrid CAS, backup/sync flows, and authenticated UnixFS mounts.</span>
     </div>
     <div class="malt-strip">
       <strong>Current pre-v1 contracts</strong>
       <span>Use canonical segments with malt.resolve/v0alpha1 and malt.read/v0alpha1; the wire API remains pre-v1 even though the Core module is formally released.</span>
     </div>
     <div class="malt-strip">
-      <strong>Filesystem roadmap</strong>
-      <span>Authenticated remote Bucket mounts and local/P2P/hybrid transports are target architecture, not capabilities claimed by the current release.</span>
+      <strong>Filesystem boundary</strong>
+      <span>Linux supports daemon-managed authenticated Bucket mounts with read-only default and explicit write-back; peer networking and non-Linux mount adapters remain future work.</span>
     </div>
   </div>
 </section>

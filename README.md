@@ -17,10 +17,10 @@ adapter/application concerns.
 
 ## Current Release
 
-[`malt-core v0.0.7`](https://github.com/DeWebProtocol/malt-core/releases/tag/v0.0.7)
-is the current Core SDK release. The repository and Go module moved from
-`malt` to `malt-core`; historical tags and releases remain valid. New
-integrations use
+[`malt-core v0.0.8`](https://github.com/DeWebProtocol/malt-core/releases/tag/v0.0.8)
+is the current Core SDK release. The `v0.0.7` release established the renamed
+repository and Go module; historical tags and releases remain valid. `v0.0.8`
+is a wire-compatible Map-proof performance update. New integrations use
 `malt.resolve/v0alpha1` and `malt.read/v0alpha1`; the v0.0.4
 `malt.artifact/v0alpha2` resolve/prove/verify profile remains frozen
 compatibility behavior. APIs and wire shapes remain pre-v1 and are not yet

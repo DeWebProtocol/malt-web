@@ -135,8 +135,10 @@ This layout demonstrates that the semantic layer can support practical file
 and directory behavior while keeping payload identity unchanged.
 
 The Core implementation is published as
-[`malt-core v0.0.7`](https://github.com/DeWebProtocol/malt-core/releases/tag/v0.0.7).
-Local-runtime UnixFS and CLI behavior currently live in `malt-client`. New integrations
+[`malt-core v0.0.8`](https://github.com/DeWebProtocol/malt-core/releases/tag/v0.0.8).
+Local-runtime UnixFS and CLI behavior live in the
+[`DeWebProtocol/malt`](https://github.com/DeWebProtocol/malt) repository; its
+temporary Go module path remains `github.com/dewebprotocol/malt-client`. New integrations
 use operation-specific `malt.resolve/v0alpha1` and
 `malt.read/v0alpha1`; the `malt.artifact/v0alpha2` operation set remains frozen
 v0.0.4 compatibility behavior. It is not yet a production managed service or

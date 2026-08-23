@@ -18,8 +18,8 @@ The website has two main lanes:
 - [Technical Docs](/docs/runtime): current prototype status, HTTP API,
   ProofLists, UnixFS application model, and benchmark protocol.
 
-Status labels matter in the technical lane: `malt-core v0.0.7` is the current
-released Core baseline. It preserves the application-neutral SDK in the
+Status labels matter in the technical lane: `malt-core v0.0.8` is the current
+released Core version. It preserves the application-neutral SDK in the
 renamed `malt-core` repository, keeps persistent ArcTable/KV/CAS execution in
 `gateway`, and keeps the user-controlled local runtime, daemon, and UnixFS in
 the `malt` repository. The managed browser application remains in
@@ -67,7 +67,7 @@ CAS objects + CIDs    typed arcs + VC proofs      layouts, ArcTable, caches,
         +--- payload CID -----+--- result + ProofList -----+
 ```
 
-In v0.0.7, the module-root package in `malt-core` (Go package name `malt`) is
+In the current v0.0.8 line, the module-root package in `malt-core` (Go package name `malt`) is
 the application-neutral facade for resolve/read values, mutations, and
 verification. Semantic algorithms live under `auth/semantic`; `auth/verifier`
 is the portable authentication kernel.
@@ -120,7 +120,7 @@ availability, or define tenant and quota policy. Those are application or
 deployment concerns built around MALT. Managed gateway service behavior belongs
 in the separate `DeWebProtocol/gateway` repository.
 
-The current [`malt-core v0.0.7`](https://github.com/DeWebProtocol/malt-core/releases/tag/v0.0.7)
+The current [`malt-core v0.0.8`](https://github.com/DeWebProtocol/malt-core/releases/tag/v0.0.8)
 source release publishes the operation-specific resolve/read profiles and
 retains the frozen v0alpha2 Artifact compatibility contract from v0.0.4.
 It remains pre-`v1` and is not a production stability promise.
