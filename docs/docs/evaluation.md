@@ -31,7 +31,7 @@ Two contracts must not be confused:
   pipelines are implemented.
 
 The implemented suite covers verified reads and measured ranges (RQ1),
-multi-platform client-root behavior (RQ2), controlled mutation/write
+multi-platform retained typed writer behavior (RQ2), controlled mutation/write
 accounting and Git first-parent traces (RQ3), and structural, ArcTable,
 commitment-backend, and same-layout causal studies (RQ4).
 
@@ -75,9 +75,8 @@ Frozen v0.0.5 readbench systems:
 `maltflat` identifies the frozen v0.0.5 evaluator's full-path flat-map baseline
 and remains the label in its historical result schemas. It is not a
 `malt-client` layout value and does not name the current runtime's `hybrid`
-materialization. New
-runtime/product tests should describe the actual target and `layout=hybrid`
-instead of reusing this label.
+materialization. Current runtime/product tests select `flat-v1`, `hybrid-v1`
+or `rooted-v1` and record that strategy instead of reusing this label.
 
 The read command selects systems with:
 

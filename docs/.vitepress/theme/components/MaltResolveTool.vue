@@ -2,15 +2,23 @@
 import { computed, ref } from 'vue'
 import { withBase } from 'vitepress'
 import { defaultGatewayURL, resolvePath } from '../malt-client.mjs'
-import { verifyResolveLocally } from '../malt-verifier.mjs'
+import { verifyAuthenticationLocally } from '../malt-verifier.mjs'
 
 const baseURL = ref(defaultGatewayURL)
 const root = ref('')
-const path = ref('')
+const stepsInput = ref('[]')
 const busy = ref(false)
 const error = ref('')
 const result = ref(null)
 const verification = ref(null)
+let operation = 0
+
+function reset() {
+  operation++
+  error.value = ''
+  result.value = null
+  verification.value = null
+}
 
 const verificationLabel = computed(() => {
   if (!verification.value) {
@@ -23,13 +31,13 @@ const verificationLabel = computed(() => {
 })
 
 const proofText = computed(() =>
-  result.value?.proofList ? JSON.stringify(result.value.proofList, null, 2) : ''
+  result.value?.result ? JSON.stringify(result.value.result, null, 2) : ''
 )
 
 async function run() {
-  error.value = ''
-  result.value = null
-  verification.value = null
+  if (busy.value) return
+  reset()
+  const current = operation
   if (!root.value.trim()) {
     error.value = 'root is required'
     return
@@ -39,17 +47,16 @@ async function run() {
     const payload = await resolvePath({
       baseURL: baseURL.value,
       root: root.value,
-      path: path.value
+      steps: JSON.parse(stepsInput.value)
     })
-    if (!payload.proofList) {
-      throw new Error('response did not include ProofList material')
-    }
-		const proofVerification = await verifyResolveLocally({
+    if (operation !== current) return
+		const proofVerification = await verifyAuthenticationLocally({
 			request: payload.request,
 			result: payload.result,
 			runtimeURL: withBase('/verifier/wasm_exec.js'),
 			wasmURL: withBase('/verifier/malt-verifier.wasm')
 		})
+    if (operation !== current) return
     if (!proofVerification.valid) {
       verification.value = proofVerification
       throw new Error(proofVerification.error || 'local proof verification failed')
@@ -57,25 +64,19 @@ async function run() {
     verification.value = proofVerification
     result.value = payload
   } catch (err) {
-    error.value = err instanceof Error ? err.message : String(err)
+    if (operation === current) error.value = err instanceof Error ? err.message : String(err)
   } finally {
     busy.value = false
   }
 }
 
 function sendToVerifier() {
-  if (!proofText.value || typeof window === 'undefined') {
+  if (busy.value || !verification.value?.valid || !proofText.value || typeof window === 'undefined') {
     return
   }
-	window.sessionStorage.setItem(
-		'malt-verification-input',
-		JSON.stringify({
-      verification: {
-        request: result.value?.request,
-        result: result.value?.result
-      }
-    })
-  )
+ window.sessionStorage.setItem('malt-authentication-input', JSON.stringify({ node: {
+  request: result.value.request, result: result.value.result
+ } }))
   window.location.href = withBase('/tools/verify')
 }
 </script>
@@ -95,21 +96,21 @@ function sendToVerifier() {
     <div class="malt-tool__grid">
       <label>
         <span>Gateway URL</span>
-        <input v-model="baseURL" autocomplete="off" spellcheck="false" />
+        <input v-model="baseURL" :disabled="busy" @input="reset" autocomplete="off" spellcheck="false" />
       </label>
       <label>
         <span>Root</span>
-        <input v-model="root" autocomplete="off" spellcheck="false" />
+        <input v-model="root" :disabled="busy" @input="reset" autocomplete="off" spellcheck="false" />
       </label>
       <label>
-        <span>Path</span>
-        <input v-model="path" autocomplete="off" spellcheck="false" placeholder="@payload" />
+        <span>Typed path steps (JSON)</span>
+        <textarea v-model="stepsInput" :disabled="busy" @input="reset" rows="4" spellcheck="false" />
       </label>
     </div>
 
     <div class="malt-tool__actions">
       <button type="button" :disabled="busy" @click="run">Resolve and verify</button>
-      <button type="button" :disabled="!proofText" @click="sendToVerifier">Verify page</button>
+      <button type="button" :disabled="busy || !verification?.valid || !proofText" @click="sendToVerifier">Verify page</button>
     </div>
 
     <p v-if="error" class="malt-tool__error">{{ error }}</p>
@@ -124,9 +125,9 @@ function sendToVerifier() {
           <dt>Status</dt>
           <dd>{{ result.status }}</dd>
         </div>
-        <div v-if="result.response?.target">
+        <div v-if="result.result?.resolved">
           <dt>Target</dt>
-          <dd>{{ result.response.target }}</dd>
+          <dd>{{ result.result.resolved }}</dd>
         </div>
         <div v-if="verification">
           <dt>Local verification</dt>
@@ -137,7 +138,7 @@ function sendToVerifier() {
       </dl>
 
       <div class="malt-tool__panel">
-        <h3>ProofList</h3>
+        <h3>Authentication result</h3>
         <pre>{{ proofText }}</pre>
       </div>
     </div>

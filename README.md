@@ -11,20 +11,28 @@ MALT is a general arc-granularity data-authentication system for graph-shaped
 relations. Vector-commitment backends authenticate arcs, immutable payloads
 remain in content-addressed storage (CAS), and untrusted execution components
 locate and serve proofs. UnixFS is one application model over that core. The
-user-controlled local runtime currently exposes one `hybrid` MALT
-materialization strategy; future strategies remain runtime
-adapter/application concerns.
+user-controlled local runtime supports `flat-v1`, `hybrid-v1` and `rooted-v1`
+UnixFS layouts. Layout selection and payload handling remain runtime
+application concerns.
 
-## Current Release
+## Current Source and Verifier Pin
 
-[`malt-core v0.0.8`](https://github.com/DeWebProtocol/malt-core/releases/tag/v0.0.8)
-is the current Core SDK release. The `v0.0.7` release established the renamed
-repository and Go module; historical tags and releases remain valid. `v0.0.8`
-is a wire-compatible Map-proof performance update. New integrations use
-`malt.resolve/v0alpha1` and `malt.read/v0alpha1`; the v0.0.4
-`malt.artifact/v0alpha2` resolve/prove/verify profile remains frozen
-compatibility behavior. APIs and wire shapes remain pre-v1 and are not yet
-stable for production use.
+Current source uses explicit typed authentication through
+`malt.authentication/1`, with Prefix and Positional trees. Retired Map/List,
+Resolve/Read and Artifact compatibility adapters are removed. Applications
+select every traversal input, including the system payload selector where
+required by their layout.
+
+The public verifier's exact Core commit is recorded in `verifier-source.json`;
+checked-in provenance and checksums identify its build. This immutable source
+pin is not a published Core release. Reusable browser SDK releases belong to
+`malt-ts` and must bind an exact published Core release. Historical tags remain
+available for reproduction, without enabling fallback APIs in current source.
+
+The Resolve tool calls the current Gateway typed query route. The Verify tool
+imports proof JSON locally and verifies only a query whose Root and request the
+user confirms; it does not establish freshness or verify downloaded payload
+bytes. See [the tool documentation](docs/tools/verify.md).
 
 ## Prerequisites
 
@@ -54,7 +62,8 @@ npm run preview
 
 ## Test
 
-Run content and tool-link checks:
+Run documentation, browser-query, local import, asynchronous state, and actual
+WASM conformance checks:
 
 ```sh
 npm test

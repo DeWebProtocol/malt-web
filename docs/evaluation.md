@@ -42,9 +42,9 @@ Frozen v0.0.5 evaluator systems:
 
 `MALT-flat` identifies the frozen v0.0.5 evaluator's full-path flat-map
 baseline and is preserved by existing result artifacts. It is not a current
-`malt-client` layout value: the local runtime exposes `layout=hybrid`. New
-product tests should name that actual strategy instead of treating
-`MALT-flat` as a runtime configuration.
+`malt-client` layout value. The current runtime exposes `flat-v1`,
+`hybrid-v1` and `rooted-v1`; new product tests identify the actual selected
+strategy rather than reusing a historical result label.
 
 HAMT is a directory or map-relation baseline. It is not the large-file content
 layout baseline.
@@ -78,23 +78,22 @@ Write amplification reports:
 Path or query resolution:
 
 ```text
-Read(root, path/query) -> destination + proof/evidence
+Authenticate(root, typed steps, resolve) -> destination + traversal evidence
 ```
 
 Range or partial read:
 
 ```text
-Read(root, byte range) -> selected bytes + path/payload proof + list_range evidence
+Authenticate(root, typed steps, range) -> fixed-chunk metadata + segment bindings
+Fetch and bind segment bytes -> requested byte interval
 ```
 
-The current MALT path uses measured-list `list_range` evidence for large-file
-range reads. The step carries authenticated fixed chunk metadata, covered
-segment CIDs, and metadata/index proof payload. ProofList verification binds
-that metadata and the ordered segment CIDs; UnixFS callers accepting returned
-bytes additionally perform an equivalent body-binding check. The
-`github.com/dewebprotocol/malt-client/unixfs.VerifyRangeBody` helper is a
-runtime-side check rather than
-part of MALT core.
+The current typed range operation authenticates fixed chunk metadata, bounds
+and the ordered segment CIDs. The local runtime's UnixFS reader verifies that
+evidence against its selected Root, hashes fetched segment bytes, and assembles
+the requested slice. Proof and payload checks are separate measured work;
+the removed `list_range` proof format and `VerifyRangeBody` helper are not
+current runtime APIs.
 
 Encrypted private-CAS read:
 

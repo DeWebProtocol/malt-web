@@ -13,13 +13,13 @@ hero:
       text: Technical docs
       link: /docs/runtime
     - theme: alt
-      text: malt-core v0.0.8
-      link: https://github.com/DeWebProtocol/malt-core/releases/tag/v0.0.8
+      text: MALT Core source
+      link: https://github.com/DeWebProtocol/malt-core
 
 features:
   - title: Local runtime
     details: The malt CLI and daemon own local trust, keys, UnixFS application behavior, backup/sync orchestration, and verified payload exposure.
-  - title: MALT Core v0.0.8
+  - title: MALT Core
     details: The application-neutral malt-core SDK defines canonical relations, roots, commitments, ProofLists, and local verification.
   - title: Optional Gateway
     details: Gateways provide Bucket, CAS, proof generation, and managed execution, but cannot promote an observed head or bypass local verification.
@@ -40,8 +40,8 @@ import { withBase } from 'vitepress'
         mode, and local APIs share the same application and trust boundaries.
       </p>
       <p>
-        MALT Core authenticates graph-shaped relationships through list/map
-        semantics, typed roots, and ProofLists. Payloads may live on local
+        MALT Core authenticates graph-shaped relationships through typed inputs,
+        Prefix and Positional trees, and Root-bound proofs. Payloads may live on local
         disk, in CAS, behind a Gateway, or in future peer transports; every
         remote proof and payload CID is checked locally before use.
       </p>
@@ -61,7 +61,7 @@ import { withBase } from 'vitepress'
     </div>
     <div class="malt-strip">
       <strong>Current pre-v1 contracts</strong>
-      <span>Use canonical segments with malt.resolve/v0alpha1 and malt.read/v0alpha1; the wire API remains pre-v1 even though the Core module is formally released.</span>
+      <span>Use explicit typed inputs with malt.authentication/1 and verify each result against the intended root and query.</span>
     </div>
     <div class="malt-strip">
       <strong>Filesystem boundary</strong>

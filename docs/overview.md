@@ -18,12 +18,11 @@ The website has two main lanes:
 - [Technical Docs](/docs/runtime): current prototype status, HTTP API,
   ProofLists, UnixFS application model, and benchmark protocol.
 
-Status labels matter in the technical lane: `malt-core v0.0.8` is the current
-released Core version. It preserves the application-neutral SDK in the
-renamed `malt-core` repository, keeps persistent ArcTable/KV/CAS execution in
-`gateway`, and keeps the user-controlled local runtime, daemon, and UnixFS in
-the `malt` repository. The managed browser application remains in
-`gateway/console`.
+The current source path separates typed authentication in `malt-core`, service
+persistence in `gateway`, and user-controlled trust, daemon and UnixFS behavior
+in `malt`. The managed browser application remains in `gateway/console`.
+The exact source and release pins of each integration identify its executable
+behavior; a source migration does not imply a published package release.
 
 The local runtime deliberately supports both MALT-authenticated UnixFS and
 IPFS-compatible Merkle DAG UnixFS import. Those are separate targets under one
@@ -38,21 +37,14 @@ force ancestor-dependent rewrites and retrieval-depth costs.
 
 MALT changes the boundary:
 
-- typed arcs are authenticated under independent structure roots
-- `list` and `map` define typed semantic reads and writes
-- VC backends produce verifier-facing commitments and proofs
-- the portable `auth/verifier` checks proofs without runtime or storage access
-- core algorithms consume an injected materializer capability, while gateway
-  ArcTable/KV implementations remain untrusted execution state
-- reads return `result + ProofList` for local verification
-- clients submit segment arrays without discovering how a graph groups a long
-  path into authenticated arcs
-- `malt.resolve/v0alpha1` and `malt.read/v0alpha1` standardize
-  operation-specific results and verification across gateways, executors, and
-  SDKs; the v0.0.4 Artifact union is frozen compatibility behavior
-- resolver and writer ports expose this runtime behavior without owning the
-  list/map semantics
-- immutable payloads can remain ordinary CAS data
+- labels, positional indices and system selectors have explicit typed inputs
+- a standalone authentication tree commits coordinates and verifies proofs
+- Prefix and Positional layouts are selected by a Root descriptor
+- KZG and IPA provide commitment backends
+- `auth/engine` and `graph/traversal` compose those primitives through narrow materializer capabilities
+- `malt.authentication/1` carries explicit queries and locally verified evidence
+- retained writers produce candidates and exact materialization batches
+- immutable payloads remain ordinary CAS data
 
 The claim is not that updates become free. The claim is that MALT replaces
 implicit ancestor-rewrite costs with explicit, verifiable structure maintenance.
@@ -62,35 +54,25 @@ implicit ancestor-rewrite costs with explicit, verifiable structure maintenance.
 ```text
 Payload storage       Arc authentication          Execution and access
 CAS objects + CIDs    typed arcs + VC proofs      layouts, ArcTable, caches,
-        |              auth/verifier               executors, gateways
+        |              auth/tree               executors, gateways
         |                     ^                            |
         +--- payload CID -----+--- result + ProofList -----+
 ```
 
-In the current v0.0.8 line, the module-root package in `malt-core` (Go package name `malt`) is
-the application-neutral facade for resolve/read values, mutations, and
-verification. Semantic algorithms live under `auth/semantic`; `auth/verifier`
-is the portable authentication kernel.
-No persistent ArcTable, CAS, HTTP server, CLI, daemon, or UnixFS package is part
-of core.
+Core's public application-neutral APIs live in `sdk/authentication`. Typed
+input encoding, the authentication tree, engine and graph traversal are separate
+modules. Core contains no persistent ArcTable, CAS, HTTP server, daemon or UnixFS.
 
-UnixFS is one application model/profile that composes these primitives; it is
-not the definition of the core abstraction. The local runtime currently uses
-one `hybrid` materialization strategy: directories form authenticated map roots
-while ancestor maps may also retain descendant full-path bindings. Layout
-selection remains a runtime adapter/application concern rather than a Core
-semantic.
+UnixFS composes these primitives through flat, hybrid and rooted layouts.
+Application layout selection does not add semantic Map/List adapters to Core.
 
 ## Read Interface
 
 The verifier-facing read shape is:
 
 ```text
-Resolve(root, segments) -> target + ProofList
-VerifyResolve(request, result) -> valid / invalid
-
-Read(root, query) -> result + ProofList
-VerifyRead(root, query, result, ProofList) -> valid / invalid
+Authenticate(root, typed steps, operation) -> authentication result
+Verify(request, result) -> valid / invalid
 ```
 
 The root is the caller's correctness handle. The server runtime may accelerate
@@ -99,18 +81,19 @@ against the supplied root.
 
 ## Write Interface
 
-Layouts produce semantic mutations and the writer applies them under an
-explicit root:
+Application planners prepare typed state, and the retained writer computes
+local candidates before exact materialization:
 
 ```text
-ApplyMutation(baseRoot, semanticMutation) -> newRoot + writeReceipt
+Prepare / Apply / Export -> candidate
+MaterializeBatch(exact ordered candidates) -> durable receipt
 ```
 
 The write receipt is operational metadata. It is not a correctness object and
 does not make the server the owner of a head.
 
-The current prototype exposes this write boundary as root-scoped canonical arc
-deltas; see the [Semantic Mutation Contract](/docs/api#semantic-mutation-contract).
+The [typed API boundary](/docs/api) separates candidate computation, atomic
+materialization receipts and application-owned root acceptance.
 
 ## What MALT Does Not Own
 
@@ -120,10 +103,9 @@ availability, or define tenant and quota policy. Those are application or
 deployment concerns built around MALT. Managed gateway service behavior belongs
 in the separate `DeWebProtocol/gateway` repository.
 
-The current [`malt-core v0.0.8`](https://github.com/DeWebProtocol/malt-core/releases/tag/v0.0.8)
-source release publishes the operation-specific resolve/read profiles and
-retains the frozen v0alpha2 Artifact compatibility contract from v0.0.4.
-It remains pre-`v1` and is not a production stability promise.
+The current source removes retired Map/List, Resolve/Read, client-root and
+Artifact compatibility interfaces. It remains pre-beta; independent package
+releases retain their own exact provenance requirements.
 
 ## Where to Go Next
 

@@ -1,123 +1,77 @@
 # MALT Abstraction
 
-MALT targets authentication for structured data whose relationships can be
-normalized into graph-shaped nodes and relations.
-
-MALT defines authenticated structure: graph-shaped nodes and relations, root
-computation, proof generation, and verification. Immutable payloads can still
-be represented as ordinary content-addressed data identified by CIDs, but
-payload storage is the engineering substrate rather than the abstraction's
-starting point.
+MALT authenticates structured data whose relationships can be represented as
+graph nodes and relations. Immutable payload bytes retain their ordinary CIDs;
+authenticated relationships describe how those payloads and other nodes connect.
 
 ## Authenticated Graph-Normalized Structure
 
-The abstraction separates three concerns that an implicit Merkle-DAG arc often
-couples:
+The abstraction separates three concerns:
 
-- **Payload storage:** immutable bytes retain ordinary CIDs and live in CAS.
-- **Relation authentication:** typed arcs are committed and proved by a VC
-  backend under a MALT root.
+- **Payload storage:** immutable bytes live in content-addressed storage.
+- **Relation authentication:** typed inputs map to coordinates whose targets
+  are committed under a complete MALT Root.
 - **Execution and access:** application adapters, ArcTable materialization,
-  caches, executors, and gateways locate or serve relations and proofs.
+  caches and gateways locate state and produce answers with evidence.
 
-MALT roots authenticate semantic-layer state. A reader obtains a trusted root
-from an application publication layer, asks a server runtime or local runtime
-for a query result, and verifies the returned `ProofList` against that root
-with the portable authentication kernel. Execution components are not trusted
-for correctness.
+A reader selects a Root according to its application's trust policy, constructs
+an exact query, and verifies the untrusted result locally. Publication or a
+successful server response does not establish a trusted Root or freshness.
 
-## Graph Nodes and ArcSets
+## Typed Inputs and Authentication Trees
 
-MALT models outgoing structure as arcsets:
+Applications submit explicit typed inputs. Core's input rule encodes each one
+as a coordinate; the authentication tree operates on coordinates and targets.
+The Root binds the input rule, tree layout and commitment profile, so they
+cannot be independently substituted during verification.
 
-```text
-ArcSet = {(coordinate, target)}
-```
+The two tree layouts serve different workloads:
 
-Coordinates are semantic positions. They can be keys, path-like tokens,
-indexes, or range coordinates depending on the semantic object.
+- **Prefix** authenticates keyed bindings and absence. A complete flat path may
+  be a single label input; Core does not parse or group path segments.
+- **Positional** authenticates indexed bindings and count metadata. Its
+  fixed-chunk form also authenticates byte-layout metadata for range queries.
 
-The target representation is deterministic:
+The current SDK exposes these through `auth/input`, `auth/tree`, `auth/engine`
+and `sdk/authentication`. Keyed and sequential application data no longer
+require separate semantic Map/List adapters.
 
-```text
-CanonicalArcSet {
-  kind: map | list
-  entries: []ArcEntry
-}
+## Explicit Graph Traversal
 
-ArcEntry {
-  coordinate: CanonicalCoordinate
-  target: TargetRef
-}
-```
+A query supplies an ordered array of typed steps. Each step selects one binding
+at the current Root; a following step uses the reached Root's own descriptor.
+Applications choose all selectors and arc boundaries. There is no automatic
+longest-prefix grouping or implicit terminal payload redirect.
 
-Entries are sorted by canonical coordinate bytes. A well-formed ArcSet has at
-most one target per coordinate. Conflicting bindings for the same coordinate are
-invalid inputs; equivalent duplicate input may be rejected or collapsed before
-canonicalization. Coordinates are encoded by the semantic layer, not by
-ArcTable.
-
-## List Semantic
-
-`list` describes complex graph nodes with ordered or indexed child references.
-
-Read semantics:
-
-- first-class index query
-- optional measured range query over byte intervals when the implementation
-  authenticates byte-layout metadata
-- length-aware proof
-
-Native writes:
-
-- append
-- replace
-- truncate
-
-List does not define path-resolution semantics. A file application can translate
-byte ranges into list queries. The current fixed-width measured list
-authenticates `child_count`, `total_size`, and `chunk_size` metadata and emits
-range evidence as path/`@payload` proof plus one measured-list `list_range`
-step carrying metadata, covered segment CIDs, and metadata/index proofs. The
-current prototype does not expose a first-class cryptographic range-proof API.
-
-## Map Semantic
-
-`map` describes authenticated keyed or path-like relations among graph nodes.
-
-Native reads:
-
-- exact key lookup
-- binding proof
-- binding verification
-
-Native writes:
-
-- insert
-- replace
-- delete
-
-Composition above primitive map reads accepts canonical segment arrays. One
-authenticated arc may consume several leading segments, so clients do not need
-to discover arc boundaries before resolving. The reference resolver prefers
-the longest prefix at each root, while the verifier proves the complete
-returned derivation without claiming maximality or uniqueness. Map still owns
-exact keyed proof and update semantics; applications own overlap policy.
+The `malt.authentication/1` query contract supports resolve, binding and range
+operations. Local verification checks the caller's complete Root, requested
+steps, ordered continuity and final operation evidence. A missing binding
+proves where traversal stopped, without authenticating an unvisited suffix.
+See [ProofLists and typed results](/docs/prooflists).
 
 ## Payload Boundary
 
-CAS payloads remain outside the mutable structure layer. MALT binds semantic
-objects to payload CIDs; it does not redefine payload identity.
+The typed `system` selector with number `1` selects a payload binding when the
+application layout uses one. A label containing the literal text `@payload`
+is a different input. Applications may call the system selector `@payload`
+in user-facing path notation, but must translate it explicitly.
 
-`@payload` is a reserved coordinate, but it is optional for a generic map. A
-relation-only map with no payload binding is valid MALT state. When present,
-`@payload` is a terminal materialization relation and its proof uses
-`payload_binding` semantics rather than ordinary traversal.
+Generic Prefix objects need not contain a payload. UnixFS decides which objects
+carry directory manifests or file payloads. When traversal ends at a Prefix
+Root, its reader explicitly queries the payload selector. In flat layouts,
+file and directory entries already point to their payload or manifest target.
+Large-file payloads use Positional chunk bindings. The three current UnixFS
+strategies are described in [UnixFS layouts](/docs/unixfs-layout).
 
-The UnixFS application model requires `@payload` for its file and directory maps. A small
-file can bind it directly to a CAS blob; a large file can bind it to a list node
-whose entries are chunk CIDs. That requirement belongs to UnixFS, not to the
-generic map abstraction.
+A Positional range result authenticates bounds, fixed chunk metadata and the
+ordered segment CIDs covered by the requested interval. The application must
+hash fetched bytes against those CIDs and assemble the requested slice. Core
+proof verification alone does not authenticate an arbitrary response body.
 
-List objects do not auto-redirect through `@payload`. This distinction keeps
-map materialization and list range semantics separate.
+## Updates and Trust
+
+Retained typed writers prepare and apply changes, then export candidates.
+Materialization can persist an ordered batch and return an exact receipt.
+Candidates and receipts describe execution; they are not portable proofs of
+state transition, freshness or accepted-root promotion. Applications retain
+control of those trust decisions.

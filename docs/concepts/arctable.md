@@ -17,7 +17,7 @@ given root -> recover enough semantic state to answer queries and generate proof
 It belongs to the performance plane. It is allowed to use implementation-local
 storage prefixes, namespaces, indexes, or partitions. Those details are not
 part of canonical semantic identity, commitment inputs, `ProofList`, or
-`VerifyRead`.
+local query verification.
 
 Incorrect materialized state is rejected by verification or root recomputation.
 
@@ -37,30 +37,20 @@ They are responsible for:
 They are not responsible for map key semantics, list range semantics, path
 resolution, application layout, or root publication policy.
 
-The semantic packages add a narrow storage-free layer above those primitives:
-`auth/semantic/list.Commitment` and `auth/semantic/mapping.Commitment` expose
-`Commit`, `ProveSlot`, and `VerifySlot` for semantic slot representations.
-Runtime implementations then compose those single-step primitives with ArcTable
-materialization and tree/radix traversal.
+`auth/input` derives coordinates from typed labels, positional indices and
+system selectors. `auth/tree` authenticates those coordinates; `auth/engine`
+binds the algorithm to a Root descriptor. `graph/traversal` composes explicit
+steps across Roots. Materialization is injected through narrow lookup, update
+and snapshot capabilities in `auth/arcset/materializer`.
 
-## Canonical ArcSets
+## Canonical inputs and materialized state
 
-The target representation is deterministic and semantic-layer owned:
+Canonical coordinates and typed Root descriptors are Core-owned. A coordinate
+has at most one authenticated binding in a candidate. The retained writer
+validates imported state and computes changed nodes before an untrusted service
+materializes an exact batch. Physical keys, caches and storage prefixes are not
+part of the coordinate derivation or proof contract.
 
-```text
-CanonicalArcSet {
-  kind: map | list
-  entries: []ArcEntry
-}
-
-ArcEntry {
-  coordinate: CanonicalCoordinate
-  target: TargetRef
-}
-```
-
-Entries are sorted by canonical coordinate bytes. A well-formed ArcSet has at
-most one target per coordinate. Conflicting bindings for the same coordinate are
-invalid inputs; equivalent duplicate input may be rejected or collapsed before
-canonicalization. Coordinates are encoded by list or map semantics, not by
-ArcTable.
+The retired semantic Map/List facades and aggregate Store are absent from this
+source path. Prefix and Positional are authentication layouts; file/directory
+meaning and chunk assembly remain application concerns.
