@@ -1,21 +1,25 @@
 # Public typed verifier assets
 
-`verifier-source.json` pins the exact reviewed Core commit and its Go
-pseudo-version. This identifies source, not a published Core release. The
-browser assets implement only `malt.authentication/1`, using Core's portable
-verifier with both KZG and IPA backends. They carry the current Core corpus,
-`malt.web-verifier.provenance/v2`, and checksums for every artifact.
+These files are copied byte-for-byte from the exact `@dewebprotocol/malt`
+package locked in `package-lock.json`. `verifier-source.json` records its
+malt-ts commit and version, the published Core source identity, the verifier
+asset-set digest, and the separately retained Core corpus digest.
 
-Rebuild from the clean pinned Core checkout:
+The WASM, matching `wasm_exec.js`, `PROVENANCE.json`, and `SHA256SUMS` belong
+to malt-ts. Web preserves those files unchanged and imports the supported
+`@dewebprotocol/malt/verifier` API for browser initialization and verification.
+There is no Core checkout or Go/WASM compilation step in this repository.
+
+After a deliberate SDK dependency/pin update, run sequentially in the workspace
+CPU-limited scope:
 
 ```sh
-MALT_CORE_SOURCE=/path/to/malt-core npm run build:verifier
+npm ci
+npm run sync:verifier
 npm test
 npm run build
 ```
 
-Run builds in the workspace CPU-limited transient scope. The build rejects a
-changed commit, dirty source, wrong repository or module, and tests positive
-and hostile Core vectors before replacing assets. The supported reusable
-TypeScript distribution remains `malt-ts`, whose release builds separately
-require an exact published Core release.
+Synchronization validates package-lock identity, installed SDK metadata, the
+Core binding, package asset checksums, and corpus integrity. It runs actual
+WASM positive and hostile-vector tests before replacing the site's assets.

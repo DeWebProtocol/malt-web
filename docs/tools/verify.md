@@ -10,7 +10,7 @@ import MaltVerifyTool from '../.vitepress/theme/components/MaltVerifyTool.vue'
 
 <MaltVerifyTool />
 
-The local Core WebAssembly verifier checks `malt.authentication/1` requests
+The local WebAssembly verifier from malt-ts checks `malt.authentication/1` requests
 and results. Enter the expected request and untrusted result separately, or
 import the JSON file saved by **Download proof JSON** in Gateway Console.
 The file is read in this browser; it is not uploaded. Select an imported query,
@@ -22,6 +22,7 @@ The application must check that relationship and bind downloaded payload bytes
 to the authenticated CIDs and range geometry. Loading the page or importing a
 proof never promotes a trusted root or proves freshness.
 
-The bundled verifier is built from the exact Core source revision in
-`verifier-source.json`. It supports KZG and IPA and fails closed when the
-current authentication export or initialization is missing.
+The bundled verifier comes from the exact malt-ts package pinned by the site.
+`verifier-source.json` records that SDK commit, its published Core dependency,
+and the asset and corpus digests. The SDK supports KZG and IPA and fails closed
+when the current authentication export or initialization is missing.

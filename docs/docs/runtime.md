@@ -74,7 +74,8 @@ not part of the `malt` CLI or reusable production transport surface.
 The managed Gateway Console is another client. It lives in
 [`gateway/console`](https://github.com/DeWebProtocol/gateway/tree/main/console),
 uses same-origin `/api` with authenticated Bucket queries and immutable CID
-reads, and verifies with the WASM integration artifact built from Core. UnixFS preview/upload logic
+reads, and verifies with WASM assets built and distributed by malt-ts against an exact
+published Core release. UnixFS preview/upload logic
 stays in that browser client instead of becoming a gateway or core route. This
 repository ships the public documentation and verifier tools, not the managed
 Console.
@@ -83,6 +84,7 @@ Console.
 
 | Repository/package | Responsibility |
 |---|---|
+| `malt-ts` | TypeScript API, WASM compilation and distribution, browser Worker lifecycle |
 | `malt-core/protocol` | Typed authentication serialization and schemas |
 | `malt-core/auth/arcset` | Canonical ArcSet values |
 | `malt-core/auth/arcset/materializer` | Narrow lookup/update/snapshot/iteration capabilities, no persistence format |
@@ -114,7 +116,7 @@ does not make it trusted automatically; clients must explicitly accept or
 independently authenticate each new trusted root.
 
 The browser verifier's
-[provenance record](/verifier/PROVENANCE.json) identifies the exact MALT commit
-and Go toolchain used to build the deployed WASM. That integration identity,
+[provenance record](/verifier/PROVENANCE.json) identifies malt-ts build inputs, its exact Core dependency, and the Go toolchain
+used to build the deployed WASM. That integration identity,
 rather than the website version, determines which typed Root codecs the
 artifact accepts.

@@ -23,11 +23,12 @@ Resolve/Read and Artifact compatibility adapters are removed. Applications
 select every traversal input, including the system payload selector where
 required by their layout.
 
-The public verifier's exact Core commit is recorded in `verifier-source.json`;
-checked-in provenance and checksums identify its build. This immutable source
-pin is not a published Core release. Reusable browser SDK releases belong to
-`malt-ts` and must bind an exact published Core release. Historical tags remain
-available for reproduction, without enabling fallback APIs in current source.
+The public verifier uses the supported `@dewebprotocol/malt/verifier` API and
+copies WASM assets from the exact malt-ts commit pinned in `package-lock.json`.
+`verifier-source.json` binds the SDK commit, its Core source identity, the
+verifier asset-set digest, and the portable corpus digest. Run
+`npm run sync:verifier` after deliberately updating those pins; this website
+does not compile WASM or manage its own browser runtime.
 
 The Resolve tool calls the current Gateway typed query route. The Verify tool
 imports proof JSON locally and verifies only a query whose Root and request the

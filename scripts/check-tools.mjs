@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import vm from 'node:vm'
 import { buildAuthenticationURL, resolvePath } from '../docs/.vitepress/theme/malt-client.mjs'
 import { verificationPairs } from '../docs/.vitepress/theme/verification-input.mjs'
-import { verifyAuthenticationLocally } from '../docs/.vitepress/theme/malt-verifier.mjs'
+import { verifyAuthenticationLocally } from '@dewebprotocol/malt/verifier'
 
 assert.equal(buildAuthenticationURL('https://gateway.example/api/?old=1#old').toString(), 'https://gateway.example/api/v1/authentication/query')
 assert.throws(() => buildAuthenticationURL('https://account:secret@gateway.example'), /credentials/)

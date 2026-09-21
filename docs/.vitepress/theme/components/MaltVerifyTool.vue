@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { withBase } from 'vitepress'
-import { verifyAuthenticationLocally } from '../malt-verifier.mjs'
+import { verifyAuthenticationLocally } from '@dewebprotocol/malt/verifier'
 import { verificationPairs } from '../verification-input.mjs'
 
 const requestInput = ref(''), resultInput = ref(''), busy = ref(false), error = ref('')

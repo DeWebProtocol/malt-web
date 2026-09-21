@@ -1,29 +1,14 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
-import { createHash, webcrypto } from 'node:crypto'
+import { webcrypto } from 'node:crypto'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { verifyAuthenticationLocally } from '../docs/.vitepress/theme/malt-verifier.mjs'
+import { verifyInstalledAssets } from './verifier-assets.mjs'
+import { verifyAuthenticationLocally } from '@dewebprotocol/malt/verifier'
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const root = process.env.MALT_VERIFIER_ROOT || path.join(repo, 'docs/public/verifier')
-const pin = JSON.parse(fs.readFileSync(path.join(repo, 'verifier-source.json')))
-const provenance = JSON.parse(fs.readFileSync(path.join(root, 'PROVENANCE.json')))
-assert.equal(provenance.schema, 'malt.web-verifier.provenance/v2')
-for (const [key, value] of Object.entries(pin)) assert.equal(provenance[key], value, key)
-assert.equal(provenance.authentication_profile, 'malt.authentication/1')
-assert.equal(provenance.corpus, 'authentication-v1.json')
-assert.equal(provenance.target, 'js/wasm')
-assert.match(provenance.go_version, /^go\d+\.\d+(?:\.\d+)?$/)
-assert.deepEqual(provenance.build_flags, ['-p=6', '-mod=readonly', '-buildvcs=false', '-trimpath'])
-assert.deepEqual(provenance.build_environment, { GOENV: 'off', GOWORK: 'off', GOFLAGS: '', GOTOOLCHAIN: 'local' })
-const required = new Set(['malt-verifier.wasm', 'wasm_exec.js', 'PROVENANCE.json', 'authentication-v1.json'])
-for (const line of fs.readFileSync(path.join(root, 'SHA256SUMS'), 'utf8').trim().split('\n')) {
-  const entry = /^([0-9a-f]{64}) [ *]([^/\r\n]+)$/.exec(line)
-  assert(entry && required.delete(entry[2]), `unexpected or repeated checksum ${line}`)
-  assert.equal(createHash('sha256').update(fs.readFileSync(path.join(root, entry[2]))).digest('hex'), entry[1], entry[2])
-}
-assert.equal(required.size, 0)
+verifyInstalledAssets(root)
 const corpus = JSON.parse(fs.readFileSync(path.join(root, 'authentication-v1.json')))
 assert.equal(corpus.schema, 'malt.conformance.authentication/1')
 globalThis.crypto ??= webcrypto
@@ -44,7 +29,9 @@ assert.equal(globalThis.maltVerifierLoadedBackend, 'all')
 assert.equal(globalThis.maltVerifierInitError, undefined)
 assert.equal(typeof globalThis.maltVerifyAuthentication, 'function')
 for (const old of ['maltVerifyResolve', 'maltVerifyRead', 'maltVerifyMapProof', 'maltVerifyArtifact']) assert.equal(globalThis[old], undefined)
-const provider = { authentication: globalThis.maltVerifyAuthentication }
+// The supported provider accepts an AbortSignal; the internal Go ABI takes
+// only the serialized query. Adapt it explicitly for this native test host.
+const provider = { authentication: json => globalThis.maltVerifyAuthentication(json) }
 for (const vector of corpus.vectors) {
   const result = await verifyAuthenticationLocally({ ...vector.verification, provider })
   assert.equal(result.valid, vector.valid, `${vector.id}: ${result.error}`)

@@ -7,11 +7,11 @@
     "dev": "vitepress dev docs --host 127.0.0.1",
     "build": "vitepress build docs",
     "preview": "vitepress preview docs --host 127.0.0.1",
-    "build:verifier": "bash scripts/build-verifier.sh",
     "check:content": "node scripts/check-content.mjs",
     "check:tools": "node scripts/check-tools.mjs",
     "check:verifier": "node scripts/check-verifier-wasm.mjs",
-    "test": "npm run check:content && npm run check:tools && npm run check:verifier"
+    "test": "npm run check:content && npm run check:tools && npm run check:verifier",
+    "sync:verifier": "node scripts/sync-verifier.mjs"
   },
   "devDependencies": {
     "vitepress": "^1.6.4"
@@ -19,5 +19,8 @@
   "overrides": {
     "@vitejs/plugin-vue": "6.0.8",
     "vite": "7.3.6"
+  },
+  "dependencies": {
+    "@dewebprotocol/malt": "https://github.com/DeWebProtocol/malt-ts/archive/9459f59e550a61593205ef1bd7637c4ff18b7d1c.tar.gz"
   }
 }

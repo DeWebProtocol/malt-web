@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { withBase } from 'vitepress'
 import { defaultGatewayURL, resolvePath } from '../malt-client.mjs'
-import { verifyAuthenticationLocally } from '../malt-verifier.mjs'
+import { verifyAuthenticationLocally } from '@dewebprotocol/malt/verifier'
 
 const baseURL = ref(defaultGatewayURL)
 const root = ref('')
