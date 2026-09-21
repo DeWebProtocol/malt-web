@@ -24,7 +24,7 @@ through a payload selector.
 
 ## Composition and updates
 
-`graph/traversal` follows an explicit array of typed steps. A path query can
+`traversal` follows an explicit array of typed steps. A path query can
 end at another Root, a payload CID or a manifest CID; interpreting that target
 is application policy. Flat, hybrid and rooted UnixFS layouts are composed
 above these authentication primitives.
