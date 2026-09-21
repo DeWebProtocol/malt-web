@@ -41,7 +41,7 @@ MALT changes the boundary:
 - a standalone authentication tree commits coordinates and verifies proofs
 - Prefix and Positional layouts are selected by a Root descriptor
 - KZG and IPA provide commitment backends
-- `auth/engine` and `graph/traversal` compose those primitives through narrow materializer capabilities
+- `auth/engine` and `traversal` compose those primitives through narrow materializer capabilities
 - `malt.authentication/1` carries explicit queries and locally verified evidence
 - retained writers produce candidates and exact materialization batches
 - immutable payloads remain ordinary CAS data

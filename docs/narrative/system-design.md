@@ -24,7 +24,7 @@ operations without owning application policy, persistent storage or HTTP.
   layouts.
 - `auth/commitment` provides commitment, opening and verification primitives.
 - `auth/engine` binds those algorithms to complete Root descriptors.
-- `graph/traversal` composes explicit typed steps across Roots.
+- `traversal` composes explicit typed steps across Roots.
 - `sdk/authentication` and its host adapter expose query, retained writer and
   session operations to native and browser callers.
 

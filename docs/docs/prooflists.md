@@ -14,7 +14,7 @@ POST /v1/authentication/query -> authentication result
 
 The authentication tree owns coordinates and proofs. `auth/input` encodes
 labels, positional indices and system selectors; `auth/engine` applies them to
-a Root descriptor. `graph/traversal` composes explicit queries. There are no
+a Root descriptor. `traversal` composes explicit queries. There are no
 separate legacy Map/List proof or Resolve/Read APIs.
 
 ## Explicit payload selection

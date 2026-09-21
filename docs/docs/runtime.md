@@ -8,7 +8,7 @@ uses typed authentication; release pins are independent from this source change.
 
 [`DeWebProtocol/malt-core`](https://github.com/DeWebProtocol/malt-core) owns
 `auth/input`, the coordinate authentication tree under `auth/tree`,
-`auth/engine`, `graph/traversal`, `sdk/authentication`, commitment backends,
+`auth/engine`, `traversal`, `sdk/authentication`, commitment backends,
 canonical Root CIDs, wire schemas and local verification. Algorithms consume
 narrow capabilities in `auth/arcset/materializer`. The old Map/List adapters,
 module-root facade, aggregate Store and Resolve/Read/client-root APIs are removed.
@@ -88,7 +88,7 @@ Console.
 | `malt-core/auth/arcset/materializer` | Narrow lookup/update/snapshot/iteration capabilities, no persistence format |
 | `malt-core/auth/tree` | Coordinate authentication trees and proofs |
 | `malt-core/auth/input`, `malt-core/auth/engine` | Typed inputs and descriptor-bound authentication |
-| `malt-core/graph/traversal` | Explicit typed graph traversal |
+| `malt-core/traversal` | Explicit typed graph traversal |
 | `malt-core/sdk/authentication` | Typed queries, retained candidate computation, batch and receipt checks |
 | `gateway/internal/arctable`, `gateway/internal/kv` | Persistent materialization owned by the service |
 | `gateway/internal/backend/embedded` | Embedded untrusted core execution and CAS |

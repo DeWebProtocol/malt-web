@@ -39,7 +39,7 @@ resolution, application layout, or root publication policy.
 
 `auth/input` derives coordinates from typed labels, positional indices and
 system selectors. `auth/tree` authenticates those coordinates; `auth/engine`
-binds the algorithm to a Root descriptor. `graph/traversal` composes explicit
+binds the algorithm to a Root descriptor. `traversal` composes explicit
 steps across Roots. Materialization is injected through narrow lookup, update
 and snapshot capabilities in `auth/arcset/materializer`.
 
