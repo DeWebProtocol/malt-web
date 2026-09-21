@@ -1,82 +1,48 @@
 # MALT UnixFS Application Model
 
-UnixFS is an application model above MALT list/map semantics and immutable
-payload objects. It is not the core MALT abstraction.
+UnixFS is an application model above typed authentication and immutable payload
+objects. The local runtime and managed Console own file/directory meaning;
+Core owns labels, system selectors, coordinates, tree proofs and Root layouts.
 
-With the current `malt-core v0.0.8` line, UnixFS remains an
-application/runtime concern. The
-local implementation is currently in `DeWebProtocol/malt/unixfs`; the
-managed Gateway Console implements the same application-side model for browser
-upload, preview, and verification.
+`malt add --target malt` produces MALT-authenticated structure. The separate
+`--target merkle-dag` mode imports IPFS-compatible UnixFS blocks and returns a
+DAG CID; its link replay does not claim a MALT proof.
 
-The local runtime supports two UnixFS targets. `malt add --target malt`
-materializes MALT-authenticated structure and returns a MALT root whose reads
-can carry ProofLists. `malt add --target merkle-dag` constructs an
-IPFS-compatible Merkle DAG, writes its blocks to CAS, and returns the DAG root
-CID. The latter is interoperability support: it does not turn Merkle DAG
-relations into MALT-authenticated arcs or produce a ProofList.
+## Three application layouts
 
-The model demonstrates how practical file and directory semantics can be built
-without embedding every verifier-facing relation inside immutable parent
-objects.
+| CLI layout | Authenticated relations |
+| --- | --- |
+| `--layout flat-v1` | Complete-path labels in one Prefix Root; paths may target payloads or directory manifests directly |
+| `--layout hybrid-v1` | A Prefix Root per directory with retained descendant whole-path bindings |
+| `--layout rooted-v1` | Immediate-child labels per directory and explicit component traversal between Prefix Roots |
 
-## Structure Model
+`--layout hybrid` is the default short spelling of `hybrid-v1` outside managed
+Bucket mode. A managed Bucket freezes its selected layout; a mutation must
+match it. These are current application strategies, not semantic Map/List
+adapters in Core. The older bare `flat` and `hierarchical` spellings are invalid.
 
-In pure MALT structure UnixFS:
+## Manifests and payloads
 
-- directories use map semantics
-- directory entries are map bindings
-- small-file `@payload` points to a CAS blob
-- large-file `@payload` points to a list node
-- list entries are chunk CIDs
-- path lookup composes map reads
-- large-file range load uses measured-list range evidence over chunk CIDs
+Directory manifests use canonical V2 JSON with explicit `name` and `type`
+fields. The current runtime rejects historical name-only V1 encodings and raw
+manifest fallback; it never infers file/directory type from a Root layout.
 
-Payload and chunks remain ordinary CAS data. MALT authenticates the structure
-that binds paths, payloads, and chunk lists together.
+If traversal ends at a Prefix Root, content reading explicitly selects its
+typed system payload input `{"kind":"system","number":"1"}`. A flat path
+that directly targets a payload or manifest needs no extra payload query. The
+literal label `@payload` is not a Core system selector.
 
-UnixFS requires `@payload` on its file and directory maps. That is an application
-invariant, not a generic map rule: relation-only MALT maps may omit or delete
-the reserved coordinate.
-
-For byte ranges, ProofList verification authenticates fixed chunk metadata and
-the ordered segment CIDs. A caller accepting returned range bytes must also use
-`github.com/dewebprotocol/malt-client/unixfs.VerifyRangeBody` or an equivalent
-check to bind those bytes
-to the authenticated segments.
-
-## Current Hybrid Materialization
-
-The local runtime currently accepts one MALT materialization value:
-`malt add --layout hybrid`. It is also the default. The flag names a UnixFS
-application strategy; it does not make UnixFS a MALT core layout.
-
-The hybrid materialization path:
-
-- ordinary directories are materialized as authenticated map roots
-- directory/root maps also keep descendant full-path bindings
-- path lookup can use longest-prefix reads that skip intermediate maps
-- directory manifests list names as CAS payloads
-
-Earlier pre-release clients exposed `flat` and `hierarchical`, but both names
-selected this same implementation. They are no longer accepted as current CLI
-values. Pure flat root-map and pure per-directory hierarchical materialization
-remain possible future design/evaluation dimensions, not shipped runtime modes.
-
-## Possible Future Materialization Split
-
-If those strategies are implemented as behaviorally distinct modes, their
-intended meanings are:
-
-- `flat`: full-path root-map materialization for update locality and shallow
-  lookup
-- `hierarchical`: directory/root-boundary materialization for explicit
-  per-directory authentication boundaries
+Chunked files use Positional authentication with fixed-width geometry and
+ordered chunk CIDs. The local verified reader authenticates range evidence,
+fetches and checks segment bytes and lengths, then slices the requested range.
+A proof alone does not authenticate a displayed byte buffer. Encrypted UnixFS
+also checks the authenticated ciphertext width against its encrypted manifest.
 
 ## MALT Target Symlink Directory Boundary
 
-For `malt add --target malt`, a symlink whose target is a directory is followed
-and materialized as an authenticated map boundary. This lets symlinked
+For hybrid/rooted `malt add --target malt`, a symlink whose target is a
+directory can be followed and materialized as an authenticated Prefix boundary.
+Flat mode rejects followed directory symlinks before uploading blocks. This lets symlinked
 directory mounts become explicit authenticated subroots. A symlink to a file
 is likewise followed and imported as its target payload.
 
@@ -103,4 +69,4 @@ dir-layout=basic|hamt|adaptive
 
 HAMT is a directory/map-relation baseline. It is not a large-file content
 layout. Large-file range reads compare Merkle/UnixFS chunk structure with MALT
-list-backed chunk structure.
+Positional chunk structure.

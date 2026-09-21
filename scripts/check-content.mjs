@@ -43,7 +43,7 @@ const requiredPhrases = new Map([
     'docs/runtime.md',
     [
       'MALT Core SDK',
-      'auth/verifier',
+      'auth/tree',
       'auth/arcset/materializer',
       'malt-client'
     ]
@@ -51,25 +51,23 @@ const requiredPhrases = new Map([
   [
     'docs/api.md',
     [
-      'POST /v1/resolve',
-      'POST /v1/read',
-      'POST /v1/verify/resolve',
+      'POST /v1/authentication/query',
+      'POST /v1/authentication/batches',
       'POST /v1/cas',
-      'POST /v1/roots/{root}/mutations'
+      'malt.authentication-receipt/0'
     ]
   ],
   [
     'docs/prooflists.md',
     [
-      'Read(root, query) -> result + ProofList',
-      'POST /v1/resolve -> { profile, target, prooflist }',
-      'malt.resolve/v0alpha1',
-      'malt.read/v0alpha1'
+      'Authenticate(request) -> result',
+      'Verify(request, result)',
+      'malt.authentication/1'
     ]
   ],
   [
     'docs/unixfs-layout.md',
-    ['--layout hybrid', 'no longer accepted', 'dir-layout=basic|hamt|adaptive']
+    ['--layout flat-v1', '--layout hybrid-v1', '--layout rooted-v1', 'dir-layout=basic|hamt|adaptive']
   ],
   [
     'docs/evaluation.md',

@@ -1,167 +1,117 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import vm from 'node:vm'
+import { buildAuthenticationURL, resolvePath } from '../docs/.vitepress/theme/malt-client.mjs'
+import { verificationPairs } from '../docs/.vitepress/theme/verification-input.mjs'
+import { verifyAuthenticationLocally } from '../docs/.vitepress/theme/malt-verifier.mjs'
 
-import {
-  buildReadURL,
-  buildResolveURL,
-  buildVerifyReadURL,
-  buildVerifyResolveURL,
-  diagnoseResolveRemotely,
-  readProfile,
-  readQuery,
-  resolvePath,
-  resolveProfile
-} from '../docs/.vitepress/theme/malt-client.mjs'
-
-const root = path.dirname(fileURLToPath(import.meta.url))
-const docsRoot = path.join(root, '..', 'docs')
-
-for (const file of [
-  'tools/resolve.md',
-  'tools/verify.md',
-  '.vitepress/theme/components/MaltResolveTool.vue',
-  '.vitepress/theme/components/MaltVerifyTool.vue',
-  '.vitepress/theme/malt-client.mjs',
-  '.vitepress/theme/malt-payload-verifier.mjs',
-  '.vitepress/theme/malt-verifier.mjs',
-  'public/verifier/wasm_exec.js',
-  'public/verifier/malt-verifier.wasm',
-  'public/verifier/PROVENANCE.json',
-  'public/verifier/SHA256SUMS'
-]) {
-  assert.ok(fs.existsSync(path.join(docsRoot, file)), `Missing public browser tool file: ${file}`)
+assert.equal(buildAuthenticationURL('https://gateway.example/api/?old=1#old').toString(), 'https://gateway.example/api/v1/authentication/query')
+assert.throws(() => buildAuthenticationURL('https://account:secret@gateway.example'), /credentials/)
+const calls = []
+globalThis.fetch = async (url, options) => {
+  calls.push({ url: String(url), options })
+  return Response.json({ profile: 'malt.authentication/1', resolved: 'bafkqaaa' })
 }
-
-for (const removed of ['app.md', '.vitepress/theme/components/MaltApp.vue']) {
-  assert.equal(
-    fs.existsSync(path.join(docsRoot, removed)),
-    false,
-    `Managed Console file must not remain in the public documentation repository: ${removed}`
-  )
+const steps = [{ kind: 'label', data: 'YS9i' }, { kind: 'system', number: '1' }]
+const pair = await resolvePath({ baseURL: 'https://gateway.example/api', root: 'selected', steps })
+assert.deepEqual(pair.request, { profile: 'malt.authentication/1', root: 'selected', steps, operation: 'resolve' })
+assert.equal(calls[0].options.credentials, 'omit')
+assert.equal(calls[0].options.redirect, 'error')
+assert.equal(calls[0].options.cache, 'no-store')
+assert.equal(calls[0].options.headers.Authorization, undefined)
+await assert.rejects(resolvePath({ baseURL: 'https://gateway.example', root: '', steps: [] }), /root/)
+await assert.rejects(resolvePath({ baseURL: 'https://gateway.example', root: 'r', steps: null }), /steps/)
+const input = { request: pair.request, result: pair.result }
+assert.deepEqual(verificationPairs({ node: input, payload: input, range: input }).map(v => v.name), ['node', 'payload', 'range'])
+assert.throws(() => verificationPairs({ verification: input }), /unsupported/)
+assert.throws(() => verificationPairs({ node: { ...input, request: { profile: 'malt.resolve/v0alpha1' } } }), /unsupported/)
+let forwarded
+const checked = await verifyAuthenticationLocally({ ...input, provider: { authentication: json => {
+  forwarded = JSON.parse(json); return JSON.stringify({ profile: 'malt.authentication/1', valid: true })
+} } })
+assert.deepEqual(forwarded, input)
+assert.equal(checked.valid, true)
+assert.equal((await verifyAuthenticationLocally({ ...input, provider: {} })).valid, false)
+assert.equal((await verifyAuthenticationLocally({ ...input, provider: { authentication: () => '{"valid":true}' } })).valid, false)
+const component = fs.readFileSync(new URL('../docs/.vitepress/theme/components/MaltVerifyTool.vue', import.meta.url), 'utf8')
+assert.match(component, /file\.text\(\)/)
+assert.match(component, /if \(busy\.value \|\| !confirmed\.value\) return/)
+assert.doesNotMatch(component, /postMessage|diagnoseRemotely/)
+for (const retired of ['../docs/.vitepress/theme/malt-payload-verifier.mjs', './check-payload-verifier.mjs', './fixtures/resolve-kzg-payload.json']) {
+  assert.equal(fs.existsSync(new URL(retired, import.meta.url)), false)
 }
+console.log('Public typed browser query and local proof import checks passed.')
 
-const configSource = fs.readFileSync(path.join(docsRoot, '.vitepress/config.ts'), 'utf8')
-assert.match(configSource, /text:\s*'Gateway Console'/)
-assert.match(configSource, /https:\/\/gateway\.deweb\.world/)
-assert.match(configSource, /link:\s*'\/tools\/resolve'/)
-assert.match(configSource, /link:\s*'\/tools\/verify'/)
-assert.doesNotMatch(configSource, /link:\s*'\/app'/)
-assert.doesNotMatch(configSource, /transformHtml/)
+// Exercise the actual Vue script to keep verification status bound to the
+// request on screen when file reads and verifier initialization are deferred.
+let finishRead, finishVerify, verifyCalls = 0
+const readGate = new Promise(resolve => { finishRead = resolve })
+const verifyGate = new Promise(resolve => { finishVerify = resolve })
+const script = component.match(/<script setup>([\s\S]*?)<\/script>/)[1].replace(/^import .*$/gm, '')
+const view = vm.runInNewContext(script + '\n({requestInput,resultInput,busy,confirmed,verification,importProof,runVerify,reset})', {
+  ref: value => ({ value }), onMounted: () => {}, withBase: value => value,
+  verificationPairs, verifyAuthenticationLocally: async () => { verifyCalls++; return verifyGate }
+})
+view.requestInput.value = JSON.stringify({ ...input.request, root: 'A' })
+view.resultInput.value = JSON.stringify(input.result)
+view.confirmed.value = true
+const importing = view.importProof({ target: { files: [{ size: 1, text: () => readGate }], value: 'proof.json' } })
+assert.equal(view.busy.value, true)
+await view.runVerify()
+assert.equal(verifyCalls, 0, 'verification must not overlap a pending import')
+finishRead(JSON.stringify({ node: { request: { ...input.request, root: 'B' }, result: input.result } }))
+await importing
+assert.equal(JSON.parse(view.requestInput.value).root, 'B')
+assert.equal(view.confirmed.value, false)
+assert.equal(view.verification.value, null)
+assert.equal(view.busy.value, false)
+view.confirmed.value = true
+const verifying = view.runVerify()
+assert.equal(verifyCalls, 1)
+view.requestInput.value = JSON.stringify({ ...input.request, root: 'C' }); view.reset()
+finishVerify({ valid: true })
+await verifying
+assert.equal(view.verification.value, null, 'old verification cannot validate the changed editor input')
+assert.equal(view.busy.value, false)
+console.log('Deferred file import and stale verification status checks passed.')
 
-const themeSource = fs.readFileSync(path.join(docsRoot, '.vitepress/theme/index.ts'), 'utf8')
-assert.match(themeSource, /export default DefaultTheme/)
-assert.doesNotMatch(themeSource, /MaltApp|isAppStateRoute/)
-
-const clientSource = fs.readFileSync(
-  path.join(docsRoot, '.vitepress/theme/malt-client.mjs'),
-  'utf8'
-)
-assert.doesNotMatch(
-  clientSource,
-  /registerAccount|loginAccount|fetchBuckets|pushBucketRoot|localStorage|API key/
-)
-assert.match(clientSource, /credentials:\s*'omit'/)
-
-const resolveToolSource = fs.readFileSync(
-  path.join(docsRoot, '.vitepress/theme/components/MaltResolveTool.vue'),
-  'utf8'
-)
-assert.match(resolveToolSource, /Resolve and verify/)
-assert.match(resolveToolSource, /verifyResolveLocally/)
-assert.doesNotMatch(resolveToolSource, /Read content|API key|readPayloadBlock/)
-
-const verifyToolSource = fs.readFileSync(
-  path.join(docsRoot, '.vitepress/theme/components/MaltVerifyTool.vue'),
-  'utf8'
-)
-assert.match(verifyToolSource, /Verify locally/)
-assert.match(verifyToolSource, /gateway diagnostic/i)
-assert.match(verifyToolSource, /not a trust decision/)
-
-assert.equal(buildResolveURL('https://gateway.example/api').toString(), 'https://gateway.example/api/v1/resolve')
-assert.equal(buildReadURL('https://gateway.example/api/').toString(), 'https://gateway.example/api/v1/read')
-assert.equal(
-  buildVerifyResolveURL('https://gateway.example/api').toString(),
-  'https://gateway.example/api/v1/verify/resolve'
-)
-assert.equal(
-  buildVerifyReadURL('https://gateway.example/api').toString(),
-  'https://gateway.example/api/v1/verify/read'
-)
-
-const requests = []
-globalThis.fetch = async (input, options = {}) => {
-  const url = new URL(String(input))
-  const body = options.body ? JSON.parse(options.body) : null
-  requests.push({ url, options, body })
-  if (url.pathname.endsWith('/v1/resolve')) {
-    return Response.json({
-      profile: resolveProfile,
-      target: 'bafkqaaa',
-      prooflist: {
-        root: body.root,
-        query: body.segments.join('/'),
-        steps: []
-      }
-    })
-  }
-  if (url.pathname.endsWith('/v1/read')) {
-    return Response.json({
-      profile: readProfile,
-      target: 'bafkqbbb',
-      prooflist: {
-        root: body.root,
-        query: 'list_index:0',
-        steps: []
-      }
-    })
-  }
-  if (url.pathname.endsWith('/v1/verify/resolve')) {
-    return Response.json({ valid: true })
-  }
-  throw new Error(`Unexpected test request: ${url}`)
+// Resolve must invalidate completed proofs and both pending network and WASM
+// results when any displayed selector changes.
+const resolveComponent = fs.readFileSync(new URL('../docs/.vitepress/theme/components/MaltResolveTool.vue', import.meta.url), 'utf8')
+for (const field of ['baseURL', 'root', 'stepsInput']) {
+  assert.match(resolveComponent, new RegExp(`v-model="${field}"[^>]*@input="reset"`))
 }
-
-const resolved = await resolvePath({
-  baseURL: 'https://gateway.example/api',
-  root: 'bafkqroot',
-  path: 'docs/read me'
+const resolveScript = resolveComponent.match(/<script setup>([\s\S]*?)<\/script>/)[1].replace(/^import .*$/gm, '')
+let finishQuery, finishProof, markProofStarted, resolveProofCalls = 0
+const proofStarted = new Promise(resolve => { markProofStarted = resolve })
+const queryGate = new Promise(resolve => { finishQuery = resolve })
+const proofGate = new Promise(resolve => { finishProof = resolve })
+const resolvedView = vm.runInNewContext(resolveScript + '\n({root,stepsInput,baseURL,busy,result,verification,run,reset,sendToVerifier})', {
+  ref: value => ({ value }), computed: fn => ({ get value() { return fn() } }), withBase: value => value,
+  defaultGatewayURL: 'https://gateway.example',
+  resolvePath: ({ root, steps }) => root === 'A' ? queryGate : Promise.resolve({ ...pair, request: { ...pair.request, root, steps } }),
+  verifyAuthenticationLocally: async () => { resolveProofCalls++; markProofStarted(); return proofGate }
 })
-assert.deepEqual(resolved.request, {
-  profile: resolveProfile,
-  root: 'bafkqroot',
-  segments: ['docs', 'read me']
-})
-assert.equal(resolved.proofList.root, 'bafkqroot')
-
-const read = await readQuery({
-  baseURL: 'https://gateway.example/api',
-  root: 'bafkqlist',
-  query: { kind: 'list_index', index: 0 }
-})
-assert.equal(read.request.profile, readProfile)
-assert.equal(read.result.target, 'bafkqbbb')
-
-const diagnostic = await diagnoseResolveRemotely({
-  baseURL: 'https://gateway.example/api',
-  request: resolved.request,
-  result: resolved.result
-})
-assert.equal(diagnostic.valid, true)
-assert.equal(diagnostic.source, 'gateway-diagnostic')
-
-for (const request of requests) {
-  assert.equal(request.options.credentials, 'omit')
-  assert.equal(request.options.redirect, 'error')
-  assert.equal(request.options.cache, 'no-store')
-  assert.equal(request.options.headers.Authorization, undefined)
-}
-
-await assert.rejects(
-  resolvePath({ baseURL: 'https://gateway.example/api', root: '', path: '' }),
-  /root is required/
-)
-
-console.log('Public browser tools contract passed.')
+resolvedView.root.value = 'A'
+const pendingQuery = resolvedView.run()
+resolvedView.root.value = 'B'; resolvedView.reset()
+finishQuery({ ...pair, request: { ...pair.request, root: 'A' } })
+await pendingQuery
+assert.equal(resolveProofCalls, 0, 'obsolete network response must not start proof verification')
+assert.equal(resolvedView.result.value, null)
+assert.equal(resolvedView.verification.value, null)
+const pendingProof = resolvedView.run()
+await proofStarted
+assert.equal(resolveProofCalls, 1)
+resolvedView.stepsInput.value = JSON.stringify(steps); resolvedView.reset()
+finishProof({ valid: true })
+await pendingProof
+assert.equal(resolvedView.result.value, null)
+assert.equal(resolvedView.verification.value, null, 'obsolete proof must not validate changed steps')
+await resolvedView.run()
+assert.equal(resolvedView.verification.value.valid, true)
+resolvedView.baseURL.value = 'https://other.example'; resolvedView.reset()
+assert.equal(resolvedView.result.value, null)
+assert.equal(resolvedView.verification.value, null, 'editing completed query must clear the success badge and proof transfer')
+resolvedView.sendToVerifier()
+console.log('Resolve input changes discard pending and completed verification results.')

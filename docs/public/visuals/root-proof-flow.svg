@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 520" role="img" aria-labelledby="title desc">
   <title id="title">Root-centric MALT read flow</title>
-  <desc id="desc">A reader supplies a trusted root and query to an untrusted server runtime, which answers through the resolver port and returns a result plus ProofList for local verification.</desc>
+  <desc id="desc">A reader supplies a trusted root and query to an untrusted server runtime, which answers through an explicit typed query and returns a result plus ProofList for local verification.</desc>
   <rect width="960" height="520" fill="#ffffff"/>
   <rect x="56" y="68" width="848" height="384" rx="18" fill="#f8fafc" stroke="#d7dee4" stroke-width="2"/>
   <text x="84" y="116" fill="#172026" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">Root-relative read, local verification</text>
@@ -13,7 +13,7 @@
 
   <rect x="386" y="190" width="188" height="168" rx="12" fill="#fff7ed" stroke="#ea580c" stroke-width="2"/>
   <text x="416" y="230" fill="#7c2d12" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">Server runtime</text>
-  <text x="416" y="260" fill="#7c2d12" font-family="Inter, Arial, sans-serif" font-size="14">resolves root paths</text>
+  <text x="416" y="260" fill="#7c2d12" font-family="Inter, Arial, sans-serif" font-size="14">follows typed steps</text>
   <text x="416" y="284" fill="#7c2d12" font-family="Inter, Arial, sans-serif" font-size="14">assembles ProofList</text>
   <text x="416" y="320" fill="#9a3412" font-family="Inter, Arial, sans-serif" font-size="13">not a head oracle</text>
 
@@ -24,7 +24,7 @@
 
   <path d="M282 274h92" stroke="#334155" stroke-width="3" stroke-linecap="round"/>
   <path d="m366 264 16 10-16 10" fill="none" stroke="#334155" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="292" y="250" fill="#43515a" font-family="Inter, Arial, sans-serif" font-size="13">Read(root, query)</text>
+  <text x="292" y="250" fill="#43515a" font-family="Inter, Arial, sans-serif" font-size="13">Authenticate</text>
 
   <path d="M584 274h92" stroke="#334155" stroke-width="3" stroke-linecap="round"/>
   <path d="m668 264 16 10-16 10" fill="none" stroke="#334155" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>

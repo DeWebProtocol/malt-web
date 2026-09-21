@@ -75,7 +75,7 @@ export default defineConfig({
         text: 'Concepts',
         items: [
           { text: 'Roots and Proofs', link: '/concepts/roots' },
-          { text: 'List and Map Semantics', link: '/concepts/list-map' },
+          { text: 'Prefix and Positional Authentication', link: '/concepts/list-map' },
           { text: 'ArcTable and Commitments', link: '/concepts/arctable' }
         ]
       },

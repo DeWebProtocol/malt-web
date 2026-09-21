@@ -17,17 +17,17 @@ reads.
 The core read shape is:
 
 ```text
-Read(root, path/query) -> destination + proof/evidence
-Read(root, byte range) -> selected bytes + path/payload proof + list_range evidence
+Authenticate(root, typed steps, resolve) -> destination + traversal evidence
+Authenticate(root, typed steps, range) -> fixed-chunk metadata + segment bindings
+Fetch and bind segment bytes -> requested byte interval
 ```
 
-The current MALT path uses measured-list `list_range` evidence for large-file
-range reads. The step carries authenticated fixed chunk metadata, covered
-segment CIDs, and metadata/index proof payload. ProofList verification binds
-that metadata and the ordered segment CIDs; UnixFS callers accepting returned
-bytes additionally perform an equivalent body-binding check. The
-`github.com/dewebprotocol/malt-client/unixfs.VerifyRangeBody` helper is part of the local runtime
-implementation rather than MALT Core.
+The current typed range operation authenticates fixed chunk metadata, bounds
+and the ordered segment CIDs. The local runtime's UnixFS reader verifies that
+evidence against its selected Root, hashes fetched segment bytes, and assembles
+the requested slice. Proof and payload checks are separate measured work;
+the removed `list_range` proof format and `VerifyRangeBody` helper are not
+current runtime APIs.
 
 Metrics should include:
 
@@ -70,7 +70,7 @@ Cost breakdown explains the end-to-end results.
 For reads, useful components include server/runtime dispatch, ArcTable lookup,
 commitment prove, CAS fetch, and client verification.
 
-For writes, useful components include layout translation, semantic mutation,
+For writes, useful components include layout translation, typed candidate generation,
 ArcTable update, commitment update, CAS writes, and root/publication metadata.
 
 This is attribution, not a separate claim that some components can be ignored.
@@ -103,5 +103,5 @@ write amplification, and cost attribution.
 
 HAMT is a directory/map-relation baseline. It is not the large-file content
 layout baseline. Large-file range experiments compare Merkle/UnixFS chunk
-structure with MALT list-backed chunk structure; HAMT affects only directory
+structure with MALT Positional chunk structure; HAMT affects only directory
 lookup when the path traverses a HAMT-sharded directory.

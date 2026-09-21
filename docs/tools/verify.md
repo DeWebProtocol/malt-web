@@ -10,17 +10,18 @@ import MaltVerifyTool from '../.vitepress/theme/components/MaltVerifyTool.vue'
 
 <MaltVerifyTool />
 
-The trust decision runs entirely in this page through the portable MALT
-WebAssembly verifier. Enter the caller-constructed request and the untrusted
-result separately. The request contains the root obtained from a trusted source
-and the exact segments or typed query the application intended to execute.
+The local Core WebAssembly verifier checks `malt.authentication/1` requests
+and results. Enter the expected request and untrusted result separately, or
+import the JSON file saved by **Download proof JSON** in Gateway Console.
+The file is read in this browser; it is not uploaded. Select an imported query,
+check its root and typed inputs, then choose **Verify locally**.
 
-The verifier binds that trusted root and query to the returned target, ordered
-ProofList, and every KZG or IPA proof. Failure to load or initialize the local
-verifier fails closed. The optional gateway diagnostic calls the managed API
-only for interoperability testing and never changes the local result.
+Each query is checked independently. Verifying a range query against its
+selected root does not establish a connection to another imported path query.
+The application must check that relationship and bind downloaded payload bytes
+to the authenticated CIDs and range geometry. Loading the page or importing a
+proof never promotes a trusted root or proves freshness.
 
-Proof verification authenticates the returned graph relation. Applications
-must additionally verify downloaded payload bytes against the authenticated
-payload CID; range/list payload verification may require the application
-adapter to fetch authenticated segments.
+The bundled verifier is built from the exact Core source revision in
+`verifier-source.json`. It supports KZG and IPA and fails closed when the
+current authentication export or initialization is missing.

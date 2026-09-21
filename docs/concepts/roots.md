@@ -11,11 +11,8 @@ details, see [Root-Centric HTTP API](/docs/api) and
 ## Root-Centric Read
 
 ```text
-Resolve(root, segments) -> target + ProofList
-VerifyResolve(request, result) -> valid / invalid
-
-Read(root, query) -> result + ProofList
-VerifyRead(root, query, result, ProofList) -> valid / invalid
+Authenticate(root, typed steps, operation) -> authentication result
+Verify(request, result) -> valid / invalid
 ```
 
 The root is supplied by the caller. It may come from an application manifest,

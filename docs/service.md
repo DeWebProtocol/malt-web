@@ -14,7 +14,7 @@ has its own repository boundary.
 The open gateway now provides an explicit-root product path:
 
 ```text
-Read(root, query) -> result + ProofList
+Authenticate(root, typed query) -> authentication result
 ```
 
 This service provides the integration boundary for:
@@ -24,7 +24,7 @@ This service provides the integration boundary for:
 - ProofList-bearing responses
 - examples for CLI and HTTP clients
 - reproducible benchmark datasets
-- profiled `resolve` and primitive `read` results, plus diagnostic verification
+- typed `resolve`, `binding` and `range` query results for local verification
 - Bucket-scoped CAS/root operations composed into UnixFS behavior by trusted
   clients
 
@@ -39,11 +39,11 @@ The managed product path also provides user accounts, cookie sessions, tenants,
 principals, API keys, storage tiers, and multiple Buckets per tenant. Personal
 and shared Buckets use the same commit DAG and `main` head; sharing is an ACL
 change. When concurrent clients push from the same base, the Gateway
-fast-forwards one writer, automatically merges independent map-coordinate
+fast-forwards one writer, automatically merges independent Prefix-coordinate
 changes, and preserves an unmergeable candidate on a `conflicts/...` branch
 instead of overwriting either side.
 
-For the current API surface, see [Gateway Resolve and Read API](/docs/api).
+For the current API surface, see [Gateway typed authentication API](/docs/api).
 
 ## Managed Gateway Repository
 
@@ -66,19 +66,20 @@ against the authenticated CID
 
 CAS is not defined by MALT core, and the gateway is not part of the
 authentication trust boundary. Bucket ACLs authorize service access; they do
-not make a Gateway head a locally accepted root. The browser does not use a
-public raw-CAS `GET /v1/cas/{cid}` path: immutable payload reads require a
-managed Bucket ID and an authenticated cookie session or API key, and go
-through the Bucket-scoped route. The client still hashes every returned block
-against its authenticated CID.
+not make a Gateway head a locally accepted root. The Console obtains proofs through
+authorized Bucket queries and fetches immutable payload blocks through
+`GET /v1/cas/{cid}` without account credentials. Knowing a CID grants access to
+that immutable byte object; local checks still bind every returned block to its
+authenticated CID. See the Gateway
+[immutable read boundary](https://github.com/DeWebProtocol/gateway/blob/f5d73e54bcf1b322e9259e0c98a3d7fed0c0ff9a/docs/immutable-reads.md).
 
 The managed [Gateway Console](https://gateway.deweb.world) registers or signs
 in with an email or username and password, and can add a discoverable Passkey
 after the first cookie-session sign-in.
 On the managed HTTPS deployment, the Gateway keeps the resulting session in a
 `Secure`, `HttpOnly`, same-site cookie; JavaScript does not persist a password
-or session token. Existing API keys remain available for programmatic
-compatibility, but the managed Console does not ask users to paste one.
+or session token. API keys remain available for programmatic
+access, but the managed Console does not ask users to paste one.
 After authentication, the Console lists only the Buckets
 returned for that principal. The user selects a Bucket instead of entering a
 Bucket ID or root. That selection fetches the Bucket's current `main` ref and
@@ -163,7 +164,7 @@ The current split is:
 
 Use precise public language:
 
-- "root-relative resolver reads"
+- "root-relative typed queries"
 - "client-verifiable ProofLists"
 - "application-controlled root publication"
 - "snapshot correctness relative to a trusted root"
