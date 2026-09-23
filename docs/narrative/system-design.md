@@ -9,22 +9,22 @@ is checked locally against the caller's selected Root.
 
 ```text
 Payload plane       Portable authentication kernel       Execution plane
-CAS + payload CIDs  typed inputs, coordinate trees,       application layouts,
+CAS + payload CIDs  opaque labels, coordinate trees,       application layouts,
                     commitments and query verification   ArcTable, gateways
 ```
 
-Application adapters translate paths and changes into explicit typed inputs
+Application adapters translate paths and changes into explicit opaque labels
 and retained writer operations. Core's `sdk/authentication` composes those
 operations without owning application policy, persistent storage or HTTP.
 
 ## Core Modules
 
-- `auth/input` encodes typed inputs using the Root's declared rule.
+- `derivation` encodes opaque labels using the Root's declared rule.
 - `auth/tree` authenticates coordinate bindings with Prefix or Positional
   layouts.
 - `auth/commitment` provides commitment, opening and verification primitives.
-- `auth/engine` binds those algorithms to complete Root descriptors.
-- `traversal` composes explicit typed steps across Roots.
+- `engine` binds those algorithms to complete Root descriptors.
+- `traversal` composes explicit label steps across Roots.
 - `sdk/authentication` and its host adapter expose query, retained writer and
   session operations to native and browser callers.
 
@@ -49,7 +49,7 @@ invalid even when it came from a local cache or durable storage.
 The public operations are:
 
 ```text
-Authenticate(root, typed steps, operation) -> authentication result
+Authenticate(root, label steps, operation) -> authentication result
 Verify(request, result) -> valid / invalid
 Prepare / Apply / Export -> locally computed candidate
 MaterializeBatch(exact ordered candidates) -> exact durable receipt
@@ -80,5 +80,5 @@ The [Core repository](https://github.com/DeWebProtocol/malt-core) defines
 executable authentication semantics. The
 [local runtime](https://github.com/DeWebProtocol/malt) owns UnixFS and CLI
 behavior; its Go module path remains `github.com/dewebprotocol/malt-client`.
-Current source uses `malt.authentication/1`; exact release pins identify the
+Current source uses `malt.authentication/3`; exact release pins identify the
 implementation used by a deployed binary.

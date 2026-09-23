@@ -103,7 +103,7 @@ function sendToVerifier() {
         <input v-model="root" :disabled="busy" @input="reset" autocomplete="off" spellcheck="false" />
       </label>
       <label>
-        <span>Typed path steps (JSON)</span>
+        <span>Label steps (base64 JSON array)</span>
         <textarea v-model="stepsInput" :disabled="busy" @input="reset" rows="4" spellcheck="false" />
       </label>
     </div>

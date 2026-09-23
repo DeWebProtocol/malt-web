@@ -37,12 +37,12 @@ force ancestor-dependent rewrites and retrieval-depth costs.
 
 MALT changes the boundary:
 
-- labels, positional indices and system selectors have explicit typed inputs
+- applications submit opaque label–target bindings and derive authentication coordinates
 - a standalone authentication tree commits coordinates and verifies proofs
 - Prefix and Positional layouts are selected by a Root descriptor
 - KZG and IPA provide commitment backends
-- `auth/engine` and `traversal` compose those primitives through narrow materializer capabilities
-- `malt.authentication/1` carries explicit queries and locally verified evidence
+- `engine` and `traversal` compose those primitives through narrow materializer capabilities
+- `malt.authentication/3` carries explicit queries and locally verified evidence
 - retained writers produce candidates and exact materialization batches
 - immutable payloads remain ordinary CAS data
 
@@ -60,7 +60,7 @@ CAS objects + CIDs    typed arcs + VC proofs      layouts, ArcTable, caches,
 ```
 
 Core's public application-neutral APIs live in `sdk/authentication`. Typed
-input encoding, the authentication tree, engine and graph traversal are separate
+coordinate derivation, the authentication tree, engine and graph traversal are separate
 modules. Core contains no persistent ArcTable, CAS, HTTP server, daemon or UnixFS.
 
 UnixFS composes these primitives through flat, hybrid and rooted layouts.
@@ -71,7 +71,7 @@ Application layout selection does not add semantic Map/List adapters to Core.
 The verifier-facing read shape is:
 
 ```text
-Authenticate(root, typed steps, operation) -> authentication result
+Authenticate(root, label steps, operation) -> authentication result
 Verify(request, result) -> valid / invalid
 ```
 

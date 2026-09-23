@@ -10,11 +10,11 @@ assert.throws(() => buildAuthenticationURL('https://account:secret@gateway.examp
 const calls = []
 globalThis.fetch = async (url, options) => {
   calls.push({ url: String(url), options })
-  return Response.json({ profile: 'malt.authentication/1', resolved: 'bafkqaaa' })
+  return Response.json({ profile: 'malt.authentication/3', resolved: 'bafkqaaa' })
 }
-const steps = [{ kind: 'label', data: 'YS9i' }, { kind: 'system', number: '1' }]
+const steps = ['YS9i', 'QHBheWxvYWQ=']
 const pair = await resolvePath({ baseURL: 'https://gateway.example/api', root: 'selected', steps })
-assert.deepEqual(pair.request, { profile: 'malt.authentication/1', root: 'selected', steps, operation: 'resolve' })
+assert.deepEqual(pair.request, { profile: 'malt.authentication/3', root: 'selected', steps, operation: 'resolve' })
 assert.equal(calls[0].options.credentials, 'omit')
 assert.equal(calls[0].options.redirect, 'error')
 assert.equal(calls[0].options.cache, 'no-store')
@@ -27,7 +27,7 @@ assert.throws(() => verificationPairs({ verification: input }), /unsupported/)
 assert.throws(() => verificationPairs({ node: { ...input, request: { profile: 'malt.resolve/v0alpha1' } } }), /unsupported/)
 let forwarded
 const checked = await verifyAuthenticationLocally({ ...input, provider: { authentication: json => {
-  forwarded = JSON.parse(json); return JSON.stringify({ profile: 'malt.authentication/1', valid: true })
+  forwarded = JSON.parse(json); return JSON.stringify({ profile: 'malt.authentication/3', valid: true })
 } } })
 assert.deepEqual(forwarded, input)
 assert.equal(checked.valid, true)

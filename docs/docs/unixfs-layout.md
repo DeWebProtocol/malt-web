@@ -2,7 +2,8 @@
 
 UnixFS is an application model above typed authentication and immutable payload
 objects. The local runtime and managed Console own file/directory meaning;
-Core owns labels, system selectors, coordinates, tree proofs and Root layouts.
+Core owns label-to-coordinate derivation, coordinates, tree proofs and Root
+layouts. The application owns reserved labels and payload discovery.
 
 `malt add --target malt` produces MALT-authenticated structure. The separate
 `--target merkle-dag` mode imports IPFS-compatible UnixFS blocks and returns a
@@ -28,9 +29,8 @@ fields. The current runtime rejects historical name-only V1 encodings and raw
 manifest fallback; it never infers file/directory type from a Root layout.
 
 If traversal ends at a Prefix Root, content reading explicitly selects its
-typed system payload input `{"kind":"system","number":"1"}`. A flat path
-that directly targets a payload or manifest needs no extra payload query. The
-literal label `@payload` is not a Core system selector.
+ordinary application label `@payload`, encoded as `"QHBheWxvYWQ="`. A flat path
+that directly targets a payload or manifest needs no extra payload query. Core treats these bytes like every other label.
 
 Chunked files use Positional authentication with fixed-width geometry and
 ordered chunk CIDs. The local verified reader authenticates range evidence,

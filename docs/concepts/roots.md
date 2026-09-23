@@ -11,7 +11,7 @@ details, see [Root-Centric HTTP API](/docs/api) and
 ## Root-Centric Read
 
 ```text
-Authenticate(root, typed steps, operation) -> authentication result
+Authenticate(root, label steps, operation) -> authentication result
 Verify(request, result) -> valid / invalid
 ```
 

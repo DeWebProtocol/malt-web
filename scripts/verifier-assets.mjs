@@ -51,6 +51,6 @@ export function verifyInstalledAssets(root = path.join(repoRoot, 'docs/public/ve
     assert(fs.readFileSync(path.join(root, file)).equals(fs.readFileSync(path.join(source, file))),
       `deployed verifier differs from the locked malt-ts package: ${file}`)
   }
-  assert.equal(digest(fs.readFileSync(path.join(root, 'authentication-v1.json'))), pin.corpus_sha256)
+  assert.equal(digest(fs.readFileSync(path.join(root, 'authentication-v2.json'))), pin.corpus_sha256)
   return { source, pin }
 }

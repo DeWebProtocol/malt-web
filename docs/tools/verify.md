@@ -10,11 +10,11 @@ import MaltVerifyTool from '../.vitepress/theme/components/MaltVerifyTool.vue'
 
 <MaltVerifyTool />
 
-The local WebAssembly verifier from malt-ts checks `malt.authentication/1` requests
+The local WebAssembly verifier from malt-ts checks `malt.authentication/3` requests
 and results. Enter the expected request and untrusted result separately, or
 import the JSON file saved by **Download proof JSON** in Gateway Console.
 The file is read in this browser; it is not uploaded. Select an imported query,
-check its root and typed inputs, then choose **Verify locally**.
+check its root and opaque labels, then choose **Verify locally**.
 
 Each query is checked independently. Verifying a range query against its
 selected root does not establish a connection to another imported path query.

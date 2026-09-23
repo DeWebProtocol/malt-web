@@ -37,8 +37,9 @@ They are responsible for:
 They are not responsible for map key semantics, list range semantics, path
 resolution, application layout, or root publication policy.
 
-`auth/input` derives coordinates from typed labels, positional indices and
-system selectors. `auth/tree` authenticates those coordinates; `auth/engine`
+`derivation` derives coordinates from opaque application label bytes.
+ArcTable persists the original label–target bindings. Coordinates are
+derived during recovery and may be cached or indexed separately. `auth/tree` authenticates those coordinates; `engine`
 binds the algorithm to a Root descriptor. `traversal` composes explicit
 steps across Roots. Materialization is injected through narrow lookup, update
 and snapshot capabilities in `auth/arcset/materializer`.

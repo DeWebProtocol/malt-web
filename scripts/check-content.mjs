@@ -54,7 +54,7 @@ const requiredPhrases = new Map([
       'POST /v1/authentication/query',
       'POST /v1/authentication/batches',
       'POST /v1/cas',
-      'malt.authentication-receipt/0'
+      'malt.authentication-receipt/1'
     ]
   ],
   [
@@ -62,7 +62,7 @@ const requiredPhrases = new Map([
     [
       'Authenticate(request) -> result',
       'Verify(request, result)',
-      'malt.authentication/1'
+      'malt.authentication/3'
     ]
   ],
   [

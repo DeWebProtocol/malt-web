@@ -9,8 +9,8 @@ import { verifyAuthenticationLocally } from '@dewebprotocol/malt/verifier'
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const root = process.env.MALT_VERIFIER_ROOT || path.join(repo, 'docs/public/verifier')
 verifyInstalledAssets(root)
-const corpus = JSON.parse(fs.readFileSync(path.join(root, 'authentication-v1.json')))
-assert.equal(corpus.schema, 'malt.conformance.authentication/1')
+const corpus = JSON.parse(fs.readFileSync(path.join(root, 'authentication-v2.json')))
+assert.equal(corpus.schema, 'malt.conformance.authentication/2')
 globalThis.crypto ??= webcrypto
 await import(pathToFileURL(path.join(root, 'wasm_exec.js')))
 const go = new globalThis.Go()
@@ -37,7 +37,7 @@ for (const vector of corpus.vectors) {
   assert.equal(result.valid, vector.valid, `${vector.id}: ${result.error}`)
 }
 const valid = corpus.vectors.find(vector => vector.valid).verification
-for (const mutate of [v => v.request.root = 'bafkqaaa', v => v.request.input = { kind: 'label', data: 'd3Jvbmc=' }, v => v.request.profile = 'malt.authentication/0']) {
+for (const mutate of [v => v.request.root = 'bafkqaaa', v => v.request.label = 'd3Jvbmc=', v => v.request.profile = 'malt.authentication/1']) {
   const value = structuredClone(valid); mutate(value)
   assert.equal((await verifyAuthenticationLocally({ ...value, provider })).valid, false)
 }

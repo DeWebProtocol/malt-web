@@ -17,8 +17,8 @@ reads.
 The core read shape is:
 
 ```text
-Authenticate(root, typed steps, resolve) -> destination + traversal evidence
-Authenticate(root, typed steps, range) -> fixed-chunk metadata + segment bindings
+Authenticate(root, label steps, resolve) -> destination + traversal evidence
+Authenticate(root, label steps, range) -> fixed-chunk metadata + segment bindings
 Fetch and bind segment bytes -> requested byte interval
 ```
 

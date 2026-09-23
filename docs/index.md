@@ -40,7 +40,7 @@ import { withBase } from 'vitepress'
         mode, and local APIs share the same application and trust boundaries.
       </p>
       <p>
-        MALT Core authenticates graph-shaped relationships through typed inputs,
+        MALT Core authenticates graph-shaped relationships through opaque labels,
         Prefix and Positional trees, and Root-bound proofs. Payloads may live on local
         disk, in CAS, behind a Gateway, or in future peer transports; every
         remote proof and payload CID is checked locally before use.
@@ -61,7 +61,7 @@ import { withBase } from 'vitepress'
     </div>
     <div class="malt-strip">
       <strong>Current pre-v1 contracts</strong>
-      <span>Use explicit typed inputs with malt.authentication/1 and verify each result against the intended root and query.</span>
+      <span>Use explicit opaque labels with malt.authentication/3 and verify each result against the intended root and query.</span>
     </div>
     <div class="malt-strip">
       <strong>Filesystem boundary</strong>

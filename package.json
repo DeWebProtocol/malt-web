@@ -21,6 +21,6 @@
     "vite": "7.3.6"
   },
   "dependencies": {
-    "@dewebprotocol/malt": "https://github.com/DeWebProtocol/malt-ts/archive/67577079dc92d14dcbf66582717a3def5819ca08.tar.gz"
+    "@dewebprotocol/malt": "https://github.com/DeWebProtocol/malt-ts/archive/60232ad88715e07e7d64a9bea78d2640bd0ecd51.tar.gz"
   }
 }

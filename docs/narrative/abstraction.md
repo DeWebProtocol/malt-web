@@ -9,7 +9,7 @@ authenticated relationships describe how those payloads and other nodes connect.
 The abstraction separates three concerns:
 
 - **Payload storage:** immutable bytes live in content-addressed storage.
-- **Relation authentication:** typed inputs map to coordinates whose targets
+- **Relation authentication:** opaque labels map to coordinates whose targets
   are committed under a complete MALT Root.
 - **Execution and access:** application adapters, ArcTable materialization,
   caches and gateways locate state and produce answers with evidence.
@@ -18,11 +18,11 @@ A reader selects a Root according to its application's trust policy, constructs
 an exact query, and verifies the untrusted result locally. Publication or a
 successful server response does not establish a trusted Root or freshness.
 
-## Typed Inputs and Authentication Trees
+## Coordinate Derivation and Authentication Trees
 
-Applications submit explicit typed inputs. Core's input rule encodes each one
+Applications submit explicit opaque labels. Core's public derivation profile converts each one
 as a coordinate; the authentication tree operates on coordinates and targets.
-The Root binds the input rule, tree layout and commitment profile, so they
+The Root binds the derivation profile, tree layout and commitment profile, so they
 cannot be independently substituted during verification.
 
 The two tree layouts serve different workloads:
@@ -32,18 +32,18 @@ The two tree layouts serve different workloads:
 - **Positional** authenticates indexed bindings and count metadata. Its
   fixed-chunk form also authenticates byte-layout metadata for range queries.
 
-The current SDK exposes these through `auth/input`, `auth/tree`, `auth/engine`
+The current SDK exposes these through `derivation`, `auth/tree`, `engine`
 and `sdk/authentication`. Keyed and sequential application data no longer
 require separate semantic Map/List adapters.
 
 ## Explicit Graph Traversal
 
-A query supplies an ordered array of typed steps. Each step selects one binding
+A query supplies an ordered array of label steps. Each step selects one binding
 at the current Root; a following step uses the reached Root's own descriptor.
 Applications choose all selectors and arc boundaries. There is no automatic
 longest-prefix grouping or implicit terminal payload redirect.
 
-The `malt.authentication/1` query contract supports resolve, binding and range
+The `malt.authentication/3` query contract supports resolve, binding and range
 operations. Local verification checks the caller's complete Root, requested
 steps, ordered continuity and final operation evidence. A missing binding
 proves where traversal stopped, without authenticating an unvisited suffix.
@@ -51,10 +51,9 @@ See [ProofLists and typed results](/docs/prooflists).
 
 ## Payload Boundary
 
-The typed `system` selector with number `1` selects a payload binding when the
-application layout uses one. A label containing the literal text `@payload`
-is a different input. Applications may call the system selector `@payload`
-in user-facing path notation, but must translate it explicitly.
+UnixFS uses the ordinary label `@payload` when its layout has a payload binding.
+Core does not assign special semantics to that label. The public derivation
+profile is shared by construction, proof, verification and recovery.
 
 Generic Prefix objects need not contain a payload. UnixFS decides which objects
 carry directory manifests or file payloads. When traversal ends at a Prefix

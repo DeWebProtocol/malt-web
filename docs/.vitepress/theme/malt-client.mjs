@@ -1,4 +1,4 @@
-export const authenticationProfile = 'malt.authentication/1'
+export const authenticationProfile = 'malt.authentication/3'
 export const defaultGatewayURL = 'http://127.0.0.1:8080'
 
 export function buildAuthenticationURL(baseURL) {
@@ -11,7 +11,7 @@ export function buildAuthenticationURL(baseURL) {
 
 export async function resolvePath({ baseURL, root, steps, signal }) {
   if (typeof root !== 'string' || !root.trim()) throw new Error('root is required')
-  if (!Array.isArray(steps)) throw new Error('typed steps array is required')
+  if (!Array.isArray(steps) || steps.some((label) => typeof label !== 'string')) throw new Error('label steps array is required')
   const request = { profile: authenticationProfile, root: root.trim(), steps: structuredClone(steps), operation: 'resolve' }
   const url = buildAuthenticationURL(baseURL)
   const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' },
