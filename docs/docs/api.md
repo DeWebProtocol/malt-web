@@ -30,7 +30,7 @@ for deployment policy, including immutable CAS access.
 `steps` is always explicit. Label data is base64; positional and system numbers
 use decimal strings. A binding request additionally selects `input`; a range
 request supplies `start` and optionally `end`, with an exclusive end. The
-[Core authentication contract](https://github.com/DeWebProtocol/malt-core/blob/45c3f0a67d735b0d89f04032e9cae782c7f53be8/docs/spec/authentication-contracts.md)
+[Core authentication contract](https://github.com/DeWebProtocol/malt-core/blob/v0.0.9/docs/spec/authentication-contracts.md)
 is normative for schemas and verification.
 
 Candidates use `malt.authentication/0`; batches use
