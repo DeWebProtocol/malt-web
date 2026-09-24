@@ -1,15 +1,15 @@
 {
   "schema": "malt.web-verifier-source/v1",
-  "sdk_commit": "60232ad88715e07e7d64a9bea78d2640bd0ecd51",
-  "sdk_version": "0.0.3-rc.1",
+  "sdk_commit": "76107c87e67ee826ac43f279066055b2abc07f19",
+  "sdk_version": "0.0.3-rc.2",
   "core": {
     "module_path": "github.com/dewebprotocol/malt-core",
-    "module_version": "v0.0.10-rc.1",
+    "module_version": "v0.0.10-rc.2",
     "source_repository": "https://github.com/DeWebProtocol/malt-core.git",
-    "source_commit": "933ef9824d5d852f819bdc91b244ce7b7e800706",
-    "module_sum": "h1:bZl8z4y0Uug6H79KAUBjwJ28RjOQouONTlF9Ede57sc=",
+    "source_commit": "fbed20626cfe9ceef26f1666a00742a7f2cb9079",
+    "module_sum": "h1:35BKOfd0gJCoZGX3D5g08Hwj3rxLEex+PsgosmebzlE=",
     "go_mod_sum": "h1:o6L8K9vJp5hyrVo3fUtSsj0rvNpcboOcOb3nQwnR/gs="
   },
-  "verifier_asset_set_sha256": "d117f45db143b4eb5eff3d9f496b98a7f6890bd3bde28e2dcb64634a4a153a18",
+  "verifier_asset_set_sha256": "14dfd1f78961c31d1a21daa7bbb700b978bde317f67d6b7bf6174976c477da9f",
   "corpus_sha256": "b39247559cf94c66fedb116f8477364d966363ac7d4b4d0a4857182e12da35f4"
 }
