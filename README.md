@@ -7,6 +7,8 @@ MALT. The managed account and Bucket UI lives in
 [`DeWebProtocol/gateway/console`](https://github.com/DeWebProtocol/gateway/tree/main/console);
 this repository does not ship the Gateway Console.
 
+Website: [dewebprotocol.github.io/malt-web](https://dewebprotocol.github.io/malt-web/).
+
 MALT is a general arc-granularity data-authentication system for graph-shaped
 relations. Vector-commitment backends authenticate arcs, immutable payloads
 remain in content-addressed storage (CAS), and untrusted execution components
@@ -18,17 +20,20 @@ application concerns.
 ## Current Source and Verifier Pin
 
 Current source uses explicit typed authentication through
-`malt.authentication/1`, with Prefix and Positional trees. Retired Map/List,
+`malt.authentication/3`, with Prefix and Positional trees. Retired Map/List,
 Resolve/Read and Artifact compatibility adapters are removed. Applications
-select every traversal input, including the system payload selector where
-required by their layout.
+select every traversal input as opaque label bytes, including the ordinary
+`@payload` label where required by their layout. Core rc.3 also offers optional
+`sdk/object` Map/List/Immutable constructors over these current contracts.
 
 The public verifier uses the supported `@dewebprotocol/malt/verifier` API and
 copies WASM assets from the exact malt-ts commit pinned in `package-lock.json`.
 `verifier-source.json` binds the SDK commit, its Core source identity, the
 verifier asset-set digest, and the portable corpus digest. Run
 `npm run sync:verifier` after deliberately updating those pins; this website
-does not compile WASM or manage its own browser runtime.
+does not compile WASM or manage its own browser runtime. The current pin is
+SDK `0.0.3-rc.3` at `68f0356cc352d132e4d4638d9822b840c447a4e0`, bound to
+Core `v0.0.10-rc.3` at `6f16b13f3abe9cbd0992e83e1457663935e5a72f`.
 
 The Resolve tool calls the current Gateway typed query route. The Verify tool
 imports proof JSON locally and verifies only a query whose Root and request the
@@ -61,6 +66,22 @@ Preview the production build locally:
 npm run preview
 ```
 
+## Deployment
+
+GitHub Actions tests and builds each push to `main`, then publishes the static
+artifact to [GitHub Pages](https://dewebprotocol.github.io/malt-web/). Pages uses
+the Actions publishing source and the `github-pages` environment. The public
+site's base path is `/malt-web/`; local development defaults to `/`.
+
+To reproduce the deployed path locally:
+
+```sh
+BASE_PATH=/malt-web/ npm run build
+BASE_PATH=/malt-web/ npm run preview
+```
+
+The managed Gateway Console has its own deployment in the Gateway repository.
+
 ## Test
 
 Run documentation, browser-query, local import, asynchronous state, and actual
@@ -86,9 +107,10 @@ Managed-service behavior and the same-origin Console are defined by
 ## Related Repositories
 
 - [`DeWebProtocol/malt-core`](https://github.com/dewebprotocol/malt-core) — application-neutral authentication SDK, normative contracts, MIPs, and verifier
-- [`DeWebProtocol/gateway`](https://github.com/dewebprotocol/gateway) — optional untrusted hosted executor, Bucket/CAS gateway, same-origin Console, and managed-service integration
+- [`DeWebProtocol/malt-ts`](https://github.com/dewebprotocol/malt-ts) — supported TypeScript/JavaScript API, browser Workers, and WASM assets bound to an exact published Core release
+- [`DeWebProtocol/gateway`](https://github.com/dewebprotocol/gateway) (private) — optional untrusted hosted executor, Bucket/CAS gateway, same-origin Console, and managed-service integration
 - [`DeWebProtocol/malt`](https://github.com/dewebprotocol/malt) — user-controlled MALT local runtime, CLI/daemon, trusted-root policy, UnixFS, and Merkle DAG compatibility; its Go module remains `github.com/dewebprotocol/malt-client` during the initial refactor
-- [`DeWebProtocol/malt-evaluation`](https://github.com/dewebprotocol/malt-evaluation) — current-product and current-core workloads, executable paper plans/suites, result schemas, and preserved historical provenance
+- [`DeWebProtocol/malt-evaluation`](https://github.com/dewebprotocol/malt-evaluation) (private) — the `malt-eval-next` experiment protocol, explicit Core/product measurement boundaries, replay accounting, and result provenance
 - [`DeWebProtocol/malt-web`](https://github.com/dewebprotocol/malt-web) — public website, conceptual docs, tutorials, and browser proof-verification tools
 - [`DeWebProtocol/.github`](https://github.com/dewebprotocol/.github) — organization profile and community defaults
 

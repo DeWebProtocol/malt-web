@@ -79,10 +79,11 @@ data structure can be normalized into graph-shaped nodes and relations, MALT
 authenticates those relations explicitly instead of relying on embedded parent
 links as the only verifier-facing structure.
 
-The cost does not disappear. MALT replaces implicit ancestor rewrite with
-explicit, verifiable structure maintenance:
+MALT makes structure maintenance explicit and verifiable. Nested authenticated
+Roots still require affected ancestor updates; the design does not eliminate
+that work:
 
-- list and map semantics define what structure means
+- applications define relation semantics through opaque label bindings
 - ArcTable stores and materializes root-relative arcsets
 - commitment backends authenticate semantic-layer representations
 - server runtimes return `result + ProofList` for caller-supplied roots

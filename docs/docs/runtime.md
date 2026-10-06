@@ -14,6 +14,19 @@ narrow capabilities in `auth/arcset/materializer`. The old Map/List adapters,
 module-root facade, aggregate Store and Resolve/Read/client-root APIs are removed.
 Core does not own ArcTable persistence, CAS, HTTP, UnixFS or trust policy.
 
+Core `v0.0.10-rc.3` adds the optional [`sdk/object`
+API](https://github.com/DeWebProtocol/malt-core/blob/v0.0.10-rc.3/docs/guides/objects.md).
+Applications can compose Maps, Lists, immutable byte leaves and custom structs,
+commit their reachable references, then collect graph deltas for storage.
+These constructors use the current Prefix/Positional authentication contracts;
+they do not restore the retired Map/List facade or define another wire format.
+Persistence, publication and accepted-root policy remain with the caller.
+
+[`malt-ts`](https://github.com/DeWebProtocol/malt-ts) owns the supported
+TypeScript/JavaScript API, browser Workers and reproducible WASM distribution.
+Its API is separate from the Go Object API. Both this site's verifier and the
+Gateway Console now pin SDK `0.0.3-rc.3`, bound to published Core rc.3.
+
 ## Gateway
 
 [`DeWebProtocol/gateway`](https://github.com/DeWebProtocol/gateway) is an
@@ -31,14 +44,24 @@ policy registry and never selects the Root of an authentication request. The
 [Gateway repository](https://github.com/DeWebProtocol/gateway) is the source of
 truth for route registration and managed-service policy.
 
-Process-bound evaluation instances additionally expose token-protected path,
-CAR, typed candidate-graph and exact authentication-batch routes. Those routes
-exist to reproduce cross-repository measurements; they are not production
-Gateway APIs, Bucket synchronization operations, or client trust promotion.
-
 The gateway is a proof producer and storage service, not a correctness
 authority. A client supplies the root it trusts and checks every accepted
 result locally.
+
+## Public Node API
+
+The runtime's [`nodeapi`](https://github.com/DeWebProtocol/malt/blob/44bd537d50bb49e74c0a01d274890e9af43de3a0/docs/node-api.md)
+package defines shared, transport-independent authentication, CAS and dataset
+capabilities above Core. Gateway in-process services and the HTTP client
+implement the same contracts; local and hybrid adapters implement CAS.
+Managed service implementations enforce caller authority and Bucket lifecycle
+for each operation. Local trusted-root policy remains separate.
+
+Materialization, branch publication, observing a remote head and accepting a
+Root are distinct operations. This common API does not by itself supply a full
+offline native authentication store or a new replication engine. The retired
+`transport/capability` packages have been replaced by `nodeapi` and its reusable
+`nodeapi/nodetest` contract suites.
 
 ## User-Controlled Local Runtime
 
@@ -66,11 +89,6 @@ network transport and non-Linux mount adapters are future work. Every transport
 shares the same local verifier and cannot promote an observed remote head
 directly into an accepted root.
 
-Runtime-owned evaluator workers live under
-`malt/tools/evaluation/cmd`, and their private Gateway bootstrap and raw
-measurement transport live under `malt/internal/evaluation`. They are
-not part of the `malt` CLI or reusable production transport surface.
-
 The managed Gateway Console is another client. It lives in
 [`gateway/console`](https://github.com/DeWebProtocol/gateway/tree/main/console),
 uses same-origin `/api` with authenticated Bucket queries and immutable CID
@@ -92,20 +110,21 @@ Console.
 | `malt-core/derivation`, `malt-core/engine` | Coordinate derivation and descriptor-bound authentication |
 | `malt-core/traversal` | Explicit typed graph traversal |
 | `malt-core/sdk/authentication` | Typed queries, retained candidate computation, batch and receipt checks |
+| `malt-core/sdk/object` | Optional Map/List/Immutable and custom-object construction over current authentication |
 | `gateway/internal/arctable`, `gateway/internal/kv` | Persistent materialization owned by the service |
 | `gateway/internal/backend/embedded` | Embedded untrusted core execution and CAS |
 | `gateway/internal/runtime`, `gateway/internal/profile/*` | Per-scope composition and isolated native/CAS/compatibility ports |
 | `gateway/internal/policy/publication` | Named-root revision metadata and freeze policy; not client trust |
 | `malt/cmd/malt`, `malt/internal/runtime` | CLI/daemon adapters and reusable process composition |
 | `malt/application/*` | Shared backup, sync, root, mount, and verified write-back use cases |
-| `malt/transport/capability` | URL-free CAS/BatchCAS, Authentication/AuthenticationWriter/AuthenticationBatch and DatasetBranch ports |
+| `malt/nodeapi`, `malt/nodeapi/nodetest` | Shared authentication/CAS/dataset capabilities and contract suites |
 | `malt/transport`, `malt/transport/local`, `malt/transport/hybrid` | Untrusted Gateway HTTP plus durable local and verified hybrid CAS adapters |
 | `malt/trust`, `malt/cache`, `malt/journal` | Separate accepted/candidate/observed roots, non-authoritative cache, and durable operation intent |
 | `malt/filesystem/service`, `malt/filesystem/staging` | Root-bound verified reads and crash-recoverable local dirty overlay |
 | `malt/filesystem/mount`, `malt/filesystem/platform/fuse` | Daemon-managed mount lifecycle and the outer Linux syscall adapter |
 | `malt/unixfs/*` | UnixFS application rules and payload verification |
 | `malt/merkledag/*` | Merkle DAG import and local CID/link replay compatibility |
-| `malt/tools/evaluation`, `malt/internal/evaluation` | Private cross-repository workers and process-bound measurement transport |
+| `malt-evaluation` | Experiment protocol, raw artifacts, analysis and reproducible measurement provenance |
 
 ## Mutation Limit
 

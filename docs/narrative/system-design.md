@@ -27,9 +27,11 @@ operations without owning application policy, persistent storage or HTTP.
 - `traversal` composes explicit label steps across Roots.
 - `sdk/authentication` and its host adapter expose query, retained writer and
   session operations to native and browser callers.
+- `sdk/object` offers optional Go Map/List/Immutable and custom-object
+  constructors over those authentication primitives.
 
-Keyed and sequential data are application uses of these layouts. There is no
-separate semantic Map/List facade or automatic string-path resolver. Each Root
+Keyed and sequential data are application uses of these layouts. The Object
+API does not restore the retired semantic facade or automatic string-path resolver. Each Root
 selects its exact input rule and supported KZG or IPA commitment profile.
 
 ## ArcTable and Materialization
@@ -68,9 +70,9 @@ Positional file chunks and immutable payload objects.
 
 A full path may be one flat label, or the application may emit several Root
 selectors. When the selected target is a Prefix Root carrying a payload, the
-reader explicitly queries `system` selector `1`. A direct payload or manifest
-target needs no extra selector. The literal label `@payload` is a distinct typed
-input, not a reserved string recognized by the Core query API.
+reader explicitly queries the ordinary label `@payload`. A direct payload or
+manifest target needs no extra selector. Core treats this label as opaque bytes;
+the reserved-name policy belongs to the application or Object SDK.
 
 Range evidence authenticates fixed chunk metadata and selected chunk CIDs.
 The reader then checks the fetched bytes and assembles the requested interval.

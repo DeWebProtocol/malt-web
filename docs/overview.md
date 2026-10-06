@@ -46,8 +46,9 @@ MALT changes the boundary:
 - retained writers produce candidates and exact materialization batches
 - immutable payloads remain ordinary CAS data
 
-The claim is not that updates become free. The claim is that MALT replaces
-implicit ancestor-rewrite costs with explicit, verifiable structure maintenance.
+MALT makes relation maintenance explicit and verifiable. Updates still change
+affected authenticated ancestors when an application nests Roots; evaluation
+must count that work along with payload, index and commitment costs.
 
 ## Three Separated Concerns
 
@@ -59,12 +60,14 @@ CAS objects + CIDs    typed arcs + VC proofs      layouts, ArcTable, caches,
         +--- payload CID -----+--- result + ProofList -----+
 ```
 
-Core's public application-neutral APIs live in `sdk/authentication`. Typed
+Core's public application-neutral APIs live in `sdk/authentication`, with
+optional graph construction through `sdk/object`. Typed
 coordinate derivation, the authentication tree, engine and graph traversal are separate
 modules. Core contains no persistent ArcTable, CAS, HTTP server, daemon or UnixFS.
 
 UnixFS composes these primitives through flat, hybrid and rooted layouts.
-Application layout selection does not add semantic Map/List adapters to Core.
+Object Map/List constructors use the same authentication contracts; application
+layout selection does not restore the retired semantic adapters.
 
 ## Read Interface
 

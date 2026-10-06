@@ -2,51 +2,66 @@
 
 The active evaluator is the root module of
 [`DeWebProtocol/malt-evaluation`](https://github.com/DeWebProtocol/malt-evaluation).
-It is separate from the SDK-only Core and has two explicit measurement
-boundaries:
+Its current command is `malt-eval-next`, which runs explicit state/run/request
+experiments and rebuilds analyses from verified raw artifacts. Core and product
+measurements have distinct boundaries:
 
-- **`current-product`** measures real Gateway/local-runtime operations,
-  including HTTP, local ProofList verification, CID-bound payload reads, and
-  selected Gateway diagnostics. Product correctness pass/fail remains in the
-  Gateway-owned end-to-end suite; the evaluator owns reproducible measurements
-  and provenance.
-- **`current-core`** invokes the public application-neutral SDK directly over
-  the reference in-memory ArcSet materializer. It excludes HTTP, Gateway,
-  local trust policy, CAS payload transfer, persistent ArcTable, and network
-  latency, so its results must not be described as deployed-product results.
+- **Core adapters** invoke public authentication APIs over in-memory
+  materialization and verify results against a source oracle. They exclude
+  HTTP, CAS payload transfer, durable storage and application trust policy.
+- **Product adapters** use versioned external workers from the runtime or
+  Gateway. Each experiment must declare capabilities that its actual worker
+  handshake supports. A missing capability is an error; a Core run does not
+  stand in for a file, browser or deployed-service experiment.
 
-The exact Core integration identity for either active track is recorded by the
-evaluator's `go.mod`, build metadata, and result manifests. A local `go.work`
-compatibility build is not publication provenance.
+The evaluator's `go.mod`, binary identity, compiled locks and raw manifests
+record the selected implementation. Experimental Core pins can differ from
+published browser SDK pins. A local `go.work` compatibility build is not
+publication provenance. Gateway owns product correctness E2E; the evaluator
+owns reproducible measurements and statistical analysis.
 
-## Phase 0 and the Section 5 Suite
+Evaluator source links on this page require repository access. This public
+summary explains the measurement boundaries and does not publish raw campaign
+records or internal execution plans.
 
-Two contracts must not be confused:
+## Current Commands and Evidence
 
-- `examples/paper-campaign-plan.json` is the Phase 0 registration and guardrail
-  contract. `malt-eval-plan` validates and normalizes it, but the normalized
-  form remains non-dispatchable and is not a benchmark result.
-- `examples/paper-section5-plan.json` describes the executable paper Section 5
-  suite. RQ1-RQ4 runners, schemas, provenance gates, and pinned report
-  pipelines are implemented.
+The current flow is `compile`, `preflight`, `run`, `validate`, then `analyze`.
+Plans declare states, independent runs, requests and measurement boundaries.
+Reports preserve failures, hierarchical weights, acceptance and conditional
+success distributions, and paired confidence intervals. Diagnostic adapters
+such as `fake-fixed` are harness checks, never performance baselines.
 
-The implemented suite covers verified reads and measured ranges (RQ1),
-multi-platform retained typed writer behavior (RQ2), controlled mutation/write
-accounting and Git first-parent traces (RQ3), and structural, ArcTable,
-commitment-backend, and same-layout causal studies (RQ4).
+The separate `malt-eval-replay` command accounts for non-MALT Git replay,
+including nested Merkle DAG, nested HAMT and flat-path HAMT. Its source,
+derived-data and retained-storage accounting remains distinct from native
+MALT product measurements.
 
-Implementation is not publication evidence. The checked-in Section 5 plan is
-still at `stage=implementation` with an unfrozen revision lock, so campaign
-runners reject dispatch. The exact Core, Gateway, client, evaluator, workers,
-fixtures, corpora, datasets, configuration, and machine identities must be
-frozen before formal E0. Only a passing E0 over those exact inputs can enable a
-campaign. No checked-in file is a paper result, and no final RQ1-RQ4 campaign
-has been run or accepted for paper claims.
+The current implementation includes Core mechanism and shared-ArcSet adapters,
+runtime local file reads, and persistent Gateway relation reads. Complete
+HTTP/CAS/CAR/browser reads, online product build/update workers and complete
+resource/history accounting still require matching owner implementations and
+evidence. See the pinned
+[implementation matrix](https://github.com/DeWebProtocol/malt-evaluation/blob/5045dc112df46633c65e231de3dee36d6484ed17/docs/evaluation-next-implementation.md).
+
+`freeze` binds confirmatory sampling to a separate validated pilot. It does not
+complete release integration, formal E0 or the paper claim graph. Current
+reports remain `publication_eligible=false` until those gates are implemented
+and satisfied. Passing smoke tests or merging an adapter is not a paper result.
 
 See the evaluator's
 [`README`](https://github.com/DeWebProtocol/malt-evaluation) and
-[`Phase 0 campaign contracts`](https://github.com/DeWebProtocol/malt-evaluation/blob/main/docs/phase0-campaign-contracts.md)
+[`executable protocol`](https://github.com/DeWebProtocol/malt-evaluation/blob/5045dc112df46633c65e231de3dee36d6484ed17/docs/evaluation-next.md)
 for the live executable status.
+
+## Retired Orchestration
+
+The Phase-0 registry (`malt-eval-plan`) and superseded manuscript-specific
+lock/dispatch commands are retired. Their source remains at evaluator commit
+`47f01dda4092485e7bd058d214c00feb43c33b2d`. Retained RQ leaf executors and
+historical validators keep their original schemas; they are not implicit
+fallbacks in the new scheduler. See the
+[retirement ledger](https://github.com/DeWebProtocol/malt-evaluation/blob/5045dc112df46633c65e231de3dee36d6484ed17/docs/retired-orchestration.md).
 
 ## Frozen v0.0.5 Harness
 
@@ -169,8 +184,8 @@ depths, and file mutations.
 
 The historical write-trace schema, adapters, tests, and artifacts belong to the
 retired evaluator and remain recoverable from the immutable sources linked
-above. They were removed before MALT Core v0.0.6 and remain absent from
-`malt-core v0.0.7`.
+above. They were removed before MALT Core v0.0.6 and are not part of the
+current SDK-only Core.
 
 Required write metrics include:
 
@@ -191,11 +206,11 @@ The first historical smoke artifact predates the current three-system read
 schema. It is recoverable with the retired evaluator as a command-wiring
 artifact, not a paper-grade result.
 
-It verified a MALT-only read path and did not include the current required
+It verified a MALT-only read path and did not include that later historical schema's
 `system` or `evidence_item_count` fields. New paper-result artifacts must
 record machine profile, OS, CPU, memory, Go version, CAS latency configuration,
 warmup policy, run count, and statistical aggregation policy.
 
 Before using any historical reconstruction in a paper claim, the project still
 needs a predeclared role for that evidence and matching provenance. Frozen
-v0.0.5 records cannot substitute for fresh runs of the current RQ1-RQ4 suite.
+v0.0.5 records cannot substitute for fresh, fully qualified current experiments.

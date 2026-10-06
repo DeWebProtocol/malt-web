@@ -1,173 +1,75 @@
 # Public Service Boundary
 
-A public MALT service can be useful before MALT becomes a full product. The
-important rule is to keep service conveniences separate from MALT core
-correctness.
+MALT Core authenticates relationships relative to a caller-selected Root and
+query. The optional Gateway supplies storage, execution and managed service
+access. The local runtime and browser clients verify the evidence and returned
+payload bytes.
 
-The current static documentation is split between the
-[research narrative](/narrative/problem) and [technical docs](/docs/runtime).
-This page describes what stays outside MALT core now that managed gateway work
-has its own repository boundary.
+## Website and Console
 
-## Current First Product
+This VitePress site provides public explanations, tutorials and browser proof
+tools. Its source is `malt-web/docs`.
 
-The open gateway now provides an explicit-root product path:
+The [Gateway Console](https://gateway.deweb.world) is maintained in
+`gateway/console`, alongside the Gateway service. It is built independently
+from the Go service binary and uses same-origin `/api` routes. The supported
+browser authentication SDK and WASM assets come from
+[malt-ts](https://github.com/DeWebProtocol/malt-ts).
 
-```text
-Authenticate(root, typed query) -> authentication result
-```
+The local [MALT runtime](https://github.com/DeWebProtocol/malt) is another
+client: it owns the CLI/daemon, local trust state, UnixFS behavior and
+verification. There is no separate managed Console repository.
 
-This service provides the integration boundary for:
+## Managed Access
 
-- public demo roots
-- root-relative file and directory reads
-- ProofList-bearing responses
-- examples for CLI and HTTP clients
-- reproducible benchmark datasets
-- typed `resolve`, `binding` and `range` query results for local verification
-- Bucket-scoped CAS/root operations composed into UnixFS behavior by trusted
-  clients
+The managed Console provides account sign-in, Bucket selection, file browsing
+and uploads. Gateway owns identity, authorization, quotas, service administration
+and branch publication. Bucket permissions and service-administrator access
+are separate authorities.
 
-The gateway now has an operator-controlled named-root publication registry with
-monotonic revisions and irreversible freeze. This is application metadata, not
-global freshness, consensus, or an automatic client trust decision.
-Longer term, user-managed roots are expected to be published through a
-decentralized naming system; a Gateway Bucket head remains only an observed
-synchronization ref and does not replace that user-controlled trust decision.
+Shared authentication, CAS and dataset capabilities follow the runtime's
+[public Node API](https://github.com/DeWebProtocol/malt/blob/44bd537d50bb49e74c0a01d274890e9af43de3a0/docs/node-api.md).
+Gateway services apply the caller's permissions and Bucket lifecycle to each
+operation. Reader permits queries and reads; candidate export, materialization
+and publication require Writer.
 
-The managed product path also provides user accounts, cookie sessions, tenants,
-principals, API keys, storage tiers, and multiple Buckets per tenant. Personal
-and shared Buckets use the same commit DAG and `main` head; sharing is an ACL
-change. When concurrent clients push from the same base, the Gateway
-fast-forwards one writer, automatically merges independent Prefix-coordinate
-changes, and preserves an unmergeable candidate on a `conflicts/...` branch
-instead of overwriting either side.
+A materialization receipt acknowledges persistence at the selected service.
+Publishing a branch or observing its head does not accept that Root on behalf
+of the client. Concurrent publication may preserve a candidate on a conflict
+branch; the application must check the result bound to its original request.
 
-For the current API surface, see [Gateway typed authentication API](/docs/api).
+## Snapshot Reads and Payloads
 
-## Managed Gateway Repository
+The Console keeps its selected browsing snapshot separate from a newly
+observed head. A head notification prompts an explicit refresh. Proofs are
+checked against the selected Root and exact query; payload blocks are checked
+against authenticated CIDs. Browser HTTP cache hits alone do not establish
+verification.
 
-The managed gateway service belongs in `DeWebProtocol/gateway`, not in MALT
-core. That repository owns tenant policy, identity, authorization,
-root publication, backend orchestration, cache policy, S3/Filecoin/IPFS integration,
-quota, and product-level end-to-end tests.
+Managed Bucket proof queries require authorization. In the current managed
+edge design, immutable payloads are separately readable by CID through
+`GET|HEAD /api/v1/cas/{cid}`. Store ciphertext or intentionally public bytes
+on that public delivery path. Bucket ACL changes affect later authorized
+service calls, but cannot recall a public CID download, cached response or
+bytes already held by a client. Complete shared-snapshot and cache revocation
+policy remains deferred.
 
-The gateway embeds the untrusted core executor so behavior can be exercised end
-to end. Payload storage and MALT authentication remain separate capabilities:
+These are source-level service boundaries. The Gateway repository owns the
+[immutable-read contract](https://github.com/DeWebProtocol/gateway/blob/c059bea7a179e3c1f7f7ae740d6fb1d50a63cc59/docs/immutable-reads.md)
+and deployment procedures; access to that service repository is restricted.
+A source commit or successful build does not establish which version a live
+deployment runs.
 
-```text
-                         +-> MALT execution/core -> result + ProofList
-client -> managed/reference gateway
-                         +-> CAS payloads --------> bytes identified by CID
+## Ownership
 
-client verifies the ProofList locally against its trusted root and checks payload bytes
-against the authenticated CID
-```
+| Surface | Owner |
+| --- | --- |
+| Protocol, Root formats, proofs and local authentication | MALT Core |
+| Browser API, Workers and distributed WASM | malt-ts |
+| Public website, explanations and proof tools | malt-web |
+| Managed service and account/Bucket Console | Gateway |
+| Local accepted roots, CLI/daemon and UnixFS | MALT runtime |
+| Reproducible experiments and result provenance | malt-evaluation |
 
-CAS is not defined by MALT core, and the gateway is not part of the
-authentication trust boundary. Bucket ACLs authorize service access; they do
-not make a Gateway head a locally accepted root. The Console obtains proofs through
-authorized Bucket queries and fetches immutable payload blocks through
-`GET /v1/cas/{cid}` without account credentials. Knowing a CID grants access to
-that immutable byte object; local checks still bind every returned block to its
-authenticated CID. See the Gateway
-[immutable read boundary](https://github.com/DeWebProtocol/gateway/blob/f5d73e54bcf1b322e9259e0c98a3d7fed0c0ff9a/docs/immutable-reads.md).
-
-The managed [Gateway Console](https://gateway.deweb.world) registers or signs
-in with an email or username and password, and can add a discoverable Passkey
-after the first cookie-session sign-in.
-On the managed HTTPS deployment, the Gateway keeps the resulting session in a
-`Secure`, `HttpOnly`, same-site cookie; JavaScript does not persist a password
-or session token. API keys remain available for programmatic
-access, but the managed Console does not ask users to paste one.
-After authentication, the Console lists only the Buckets
-returned for that principal. The user selects a Bucket instead of entering a
-Bucket ID or root. That selection fetches the Bucket's current `main` ref and
-uses its root as the tab's browsing snapshot; the Console does not silently follow
-later head changes. All content reads still verify proofs and payload CIDs
-locally.
-
-The Console lives in `DeWebProtocol/gateway/console` and defaults to the
-same-origin `/api` reverse-proxy route, so production builds do not require a
-Gateway URL and do not expose topology as an end-user setting. Local
-development can proxy `/api` to another loopback Gateway. A new deployment is
-initialized explicitly with the Gateway CLI, which creates the first
-administrator before the service starts; browser bootstrap remains a legacy
-compatibility path rather than the normal production flow.
-Signed-in users can edit their display name and inspect their tier and quota.
-Only a cookie session whose account has `system_role: "admin"` exposes the
-service Console; the Gateway independently enforces every Console API call.
-Bucket-level `admin` or `owner` roles never grant access to that system
-Console.
-
-The current public-registration flow is an Alpha boundary, not a production
-identity system. Email addresses are normalized and unique but are not yet
-verified, and password recovery is not yet available. Registration and login
-have reverse-proxy and in-process abuse limits, but users should not reuse a
-valuable password. New accounts receive 10 MiB; the current administrator
-tiers are 10 MiB, 10 GiB, and 1 TiB, with 3, 100, and 1,000 Buckets
-respectively. Immutable payloads are charged once per tenant and unique CID
-with a 4 KiB minimum. Persistent Bucket metadata operations share the same
-byte entitlement and use a conservative 64 KiB minimum allocation so empty
-roots, mutations, branches, or pushes cannot bypass storage limits. Historical
-charges remain until an explicit garbage-collection and reconciliation policy
-exists.
-
-For uploads, the Console stores a local candidate before refreshing the remote
-head, and accepts `fast_forward`, `merged`, or `branched` push outcomes only
-after the returned main ref, final commit, submitted candidate, and optional
-conflict branch are bound to the original request.
-Credentialed requests require HTTPS except for loopback development Gateways
-and reject redirects so credentials are never forwarded to another URL.
-Pending and branched browser stashes are listed after reload; users can retry a
-pending push with its original push ID/base or explicitly restore its candidate
-root without first replacing it with the latest remote head. Each stash is an
-independent localStorage record bound to the canonical Gateway URL,
-tenant/principal identity, and Bucket ID, so one tab cannot overwrite another
-stash through a shared array update and a later sign-in cannot redirect an old
-retry. The
-stored `base_revision` records what the browser observed; it is diagnostic
-metadata, not a client-selected compare-and-swap token. Legacy array stashes
-that predate Gateway scoping remain visible, but cannot be opened or retried
-until the user explicitly binds one to the selected Gateway and Bucket.
-Binding creates a scoped record while preserving the original
-deterministic push ID, so a retry can recover a response lost before the
-browser learned the first push result. Binding requires the browser Web Locks
-API and records one structured, Gateway-independent ownership marker for the
-legacy ID. Competing tabs can therefore bind a legacy candidate to only one
-canonical Gateway/account/Bucket scope. The Console rechecks that marker before
-restore, before and after a retry refresh, immediately before the push, and
-again before completing or deleting the stash. Until binding, the Console performs
-no Gateway read for that legacy candidate.
-
-Observed main refs are merged monotonically within one canonical Gateway
-scope. A delayed response from an idempotent retry may complete the matching
-stash, but it cannot replace a newer observed revision; two different
-commit/root tuples at the same revision are rejected as an inconsistent
-Gateway response. Revisions from different Gateway scopes are not compared.
-
-## Product Surface
-
-Accounts, API keys, the service Console, storage tiers, private datasets, and
-managed publication channels belong to the gateway product surface or a
-private deployment overlay. This repository remains a static public
-documentation and verifier site.
-
-The current split is:
-
-- project website and docs: this VitePress site
-- runtime API: hosted service endpoint
-- service console: the authenticated App surface backed by Gateway admin APIs
-- status page: separate operational status surface
-
-## Public Wording
-
-Use precise public language:
-
-- "root-relative typed queries"
-- "client-verifiable ProofLists"
-- "application-controlled root publication"
-- "snapshot correctness relative to a trusted root"
-
-Avoid implying that a Bucket head is a globally fresh or automatically trusted
-root. It is the Gateway's current ref under its documented concurrency policy.
+See [Runtime and Repository Boundaries](/docs/runtime) for the implementation
+map and [Gateway API Boundaries](/docs/api) for typed HTTP requests.

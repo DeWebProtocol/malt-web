@@ -1,114 +1,56 @@
 # Evaluation
 
-MALT evaluation has two public documentation layers:
+MALT evaluation studies verified read latency, write amplification and the costs
+of maintaining authenticated relations. Nested Roots can still propagate
+updates to affected ancestors. Measurements must include payloads, relation
+materialization, indexes, commitments and publication metadata within the
+declared boundary.
 
-- [Evaluation Story](/narrative/evaluation-story): research framing for read
-  latency, write amplification, cost breakdown, sensitivity studies, and
-  semantic reachability.
-- [Evaluation and Benchmark Protocol](/docs/evaluation): current evaluator
-  boundaries, Phase 0 and executable Section 5 status, plus the frozen v0.0.5
-  harness contract and artifact caveats.
+## Current Evaluator
 
-The main quantitative evaluation focuses on read latency and write
-amplification. Cost breakdown explains the results; it is not a separate main
-claim.
+The active [malt-evaluation repository](https://github.com/DeWebProtocol/malt-evaluation)
+uses `malt-eval-next`: explicit state/run/request plans, capability-checked
+workers, raw artifacts and reproducible offline analysis. Its Core adapters
+measure in-memory authentication; runtime and Gateway workers supply specific
+product capabilities. A Core result does not include network, payload delivery
+or durable storage unless a separately declared worker measures them.
 
-## Current Evaluator Status
+Non-MALT Git replay uses `malt-eval-replay` and its own accounting contract.
+Phase-0 registration and the earlier manuscript-specific dispatch commands are
+retired; historical artifacts retain their original identities.
 
-The active `malt-evaluation` root module has two distinct tracks:
+Implemented infrastructure does not establish a completed paper campaign.
+Current reports remain `publication_eligible=false` until the required
+release/E0 and claim evidence is implemented and satisfied. The
+[Evaluation and Benchmark Protocol](/docs/evaluation) links the current
+commands, capability matrix and historical sources.
 
-- `current-product` measures the Gateway/trusted-client boundary, including
-  local proof and payload verification.
-- `current-core` measures public Core algorithms over the reference in-memory
-  materializer and excludes Gateway, network, persistent ArcTable, and client
-  policy.
+## What Comparisons Must Report
 
-Phase 0 plan validation and normalization are registration only and cannot
-dispatch experiments. The executable Section 5 RQ1-RQ4 suites and publication
-pipeline are implemented, but the checked-in plan remains unfrozen at
-`stage=implementation`. Formal E0 and campaign dispatch therefore remain
-closed. No checked-in output is a current paper result, and the paper's result
-tables must stay unfilled until exact artifacts and machine identities are
-frozen, the campaigns run, and the pinned reporting gates accept them.
+Read measurements include end-to-end latency, acceptance and failures, retrieval
+rounds, fetched bytes, evidence size, and proof generation and verification.
+Conditional success latency must remain distinguishable from the distribution
+that preserves failed or timed-out requests.
 
-## Systems
+Write measurements include source changes, derived structures and actual
+storage: payload and metadata blocks, ArcTable records, commitments, root/index
+writes and the declared retention history. Attempted writes and newly retained
+bytes are different quantities.
 
-Frozen v0.0.5 evaluator systems:
+The [Evaluation Story](/narrative/evaluation-story) explains these research
+dimensions. They are intended comparisons, not claims of measured speedups.
 
-- `MALT-flat`: pure MALT structure UnixFS using list/map semantics plus
-  CAS-backed immutable payloads
-- `IPLD UnixFS`: implicit Merkle-DAG baseline
-- `IPLD UnixFS + HAMT`: strong large-directory authenticated-map baseline
+## Layouts and Historical Results
 
-`MALT-flat` identifies the frozen v0.0.5 evaluator's full-path flat-map
-baseline and is preserved by existing result artifacts. It is not a current
-`malt-client` layout value. The current runtime exposes `flat-v1`,
-`hybrid-v1` and `rooted-v1`; new product tests identify the actual selected
-strategy rather than reusing a historical result label.
+The current runtime supports `flat-v1`, `hybrid-v1` and `rooted-v1` UnixFS
+layouts. Experiments must identify the selected strategy. The historical
+v0.0.5 `MALT-flat` result label is not a current runtime layout identifier.
 
-HAMT is a directory or map-relation baseline. It is not the large-file content
-layout baseline.
+HAMT is a directory/map-relation baseline. Large-file range comparisons must
+also identify their chunk layout and payload-verification work. MALT range
+evidence authenticates chunk metadata and segment CIDs; the client still
+hashes fetched bytes and assembles the requested interval.
 
-## Metrics
-
-Read latency reports:
-
-- p50, p95, and p99 latency
-- CAS GET count
-- ArcTable lookup count for MALT
-- bytes fetched
-- retrieval depth
-- sequential network rounds
-- proof or evidence bytes
-- prove latency
-- verify latency
-
-Write amplification reports:
-
-- total persisted bytes
-- objects changed
-- CAS payload blocks
-- CAS metadata blocks
-- ArcTable records or deltas
-- commitment metadata
-- root or publication metadata
-
-## Workloads
-
-Path or query resolution:
-
-```text
-Authenticate(root, label steps, resolve) -> destination + traversal evidence
-```
-
-Range or partial read:
-
-```text
-Authenticate(root, label steps, range) -> fixed-chunk metadata + segment bindings
-Fetch and bind segment bytes -> requested byte interval
-```
-
-The current typed range operation authenticates fixed chunk metadata, bounds
-and the ordered segment CIDs. The local runtime's UnixFS reader verifies that
-evidence against its selected Root, hashes fetched segment bytes, and assembles
-the requested slice. Proof and payload checks are separate measured work;
-the removed `list_range` proof format and `VerifyRangeBody` helper are not
-current runtime APIs.
-
-Encrypted private-CAS read:
-
-```text
-fetch encrypted parent -> decrypt -> parse child link -> fetch encrypted child
-```
-
-The encrypted setting tests the deployment assumption that embedded Merkle-DAG
-links can create sequential reveal dependencies when the storage service cannot
-inspect plaintext structure.
-
-See [Evaluation and Benchmark Protocol](/docs/evaluation) for the active
-current-product/current-core boundary and the historical harness contract. The
-retired v0.0.5 source remains recoverable from immutable history with its
-intentional dependency pin; it is not the active runner. Current product
-correctness is exercised by Gateway-owned end-to-end tests, while
-`malt-evaluation` owns reproducible measurements and result provenance.
-Evaluation CLI ownership remains outside the SDK-only Core.
+The [frozen harness record](/docs/evaluation#frozen-v0-0-5-harness) remains
+historical provenance. Its schemas, commands and results must not be relabeled
+as current measurements.

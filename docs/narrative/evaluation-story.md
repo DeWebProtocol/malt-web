@@ -5,9 +5,14 @@ cost model for evolving graph-normalized data. The current prototype stores
 immutable payloads in CAS, so the benchmark accounting still reports CAS
 payload and metadata costs explicitly.
 
-The claim is not that MALT is free. The claim is that MALT replaces
-ancestor-propagating Merkle-DAG costs with localized, verifiable semantic-layer
-maintenance costs.
+MALT makes relation maintenance explicit. Nested authenticated Roots still
+require affected ancestor updates, and complete comparisons must count that
+work alongside payload, ArcTable, index and commitment costs. Lower costs are
+an experimental question, not an assumption of the design.
+
+The active runner is `malt-eval-next`; see [the executable evaluation
+boundary](/docs/evaluation). The dimensions below describe intended research
+comparisons, not a completed campaign or publication-ready results.
 
 ## Read Latency
 
