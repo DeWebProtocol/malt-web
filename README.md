@@ -32,8 +32,8 @@ copies WASM assets from the exact malt-ts commit pinned in `package-lock.json`.
 verifier asset-set digest, and the portable corpus digest. Run
 `npm run sync:verifier` after deliberately updating those pins; this website
 does not compile WASM or manage its own browser runtime. The current pin is
-SDK `0.0.3-rc.3` at `68f0356cc352d132e4d4638d9822b840c447a4e0`, bound to
-Core `v0.0.10-rc.3` at `6f16b13f3abe9cbd0992e83e1457663935e5a72f`.
+SDK `0.0.3-rc.4` at `a145712a7a5f0759f4f2a8a64e42364947daaf41`, bound to
+Core `v0.0.10-rc.4` at `0d7b166d58d1c2e21ead96de9c66968caf630374`.
 
 The Resolve tool calls the current Gateway typed query route. The Verify tool
 imports proof JSON locally and verifies only a query whose Root and request the

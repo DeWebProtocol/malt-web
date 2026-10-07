@@ -25,7 +25,7 @@ Persistence, publication and accepted-root policy remain with the caller.
 [`malt-ts`](https://github.com/DeWebProtocol/malt-ts) owns the supported
 TypeScript/JavaScript API, browser Workers and reproducible WASM distribution.
 Its API is separate from the Go Object API. Both this site's verifier and the
-Gateway Console now pin SDK `0.0.3-rc.3`, bound to published Core rc.3.
+Gateway Console now pin SDK `0.0.3-rc.4`, bound to published Core rc.4.
 
 ## Gateway
 
