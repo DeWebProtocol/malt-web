@@ -1,6 +1,6 @@
 # Typed Authentication Proofs
 
-The current query profile is `malt.authentication/3`. An application constructs
+The current query profile is `malt.authentication/5`. An application constructs
 an explicit root, label traversal steps, and an operation: `resolve`, `binding`,
 or `range`. The untrusted executor returns traversal evidence and, when
 requested, binding or range evidence. Core verifies that result against the
@@ -30,8 +30,9 @@ metadata and ranges directly.
 
 ## Payload bytes and trust
 
-Range evidence binds ordered segment CIDs and geometry. Applications must also
-check downloaded segment bytes, lengths and slicing against that evidence.
+Range evidence binds element-index bounds, ordered CIDs, count and an optional
+metadata payload CID. Applications verify and decode that CID-bound document,
+then check downloaded chunk bytes, lengths and slicing using their own geometry.
 Verifying a proof alone does not check a displayed payload buffer.
 
 Proof validity is relative to the caller-selected snapshot. A proof does not

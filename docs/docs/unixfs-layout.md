@@ -32,11 +32,15 @@ If traversal ends at a Prefix Root, content reading explicitly selects its
 ordinary application label `@payload`, encoded as `"QHBheWxvYWQ="`. A flat path
 that directly targets a payload or manifest needs no extra payload query. Core treats these bytes like every other label.
 
-Chunked files use Positional authentication with fixed-width geometry and
-ordered chunk CIDs. The local verified reader authenticates range evidence,
-fetches and checks segment bytes and lengths, then slices the requested range.
-A proof alone does not authenticate a displayed byte buffer. Encrypted UnixFS
-also checks the authenticated ciphertext width against its encrypted manifest.
+Chunked files use Positional authentication for count, an opaque metadata CID
+and ordered chunk CIDs. The root payload CID binds canonical
+`malt.unixfs.chunks/1` JSON containing `chunk_size` and `total_size` as decimal
+strings. The reader verifies those bytes and checks the geometry against the
+authenticated count before translating byte intervals into element-index queries.
+It then verifies range evidence, fetches and checks chunk bytes and lengths,
+and slices the requested interval. A proof alone does not authenticate a
+displayed byte buffer. Encrypted UnixFS also checks the CID-bound ciphertext
+width against its encrypted manifest.
 
 ## MALT Target Symlink Directory Boundary
 

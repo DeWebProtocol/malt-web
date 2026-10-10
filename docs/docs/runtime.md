@@ -14,8 +14,8 @@ narrow capabilities in `auth/arcset/materializer`. The old Map/List adapters,
 module-root facade, aggregate Store and Resolve/Read/client-root APIs are removed.
 Core does not own ArcTable persistence, CAS, HTTP, UnixFS or trust policy.
 
-Core `v0.0.10-rc.3` adds the optional [`sdk/object`
-API](https://github.com/DeWebProtocol/malt-core/blob/v0.0.10-rc.3/docs/guides/objects.md).
+Core `v0.0.10` provides the optional [`sdk/object`
+API](https://github.com/DeWebProtocol/malt-core/blob/v0.0.10/docs/guides/objects.md).
 Applications can compose Maps, Lists, immutable byte leaves and custom structs,
 commit their reachable references, then collect graph deltas for storage.
 These constructors use the current Prefix/Positional authentication contracts;
@@ -25,7 +25,8 @@ Persistence, publication and accepted-root policy remain with the caller.
 [`malt-ts`](https://github.com/DeWebProtocol/malt-ts) owns the supported
 TypeScript/JavaScript API, browser Workers and reproducible WASM distribution.
 Its API is separate from the Go Object API. Both this site's verifier and the
-Gateway Console now pin SDK `0.0.3-rc.4`, bound to published Core rc.4.
+Gateway Console pin SDK `0.0.3` at commit
+`735c894cb7dd4bbdfa7032c75f48f5f23820fd14`, bound to published Core `v0.0.10`.
 
 ## Gateway
 

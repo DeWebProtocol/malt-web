@@ -20,10 +20,10 @@ application concerns.
 ## Current Source and Verifier Pin
 
 Current source uses explicit typed authentication through
-`malt.authentication/3`, with Prefix and Positional trees. Retired Map/List,
+`malt.authentication/5`, with Prefix and Positional trees. Retired Map/List,
 Resolve/Read and Artifact compatibility adapters are removed. Applications
 select every traversal input as opaque label bytes, including the ordinary
-`@payload` label where required by their layout. Core rc.3 also offers optional
+`@payload` label where required by their layout. Core also offers optional
 `sdk/object` Map/List/Immutable constructors over these current contracts.
 
 The public verifier uses the supported `@dewebprotocol/malt/verifier` API and
@@ -32,8 +32,9 @@ copies WASM assets from the exact malt-ts commit pinned in `package-lock.json`.
 verifier asset-set digest, and the portable corpus digest. Run
 `npm run sync:verifier` after deliberately updating those pins; this website
 does not compile WASM or manage its own browser runtime. The current pin is
-SDK `0.0.3-rc.4` at `a145712a7a5f0759f4f2a8a64e42364947daaf41`, bound to
-Core `v0.0.10-rc.4` at `0d7b166d58d1c2e21ead96de9c66968caf630374`.
+SDK `0.0.3` at `735c894cb7dd4bbdfa7032c75f48f5f23820fd14`, bound to
+Core `v0.0.10` at `aaa78737c35f82fe91bb3f749cfddbcb7953ed2b`. The portable
+`authentication-v3.json` corpus is copied unchanged from that Core release.
 
 The Resolve tool calls the current Gateway typed query route. The Verify tool
 imports proof JSON locally and verifies only a query whose Root and request the
@@ -68,8 +69,9 @@ npm run preview
 
 ## Deployment
 
-GitHub Actions tests and builds each push to `main`, then publishes the static
-artifact to [GitHub Pages](https://dewebprotocol.github.io/malt-web/). Pages uses
+GitHub Actions tests and builds pull requests and each push to `main`. Main
+builds publish the static artifact to
+[GitHub Pages](https://dewebprotocol.github.io/malt-web/). Pages uses
 the Actions publishing source and the `github-pages` environment. The public
 site's base path is `/malt-web/`; local development defaults to `/`.
 

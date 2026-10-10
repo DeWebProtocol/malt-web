@@ -17,12 +17,18 @@ uses by application convention. Generic relation structures need no payload.
 
 ## Positional
 
-A Positional Root authenticates indexed targets and sequence geometry. Direct
-labels encode uint64 indices as exactly eight unsigned big-endian bytes; text
-such as `"42"` is not an index encoding.
-Byte-range results bind metadata and ordered segment CIDs. Clients then check
-segment bytes, lengths and slicing. Positional Roots do not implicitly redirect
-through a payload selector.
+A Positional Root authenticates indexed targets, a count and an optional opaque
+payload CID. Only root slot zero stores metadata; all slots in non-root vectors
+hold content. For capacity 256, 255 elements fit in one vector; 256 elements
+require a root pointing to one full leaf vector. The count and capacity determine
+the tree shape, so height and per-node sizes are not stored.
+
+Direct labels encode uint64 indices as exactly eight unsigned big-endian bytes;
+text such as `"42"` is not an index encoding. Core range queries use element
+indices. Applications verify the bytes referenced by the payload CID and
+interpret their own format. UnixFS uses a JSON document for chunk width and
+file size, then verifies chunk CIDs and slices bytes locally. Heterogeneous
+sequences need no byte-size fields.
 
 ## Composition and updates
 

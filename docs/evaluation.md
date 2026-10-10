@@ -48,8 +48,9 @@ v0.0.5 `MALT-flat` result label is not a current runtime layout identifier.
 
 HAMT is a directory/map-relation baseline. Large-file range comparisons must
 also identify their chunk layout and payload-verification work. MALT range
-evidence authenticates chunk metadata and segment CIDs; the client still
-hashes fetched bytes and assembles the requested interval.
+evidence authenticates element-index bounds, count, an optional metadata CID
+and ordered chunk CIDs. The client verifies its CID-bound application geometry,
+hashes fetched chunks and assembles the requested byte interval.
 
 The [frozen harness record](/docs/evaluation#frozen-v0-0-5-harness) remains
 historical provenance. Its schemas, commands and results must not be relabeled

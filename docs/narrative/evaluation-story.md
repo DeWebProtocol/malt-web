@@ -23,14 +23,14 @@ The core read shape is:
 
 ```text
 Authenticate(root, label steps, resolve) -> destination + traversal evidence
-Authenticate(root, label steps, range) -> fixed-chunk metadata + segment bindings
+Authenticate(root, label steps, index range) -> count + metadata CID + element bindings
 Fetch and bind segment bytes -> requested byte interval
 ```
 
-The current typed range operation authenticates fixed chunk metadata, bounds
-and the ordered segment CIDs. The local runtime's UnixFS reader verifies that
-evidence against its selected Root, hashes fetched segment bytes, and assembles
-the requested slice. Proof and payload checks are separate measured work;
+The current typed range operation authenticates element-index bounds, count,
+an optional metadata CID and ordered element CIDs. The UnixFS reader verifies
+the referenced application JSON, translates byte intervals into index ranges,
+verifies those ranges against its selected Root, and hashes and slices chunks. Proof and payload checks are separate measured work;
 the removed `list_range` proof format and `VerifyRangeBody` helper are not
 current runtime APIs.
 

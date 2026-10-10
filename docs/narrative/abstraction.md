@@ -29,8 +29,8 @@ The two tree layouts serve different workloads:
 
 - **Prefix** authenticates keyed bindings and absence. A complete flat path may
   be a single label input; Core does not parse or group path segments.
-- **Positional** authenticates indexed bindings and count metadata. Its
-  fixed-chunk form also authenticates byte-layout metadata for range queries.
+- **Positional** authenticates indexed bindings, a count and an optional opaque
+  payload CID in the root. Applications interpret the referenced metadata.
 
 The current SDK exposes these through `derivation`, `auth/tree`, `engine`
 and `sdk/authentication`. Keyed and sequential application data no longer
@@ -43,7 +43,7 @@ at the current Root; a following step uses the reached Root's own descriptor.
 Applications choose all selectors and arc boundaries. There is no automatic
 longest-prefix grouping or implicit terminal payload redirect.
 
-The `malt.authentication/3` query contract supports resolve, binding and range
+The `malt.authentication/5` query contract supports resolve, binding and range
 operations. Local verification checks the caller's complete Root, requested
 steps, ordered continuity and final operation evidence. A missing binding
 proves where traversal stopped, without authenticating an unvisited suffix.
@@ -62,10 +62,12 @@ file and directory entries already point to their payload or manifest target.
 Large-file payloads use Positional chunk bindings. The three current UnixFS
 strategies are described in [UnixFS layouts](/docs/unixfs-layout).
 
-A Positional range result authenticates bounds, fixed chunk metadata and the
-ordered segment CIDs covered by the requested interval. The application must
-hash fetched bytes against those CIDs and assemble the requested slice. Core
-proof verification alone does not authenticate an arbitrary response body.
+A Positional range result authenticates element-index bounds, root metadata and
+the ordered CIDs in that interval. UnixFS verifies the JSON referenced by the
+root payload CID, checks its file size and chunk width against the authenticated
+count, and translates byte ranges into element-index queries. It then hashes
+fetched chunks and assembles the requested slice. Core proof verification alone
+does not authenticate an arbitrary response body.
 
 ## Updates and Trust
 
