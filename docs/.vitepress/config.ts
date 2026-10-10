@@ -29,8 +29,8 @@ export default defineConfig({
       { text: 'Docs', link: '/docs/runtime' },
       { text: 'Service', link: '/service' },
       {
-        text: 'Core v0.0.10-rc.3',
-        link: 'https://github.com/DeWebProtocol/malt-core/releases/tag/v0.0.10-rc.3'
+        text: 'Core v0.0.10',
+        link: 'https://github.com/DeWebProtocol/malt-core/releases/tag/v0.0.10'
       }
     ],
     sidebar: [

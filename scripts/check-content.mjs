@@ -54,7 +54,10 @@ const requiredPhrases = new Map([
       'POST /v1/authentication/query',
       'POST /v1/authentication/batches',
       'POST /v1/cas',
-      'malt.authentication-receipt/1'
+      'malt.authentication/5',
+      'malt.authentication/4',
+      'malt.authentication-batch/2',
+      'malt.authentication-receipt/2'
     ]
   ],
   [

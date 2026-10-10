@@ -25,8 +25,8 @@ the tree shape, so height and per-node sizes are not stored.
 
 Direct labels encode uint64 indices as exactly eight unsigned big-endian bytes;
 text such as `"42"` is not an index encoding. Core range queries use element
-indices. Applications verify the document referenced by the payload CID and
-interpret its JSON themselves. UnixFS uses that document for chunk width and
+indices. Applications verify the bytes referenced by the payload CID and
+interpret their own format. UnixFS uses a JSON document for chunk width and
 file size, then verifies chunk CIDs and slices bytes locally. Heterogeneous
 sequences need no byte-size fields.
 
