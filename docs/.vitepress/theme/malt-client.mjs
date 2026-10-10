@@ -1,4 +1,4 @@
-export const authenticationProfile = 'malt.authentication/3'
+export const authenticationProfile = 'malt.authentication/5'
 export const defaultGatewayURL = 'http://127.0.0.1:8080'
 
 export function buildAuthenticationURL(baseURL) {

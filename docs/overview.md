@@ -42,7 +42,7 @@ MALT changes the boundary:
 - Prefix and Positional layouts are selected by a Root descriptor
 - KZG and IPA provide commitment backends
 - `engine` and `traversal` compose those primitives through narrow materializer capabilities
-- `malt.authentication/3` carries explicit queries and locally verified evidence
+- `malt.authentication/5` carries explicit queries and locally verified evidence
 - retained writers produce candidates and exact materialization batches
 - immutable payloads remain ordinary CAS data
 

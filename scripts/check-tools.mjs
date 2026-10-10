@@ -10,11 +10,11 @@ assert.throws(() => buildAuthenticationURL('https://account:secret@gateway.examp
 const calls = []
 globalThis.fetch = async (url, options) => {
   calls.push({ url: String(url), options })
-  return Response.json({ profile: 'malt.authentication/3', resolved: 'bafkqaaa' })
+  return Response.json({ profile: 'malt.authentication/5', resolved: 'bafkqaaa' })
 }
 const steps = ['YS9i', 'QHBheWxvYWQ=']
 const pair = await resolvePath({ baseURL: 'https://gateway.example/api', root: 'selected', steps })
-assert.deepEqual(pair.request, { profile: 'malt.authentication/3', root: 'selected', steps, operation: 'resolve' })
+assert.deepEqual(pair.request, { profile: 'malt.authentication/5', root: 'selected', steps, operation: 'resolve' })
 assert.equal(calls[0].options.credentials, 'omit')
 assert.equal(calls[0].options.redirect, 'error')
 assert.equal(calls[0].options.cache, 'no-store')
@@ -22,12 +22,12 @@ assert.equal(calls[0].options.headers.Authorization, undefined)
 await assert.rejects(resolvePath({ baseURL: 'https://gateway.example', root: '', steps: [] }), /root/)
 await assert.rejects(resolvePath({ baseURL: 'https://gateway.example', root: 'r', steps: null }), /steps/)
 const input = { request: pair.request, result: pair.result }
-assert.deepEqual(verificationPairs({ node: input, payload: input, range: input }).map(v => v.name), ['node', 'payload', 'range'])
+assert.deepEqual(verificationPairs({ node: input, payload: input, metadata: input, range: input }).map(v => v.name), ['node', 'payload', 'metadata', 'range'])
 assert.throws(() => verificationPairs({ verification: input }), /unsupported/)
 assert.throws(() => verificationPairs({ node: { ...input, request: { profile: 'malt.resolve/v0alpha1' } } }), /unsupported/)
 let forwarded
 const checked = await verifyAuthenticationLocally({ ...input, provider: { authentication: json => {
-  forwarded = JSON.parse(json); return JSON.stringify({ profile: 'malt.authentication/3', valid: true })
+  forwarded = JSON.parse(json); return JSON.stringify({ profile: 'malt.authentication/5', valid: true })
 } } })
 assert.deepEqual(forwarded, input)
 assert.equal(checked.valid, true)

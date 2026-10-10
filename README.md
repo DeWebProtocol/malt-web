@@ -20,7 +20,7 @@ application concerns.
 ## Current Source and Verifier Pin
 
 Current source uses explicit typed authentication through
-`malt.authentication/3`, with Prefix and Positional trees. Retired Map/List,
+`malt.authentication/5`, with Prefix and Positional trees. Retired Map/List,
 Resolve/Read and Artifact compatibility adapters are removed. Applications
 select every traversal input as opaque label bytes, including the ordinary
 `@payload` label where required by their layout. Core rc.3 also offers optional

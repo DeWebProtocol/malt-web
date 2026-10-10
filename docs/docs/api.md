@@ -6,7 +6,7 @@ Clients select an expected root and query, then verify the result locally.
 
 | Current route | Purpose |
 | --- | --- |
-| `POST /v1/authentication/query` | Resolve explicit label steps, prove a binding, or authenticate a byte range |
+| `POST /v1/authentication/query` | Resolve explicit label steps, prove a binding, or authenticate an element-index range |
 | `POST /v1/authentication/candidates` | Materialize a complete typed candidate in an unmanaged integration |
 | `POST /v1/authentication/batches` | Atomically materialize an ordered candidate batch with an exact receipt |
 | `POST /v1/cas` | Store payload bytes where the deployment permits unmanaged writes |
@@ -20,7 +20,7 @@ for deployment policy, including immutable CAS access.
 
 ```json
 {
-  "profile": "malt.authentication/3",
+  "profile": "malt.authentication/5",
   "root": "<caller-selected MALT Root CID>",
   "steps": [],
   "operation": "resolve"

@@ -62,7 +62,7 @@ const requiredPhrases = new Map([
     [
       'Authenticate(request) -> result',
       'Verify(request, result)',
-      'malt.authentication/3'
+      'malt.authentication/5'
     ]
   ],
   [

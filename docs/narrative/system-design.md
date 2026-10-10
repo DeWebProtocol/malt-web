@@ -74,7 +74,9 @@ reader explicitly queries the ordinary label `@payload`. A direct payload or
 manifest target needs no extra selector. Core treats this label as opaque bytes;
 the reserved-name policy belongs to the application or Object SDK.
 
-Range evidence authenticates fixed chunk metadata and selected chunk CIDs.
+Range evidence authenticates count, an optional metadata CID and selected
+element CIDs. UnixFS verifies its metadata JSON and translates byte ranges to
+element indices before checking chunk bytes.
 The reader then checks the fetched bytes and assembles the requested interval.
 The [UnixFS layout guide](/docs/unixfs-layout) describes the current strategies.
 
@@ -82,5 +84,5 @@ The [Core repository](https://github.com/DeWebProtocol/malt-core) defines
 executable authentication semantics. The
 [local runtime](https://github.com/DeWebProtocol/malt) owns UnixFS and CLI
 behavior; its Go module path remains `github.com/dewebprotocol/malt-client`.
-Current source uses `malt.authentication/3`; exact release pins identify the
+Current source uses `malt.authentication/5`; exact release pins identify the
 implementation used by a deployed binary.

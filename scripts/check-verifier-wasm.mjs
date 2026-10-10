@@ -9,8 +9,8 @@ import { verifyAuthenticationLocally } from '@dewebprotocol/malt/verifier'
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const root = process.env.MALT_VERIFIER_ROOT || path.join(repo, 'docs/public/verifier')
 verifyInstalledAssets(root)
-const corpus = JSON.parse(fs.readFileSync(path.join(root, 'authentication-v2.json')))
-assert.equal(corpus.schema, 'malt.conformance.authentication/2')
+const corpus = JSON.parse(fs.readFileSync(path.join(root, 'authentication-v3.json')))
+assert.equal(corpus.schema, 'malt.conformance.authentication/3')
 globalThis.crypto ??= webcrypto
 await import(pathToFileURL(path.join(root, 'wasm_exec.js')))
 const go = new globalThis.Go()

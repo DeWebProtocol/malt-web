@@ -61,7 +61,7 @@ import { withBase } from 'vitepress'
     </div>
     <div class="malt-strip">
       <strong>Current pre-v1 contracts</strong>
-      <span>Use explicit opaque labels with malt.authentication/3 and verify each result against the intended root and query.</span>
+      <span>Use explicit opaque labels with malt.authentication/5 and verify each result against the intended root and query.</span>
     </div>
     <div class="malt-strip">
       <strong>Filesystem boundary</strong>
