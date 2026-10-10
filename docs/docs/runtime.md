@@ -14,19 +14,24 @@ narrow capabilities in `auth/arcset/materializer`. The old Map/List adapters,
 module-root facade, aggregate Store and Resolve/Read/client-root APIs are removed.
 Core does not own ArcTable persistence, CAS, HTTP, UnixFS or trust policy.
 
-Core `v0.0.10` provides the optional [`sdk/object`
-API](https://github.com/DeWebProtocol/malt-core/blob/v0.0.10/docs/guides/objects.md).
+Core `v0.0.11-rc.1` provides the optional [`sdk/object`
+API](https://github.com/DeWebProtocol/malt-core/blob/v0.0.11-rc.1/docs/guides/objects.md).
 Applications can compose Maps, Lists, immutable byte leaves and custom structs,
 commit their reachable references, then collect graph deltas for storage.
 These constructors use the current Prefix/Positional authentication contracts;
 they do not restore the retired Map/List facade or define another wire format.
 Persistence, publication and accepted-root policy remain with the caller.
 
+Prefix layout 4 authenticates the original label bytes and target together.
+Coordinates route the tree lookup; distinct labels with the same complete
+coordinate return a collision error. Retired Prefix layout 1 is rejected;
+existing trees must be rebuilt from their original labels and targets.
+
 [`malt-ts`](https://github.com/DeWebProtocol/malt-ts) owns the supported
 TypeScript/JavaScript API, browser Workers and reproducible WASM distribution.
-Its API is separate from the Go Object API. Both this site's verifier and the
-Gateway Console pin SDK `0.0.3` at commit
-`735c894cb7dd4bbdfa7032c75f48f5f23820fd14`, bound to published Core `v0.0.10`.
+Its API is separate from the Go Object API. This site's verifier pins SDK
+`0.0.4` at commit
+`896312ac4cd4d620d0125b4568a3fdd609a263e0`, bound to published Core `v0.0.11-rc.1`.
 
 ## Gateway
 
