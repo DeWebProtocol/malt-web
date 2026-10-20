@@ -28,27 +28,36 @@ Gateway's versioned ArcTable separates three storage lifecycles:
 | State | Retention rule |
 | --- | --- |
 | Canonical deltas | Original relation changes, deletion markers and physical parent links preserve historical recovery |
-| Materialized Head | A named application head owns complete ArcSets for its current Root and reachable Roots; advancing it replaces that ownership |
+| Materialized Head | A named application head owns mutable complete ArcSets for its current Root and reachable Roots; forward updates apply deltas in place |
 | Snapshot | The application explicitly pins a selected Root's complete ArcSet until it releases that pin |
 
-When a head moves from A to B, A's complete view is released if A leaves that
-head's reachable graph and no other head or explicit Snapshot retains it.
-A remains recoverable from canonical history,
+When a head moves from A to B, its mutable view overwrites changed relations and
+removes deleted relations. Independent Snapshot and other-head views retain
+their selected Roots. A remains recoverable from canonical history,
 subject to the configured recovery work budget. If the application chooses to
 retain A for a release tag or fork point, it explicitly creates a Snapshot.
 Version intervals, read-cost thresholds and publication validation do not
 automatically create Snapshots.
 
-One complete view can be shared by multiple heads and an explicit Snapshot pin.
-Pins are Root-relative; applications manage the mapping from tag names to Roots.
+Each head owns its mutable rows. An explicit Snapshot has separate immutable
+rows, even when it selects the same Root. Pins are Root-relative; applications
+manage the mapping from tag names to Roots.
 A single-Root Snapshot contains that Root's relations. Applications can also
 explicitly retain complete views for a reachable Root graph. Payload storage,
 authentication-node persistence and cache budgets have their own policies.
 
-The current Gateway writes complete ArcSets for newly selected Roots and releases
-unowned old complete views. This bounds retained full-copy count; canonical
-deltas and full-view writes both contribute to storage cost. A Snapshot is an
-acceleration view and does not establish freshness or client trust.
+A mutable Head view records its applied Root and revision in `@current`
+metadata. Forward updates replay the intervening canonical deltas and commit
+changed rows with that marker atomically. Observing a head can repair a view
+that lags its published ref after a restart. Root-qualified reads use a mutable
+view only for the exact Root it materializes, and can otherwise recover history
+from deltas. Initial views and newly reachable structures require complete
+initialization; a checkout outside the previous physical lineage reconciles the
+view against the complete target state. Publication validation and graph
+discovery can still inspect complete states.
+
+A Snapshot is an acceleration view and does not establish freshness or client
+trust.
 
 Core's materializer `Snapshot()` capability and immutable Root-qualified reads
 provide state views. They do not select persistent Snapshot retention.
