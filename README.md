@@ -34,7 +34,7 @@ verifier asset-set digest, and the portable corpus digest. Run
 does not compile WASM or manage its own browser runtime. The current pin is
 SDK `0.0.3` at `735c894cb7dd4bbdfa7032c75f48f5f23820fd14`, bound to
 Core `v0.0.10` at `aaa78737c35f82fe91bb3f749cfddbcb7953ed2b`. The portable
-`authentication-v3.json` corpus is copied unchanged from that Core release.
+`authentication-v1.json` corpus is copied unchanged from that Core release.
 
 The Resolve tool calls the current Gateway typed query route. The Verify tool
 imports proof JSON locally and verifies only a query whose Root and request the

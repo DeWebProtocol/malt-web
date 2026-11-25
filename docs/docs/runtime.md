@@ -14,24 +14,25 @@ narrow capabilities in `auth/arcset/materializer`. The old Map/List adapters,
 module-root facade, aggregate Store and Resolve/Read/client-root APIs are removed.
 Core does not own ArcTable persistence, CAS, HTTP, UnixFS or trust policy.
 
-Core `v0.0.11-rc.2` provides the optional [`sdk/object`
-API](https://github.com/DeWebProtocol/malt-core/blob/v0.0.11-rc.2/docs/guides/objects.md).
+Core `v0.0.12-rc.5` provides the optional [`sdk/object`
+API](https://github.com/DeWebProtocol/malt-core/blob/v0.0.12-rc.5/docs/guides/objects.md).
 Applications can compose Maps, Lists, immutable byte leaves and custom structs,
 commit their reachable references, then collect graph deltas for storage.
-These constructors use the current Prefix/Positional authentication contracts;
-they do not restore the retired Map/List facade or define another wire format.
+These constructors use the Map and List authentication layouts.
 Persistence, publication and accepted-root policy remain with the caller.
 
-Prefix layout 4 authenticates the original label bytes and target together.
-Coordinates route the tree lookup; distinct labels with the same complete
-coordinate return a collision error. Retired Prefix layout 1 is rejected;
-existing trees must be rebuilt from their original labels and targets.
+Map layout 1 authenticates each original label and target together. Coordinates
+route the lookup. Distinct labels with the same full coordinate produce a
+collision error. List layout 2 authenticates indexed targets. In both layouts
+an internal child cell contains `0x02` followed by the raw child commitment.
+The Root supplies the layout and VC profile for the entire tree. To adopt
+rc.5, rebuild trees containing internal cells and regenerate their proofs.
 
 [`malt-ts`](https://github.com/DeWebProtocol/malt-ts) owns the supported
 TypeScript/JavaScript API, browser Workers and reproducible WASM distribution.
 Its API is separate from the Go Object API. This site's verifier pins SDK
-`0.0.5` at commit
-`af90bbdc11cfa9605d76f33d28ed6436a5d84445`, bound to published Core `v0.0.11-rc.2`.
+`0.0.9-rc.2` at commit
+`3a3fabaeaf301c936d82f74bae627746dce5b31e`, bound to published Core `v0.0.12-rc.5`.
 
 ## Gateway
 
