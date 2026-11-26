@@ -31,7 +31,7 @@ for deployment policy, including immutable CAS access.
 uint64 indices as eight unsigned big-endian bytes. A binding request additionally
 selects `label`; a range
 request supplies `start` and optionally `end`, with an exclusive end. The
-[Core authentication contract](https://github.com/DeWebProtocol/malt-core/blob/v0.0.12-rc.5/docs/spec/authentication-contracts.md)
+[Core authentication contract](https://github.com/DeWebProtocol/malt-core/blob/v0.0.12-rc.6/docs/spec/authentication-contracts.md)
 is normative for schemas and verification.
 
 Candidates use `malt.authentication/4`; batches use
